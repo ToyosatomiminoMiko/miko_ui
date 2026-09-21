@@ -12,7 +12,7 @@ GraphCalc 的网页 UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 +
 npm install
 npm run dev           # 起 example/(Vite 会打印实际端口)
 npm run typecheck
-npm test              # vitest;库不碰 wasm,所以不需要 Rust 工具链
+npm test              # 先跑边界守卫(pretest),再跑 vitest;不需要 Rust 工具链
 ```
 
 ## 用起来是什么样
@@ -77,13 +77,12 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | `theme/` | `applyTheme(root, tokens)`、`DEFAULT_THEME_TOKENS` |
 | `styles/` | `tokens.css`(默认主题,最先加载)、`widgets.css`、`desktop.css`、`styles.css`(总入口) |
 
-## 边界契约(来源与现状)
+## 边界契约(有机器守,不靠自觉)
 
-下面八条断言由原仓库 `miko_graphcalc` 的 `scripts/check-ui-boundary.mjs` 在
-`npm test` 之前机器化执行.分家时八条全 0,那份存档就是本仓库根目录的
-`boundary-baseline.json`.断言本身仍然是对这个库的约束,只是执行它的脚本留在
-原仓库 —— 那边才是唯一可能出现"库引用了应用源码"的地方,这里没有应用侧可
-引用,前三条断言在这里恒为 0:
+`scripts/check-ui-boundary.mjs` 在每次 `npm test` 之前(走 `pretest`)跑八条
+断言.这份脚本跟着库从 `miko_graphcalc` 搬了过来 —— 库分出去之后,那边不再有
+库的源码,检查必须跟着库走.前三条断言在这里恒为 0(这个仓库里没有应用源码可
+引用),留着是因为 `@/` 那条同时也是"库内不许用路径别名"的机器保证:
 
 1. 库源码里没有 `@/contract` / `@/compiler` / `@/math` / `@/render` /
    `@/config/renderConfig`(库不认识领域模型);
@@ -97,8 +96,8 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 7. `exports` 只指向 `index.ts` 与 `styles/`,内部路径不进公开面;
 8. 库里一次都没调用上游的批处理入口(更新路径不引调度器,见下).
 
-`boundary-baseline.json` 是分家那一刻的存档(八条全 0).它在原仓库里是一条
-硬约束:任何一条变正,那边的 `npm test` 直接失败.
+`boundary-baseline.json` 是分家那一刻的存档(八条全 0),现在由本仓库的
+`npm test`(走 `pretest`)守着:任何一条变正,测试直接失败.
 
 ## 三条设计约束(改动前先读)
 

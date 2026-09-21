@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # 库自己的 CI.它**不装 Rust/wasm 工具链**:库的测试一个字节都不碰 wasm,
+  # 所以这个 job 只需要 Node —— "能独立跑绿"就是"UI 与计算真的解耦了"最直接
+  # 的证据.这条 job 是从 `miko_graphcalc` 的 deploy.yml 里搬过来的:库分出去
+  # 之后,那边不再有库的源码,检查必须跟着库走.
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install pinned dependencies
+        run: npm ci --no-audit --no-fund
+
+      # 库内没有任何路径别名:这一步过了,说明搬去任何消费者都不用改 import.
+      - name: Typecheck
+        run: npm run typecheck
+
+      # `pretest` 会先跑边界守卫(scripts/check-ui-boundary.mjs),八条断言全 0
+      # 才算过,然后再跑 vitest.
+      - name: Boundary check and test
+        run: npm test

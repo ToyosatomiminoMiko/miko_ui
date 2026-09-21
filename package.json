@@ -1,6 +1,6 @@
 {
   "name": "@miko/ui",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "GraphCalc 的通用 UI 库: DOM 原语 + 控件 + 布局 + 桌面窗口系统 + 主题",
   "license": "AGPL-3.0-or-later",
@@ -30,6 +30,7 @@
   "scripts": {
     "dev": "vite example",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "node scripts/check-ui-boundary.mjs",
     "test": "vitest run"
   },
   "peerDependencies": {
