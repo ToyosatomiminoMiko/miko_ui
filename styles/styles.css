@@ -1,0 +1,20 @@
+/* ==========================================================================
+ * @miko/ui 样式总入口.
+ * --------------------------------------------------------------------------
+ * 三个分组入口也可以单独引:
+ *   @miko/ui/styles/tokens.css     设计 token(默认主题,最先加载)
+ *   @miko/ui/styles/widgets.css    控件
+ *   @miko/ui/styles/desktop.css    桌面窗口系统
+ *   @miko/ui/styles/editor.css     源码编辑器外壳(结构与对齐)
+ *
+ * 这里按"token -> 控件 -> 桌面"的顺序再排一遍:桌面样式读控件的变量
+ * (如 --window-header-height 来自 tokens),顺序反了在覆盖场景下会出现
+ * "改了 token 但组件没跟上"的错觉.
+ *
+ * 库的样式表里**没有 id 选择器**(docs/ui-library-extraction-plan.md D8):
+ * 否则消费者的 id 会变成库的公开 API,同页两个实例必然串味.
+ * ========================================================================== */
+@import "./tokens.css";
+@import "./widgets.css";
+@import "./desktop.css";
+@import "./editor.css";

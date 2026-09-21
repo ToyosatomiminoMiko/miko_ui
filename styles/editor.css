@@ -1,0 +1,142 @@
+/* ==========================================================================
+ * @miko/ui 源码编辑器外壳样式
+ * --------------------------------------------------------------------------
+ * 只管**结构与对齐**:外框、输入包裹层、行号槽、以及"透明 textarea + 背后
+ * 高亮层"的严格重叠.高亮层里各词法类别的**配色不在这里** —— 那些类名
+ * (`.dsl-*`)由消费者的分词器产出,配色由消费者样式表给(见计划 §D8).
+ *
+ * 与 `editor/CodeEditor.ts` / `EditorLineNumbers` / `EditorHighlight` 配套,
+ * 对齐铁律(改动任何一处都要三边核对):
+ * 1. textarea 关闭软换行(white-space: pre),"源码行 == 视觉行";
+ * 2. gutter 与 textarea 使用完全相同的字体/字号/行高,起始位置一致
+ *    (外框 border 1px + textarea padding-top 10px = gutter padding-top 11px);
+ * 3. 高亮层与 textarea 严格同尺寸重叠,滚动偏移由 JS 写成高亮内容的 transform
+ *    (见 EditorHighlight),这里不估算任何 padding 差值.
+ *
+ * 字体/字号/行高/制表位来自 `tokens.css` 的 `--code-*`(可由消费者覆盖).
+ *
+ * 对齐契约与"只能真机验"的部分见 docs/windowing-plan.md §5.6 与 §8.1:
+ * 高亮层是透明 textarea 背后的一层,列了 5 条对齐轴,错一像素就表现为"编辑不了";
+ * DOM 桩不解析样式表、不做布局,所以**改这个文件或 EditorHighlight 的提交必须
+ * 在真机上过一遍**.
+ * ========================================================================== */
+
+/* 外框:统一承担圆角/边框/底色,textarea 内部滚动不越界 */
+.code-editor {
+    display: flex;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--color-bg-sunken);
+    border: 1px solid var(--color-border-panel);
+    border-radius: var(--radius-md);
+}
+
+/* 输入区包裹层:唯一职责是给"高亮层 + textarea"提供一个共同的定位参照,
+   它本身不承担滚动(textarea 内部滚动),所以尺寸约束要原样透传下去 */
+.code-editor-input {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* 高亮层:默认不显示,由 EditorHighlight 给 textarea 加上 .is-highlighted 后
+   才出现(脚本没跑/结构缺失时文字仍然可见,不会变成一片空白).
+   它只是裁剪框:尺寸与 textarea 的边框盒完全重合,溢出的内容被裁掉,自己不滚动,
+   也不出现滚动条;横纵偏移由 EditorHighlight 写在下面那个 <pre> 的 transform 上,
+   所以这里必须是 overflow: hidden(改成 auto/scroll 会让最大滚动偏移与 textarea
+   差一个滚动条厚度,底部高亮被夹住而错位). */
+.code-editor-highlight {
+    display: none;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.code-editor-textarea.is-highlighted + .code-editor-highlight {
+    display: block;
+}
+
+/* 高亮内容:padding/字体/行高必须与 .code-editor-textarea 逐项相同,否则首字符起点或
+   换行位置会差一个像素,越往右下越明显.
+   滚动偏移写在它的 transform 上(EditorHighlight.sync),这里刻意不加
+   will-change: 不提升为合成层,文字走的是与 textarea 同一套绘制路径,
+   不会因为图层化改变抗锯齿. */
+.code-editor-highlight-code {
+    margin: 0;
+    padding: 10px 12px;
+    font-family: var(--code-font-family);
+    font-size: var(--code-font-size);
+    line-height: var(--code-line-height);
+    tab-size: var(--code-tab-size, 4);
+    white-space: pre;
+    color: var(--color-text-strong);
+}
+
+/* 行号槽:宽度随字体与行数变化,内容超出时裁剪,靠 translate 跟随滚动 */
+.code-editor-gutter {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    /* 由 EditorLineNumbers 按 "最大行号位数 x 实际字体数字宽 + 内边距/边框"
+       写入,写死宽度会在 3 位行号或更大的字号下裁掉行号 */
+    width: var(--code-gutter-width);
+    padding: 11px 0 11px 8px; /* 顶部 11px = 外框 border 1px + 编辑区 padding 10px */
+    overflow: hidden;
+    background: var(--color-bg-gutter);
+    border-right: 1px solid var(--color-border-divider);
+    color: var(--color-text-faint);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* 行号本体:与 textarea 同一字族/字号/行高(全部来自 UI_CONFIG);transform 由 TS 同步 */
+.code-editor-lines {
+    margin: 0;
+    font-family: var(--code-font-family);
+    font-size: var(--code-font-size);
+    line-height: var(--code-line-height);
+    white-space: pre;
+    text-align: right;
+    padding-right: 6px;
+    will-change: transform;
+}
+
+/* DSL 源码输入框:使用等宽字体,禁止缩放,不软换行.
+   position/z-index 把它压在高亮层之上:文字透明后,光标,选区和原生输入
+   行为仍然由这个真 textarea 负责 */
+.code-editor-textarea {
+    position: relative;
+    z-index: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    resize: none;
+    background: transparent;
+    border: 0;
+    outline: none;
+    padding: 10px 12px;
+    font-family: var(--code-font-family);
+    font-size: var(--code-font-size);
+    line-height: var(--code-line-height);
+    white-space: pre;
+    overflow-wrap: normal;
+    tab-size: var(--code-tab-size, 4);
+}
+
+/* 高亮层就位:文字让位(只留光标色),着色完全由背景层显示 */
+.code-editor-textarea.is-highlighted {
+    color: transparent;
+    caret-color: var(--color-text-strong);
+}
+
+/* 透明文字下的选区要自己给底色:默认选区色偏淡,不给的话选中一段时
+   会与高亮层的文字糊在一起 */
+.code-editor-textarea::selection {
+    background: var(--color-accent-selection);
+}

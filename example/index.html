@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@miko/ui 最小示例</title>
+</head>
+
+<body>
+    <!--
+      库的最小消费者示例(docs/ui-library-extraction-plan.md §8 P1 的验收).
+
+      页面上只有一个空容器:窗口层 / 吸附预览 / Dock / 每个窗口的正文都由
+      `mountDesktop()` 建.整棵内容树不引用主仓库 `src/` 下任何模块,只 import
+      `@miko/ui` + 本目录的样式,所以"库能被外部消费"在这里是可运行的,
+      而不只是一条 grep 断言.
+
+      跑法(仓库根):npm run dev:ui
+    -->
+    <div id="app"></div>
+    <script type="module" src="./main.ts"></script>
+</body>
+
+</html>

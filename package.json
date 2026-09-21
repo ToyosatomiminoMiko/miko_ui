@@ -1,0 +1,30 @@
+{
+  "name": "@miko/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GraphCalc 的通用 UI 库: DOM 原语 + 控件 + 布局 + 桌面窗口系统 + 主题",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./styles/styles.css",
+    "./styles/tokens.css": "./styles/tokens.css",
+    "./styles/widgets.css": "./styles/widgets.css",
+    "./styles/desktop.css": "./styles/desktop.css",
+    "./styles/editor.css": "./styles/editor.css"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "katex": "^0.18.5"
+  },
+  "peerDependenciesMeta": {
+    "katex": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@preact/signals-core": "^1.14.4"
+  }
+}

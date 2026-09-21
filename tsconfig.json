@@ -1,0 +1,21 @@
+{
+  /**
+   * 库包的独立类型检查配置.
+   *
+   * 库**不再有**任何对应用侧源码的引用(见 `scripts/check-ui-boundary.mjs`
+   * 的八条断言),所以这里没有任何 `paths`:库内的模块一律用包内相对路径,
+   * 别名只在应用侧(`tsconfig.json` 的 `@/*`)存在.这条是"库搬出去不用改
+   * 一行 import"的保证(计划 §7.2/R4).
+   *
+   * 与根配置的分工:根配置把 `packages/miko_ui/src` 一起收进整仓 typecheck;
+   * 这一份只覆盖库自己,用来单独证明"库能独立通过类型检查"——
+   * `npm --workspace @miko/ui run typecheck`.
+   */
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.ts"
+  ]
+}
