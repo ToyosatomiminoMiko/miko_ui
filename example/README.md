@@ -5,8 +5,8 @@
 消费"从 grep 断言变成**可运行的代码**。
 
 ```bash
-# 仓库根目录
-npm run dev:ui          # http://localhost:5174/
+# miko_ui 仓库根目录
+npm run dev             # Vite 会打印实际端口
 ```
 
 ## 它证明了什么
@@ -16,7 +16,7 @@ npm run dev:ui          # http://localhost:5174/
 | 宿主方向已反转(D1) | `index.html` 只有一个 `<div id="app">`,`mountDesktop()` 自己建窗口层 / 吸附预览 / Dock / 每个窗口的正文 |
 | 配置已注入(D4) | 窗口清单、动作、夹取常量来自 `DEFAULT_DESKTOP_CONFIG`;消费者可以整份换掉 |
 | root 注入(D7) | 库内不读全局 `document` / `window`;本示例没有为库提供任何全局钩子 |
-| 库不依赖应用源码 | 这个目录的 import 里没有一条 `@/...`;`example/` 也不在 `packages/miko_ui/src` 的依赖图里 |
+| 库不依赖应用源码 | 这个目录的 import 里没有一条 `@/...`;`example/` 也不在 `src` 的依赖图里 |
 | **样式随库走**(P4/D8) | `import '@miko/ui/styles.css'` 就是全套默认主题(色板/圆角/控件/窗口外壳);本目录的 CSS 只剩页面级规则与示例内容 |
 | **状态绑定**(P3) | 控件直接绑 signal:`createNumberField({ value: radiusSignal })`,没有 `onChange` + `set()` 的手工回路 |
 

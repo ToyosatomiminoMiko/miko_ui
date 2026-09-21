@@ -12,7 +12,7 @@
  *      其中 10 个量与下面的默认值同源(见 src/app/applyUiConfig.ts).
  *
  * 单一来源:颜色与圆角只有这一份字面量,其余样式表一律 var(--...);
- * 由 packages/miko_ui/src/theme/cssPalette.test.ts 逐条断言.
+ * 由 src/theme/cssPalette.test.ts 逐条断言.
  *
  * 与"消费者配置"的分工:这里放的是**库自带的默认主题**;哪些窗口、标题叫什么、
  * 控件初值是多少,属于消费者(见 docs/ui-library-extraction-plan.md U6/D4).
@@ -22,7 +22,7 @@
     /* ----------------------------------------------------------------------
      * 主题色板:**界面配色的唯一真相源**.
      *
-     * 规则只有两条,由 packages/miko_ui/src/theme/cssPalette.test.ts 逐条断言:
+     * 规则只有两条,由 src/theme/cssPalette.test.ts 逐条断言:
      * 1. 每个颜色字面量只在这里出现一次;其余 css 文件一律 `var(--...)`,
      *    同一个值不允许有第二处定义(改色只开这一个文件);
      * 2. 值与上面某个 token 相同,只是换了语境的,写成下面的"别名"

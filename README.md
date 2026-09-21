@@ -4,14 +4,15 @@ GraphCalc 的网页 UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 +
 编辑器外壳 + 主题**.它从应用里抽出来,只保留"结构与交互",不认识任何领域模型
 (场景 IR、编译器、数学内核).
 
-> 抽取过程、每个决策的理由与全部去耦合项见
-> `docs/ui-library-extraction-plan.md`(本文件的每一节都能在那份计划里找到出处).
+> 抽取过程、每个决策的理由与全部去耦合项见原仓库 `miko_graphcalc` 里的
+> `docs/ui-library-extraction-plan.md`(本文件的每一节都能在那份计划里找到
+> 出处).这份仓库是那个计划 P4 结束后的产物.
 
 ```bash
-# 在本仓库里(workspace)
-npm run dev:ui        # 起 example/,http://localhost:5174/
+npm install
+npm run dev           # 起 example/(Vite 会打印实际端口)
 npm run typecheck
-npm test              # 含边界守卫(见下)
+npm test              # vitest;库不碰 wasm,所以不需要 Rust 工具链
 ```
 
 ## 用起来是什么样
@@ -76,9 +77,13 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | `theme/` | `applyTheme(root, tokens)`、`DEFAULT_THEME_TOKENS` |
 | `styles/` | `tokens.css`(默认主题,最先加载)、`widgets.css`、`desktop.css`、`styles.css`(总入口) |
 
-## 边界契约(有机器守,不靠自觉)
+## 边界契约(来源与现状)
 
-`scripts/check-ui-boundary.mjs` 在每次 `npm test` 之前跑八条断言:
+下面八条断言由原仓库 `miko_graphcalc` 的 `scripts/check-ui-boundary.mjs` 在
+`npm test` 之前机器化执行.分家时八条全 0,那份存档就是本仓库根目录的
+`boundary-baseline.json`.断言本身仍然是对这个库的约束,只是执行它的脚本留在
+原仓库 —— 那边才是唯一可能出现"库引用了应用源码"的地方,这里没有应用侧可
+引用,前三条断言在这里恒为 0:
 
 1. 库源码里没有 `@/contract` / `@/compiler` / `@/math` / `@/render` /
    `@/config/renderConfig`(库不认识领域模型);
@@ -92,7 +97,8 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 7. `exports` 只指向 `index.ts` 与 `styles/`,内部路径不进公开面;
 8. 库里一次都没调用上游的批处理入口(更新路径不引调度器,见下).
 
-`boundary-baseline.json` 现在是全 0 的硬约束:任何一条变正,`npm test` 直接失败.
+`boundary-baseline.json` 是分家那一刻的存档(八条全 0).它在原仓库里是一条
+硬约束:任何一条变正,那边的 `npm test` 直接失败.
 
 ## 三条设计约束(改动前先读)
 
