@@ -54,6 +54,14 @@ export interface SegmentedHandle<T extends string> {
     /** 根节点,插到行/分组里用这个. */
     readonly element: HTMLDivElement;
     get(): T;
+    /**
+     * 程序化选中.
+     *
+     * 与 `SwitchHandle.set` / `SliderHandle.set` 同一条约定:**只改控件本身,
+     * 不触发 `onChange`,也不写回值源** -- 用户操作的语义归 `onChange`,状态
+     * 该由调用方写 signal.绑了 signal 时这一写会在下次值源变化时被拉回.
+     */
+    set(value: T): void;
     /** 注册选中回调;返回退订函数.命中已选项时不回调. */
     onChange(listener: (value: T) => void): () => void;
     /** 解绑 DOM 监听并清空订阅者. */
@@ -115,6 +123,10 @@ export function createSegmented<T extends string>(
     return {
         element,
         get: () => current,
+        set: (value) => {
+            current = value;
+            sync();
+        },
         onChange(listener) {
             listeners.add(listener);
             return () => listeners.delete(listener);

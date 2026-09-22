@@ -69,8 +69,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # `pretest` 会先跑边界守卫(scripts/check_ui_boundary.mjs),八条断言全 0
-      # 才算过,然后再跑 vitest.
+      # `npm test` 本身就是"边界守卫(scripts/check_ui_boundary.mjs)八条断言
+      # 全 0 && vitest",两条写在同一个脚本里,不靠隐式钩子.
       - name: Boundary check and test
         run: npm test
 

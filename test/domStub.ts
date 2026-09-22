@@ -231,7 +231,27 @@ export class StubElement {
     htmlFor = '';
     tabIndex = -1;
     value = '';
-    type = '';
+    /**
+     * `input.type` 是**反射**属性:`el.type = 'number'` 与
+     * `setAttribute('type', 'number')` 在真 DOM 里改的是同一处.
+     *
+     * 三个控件都靠属性写法定类型(`createSwitch` / `createSlider` 的 range /
+     * `createNumberField` 的 number);桩里分成两个字段的话,
+     * `querySelector('input[type="number"]')` 与 `getAttribute('type')` 就会
+     * 读不到控件设进去的类型 -- 而 `styles/widgets.css` 正是按
+     * `input[type="number"]` 选中的.这一条与应用侧的桩逐字一致.
+     */
+    private typeValue = '';
+
+    get type(): string {
+        return this.typeValue;
+    }
+
+    set type(value: string) {
+        this.typeValue = value;
+        this.attributes.set('type', value);
+    }
+
     min = '';
     max = '';
     step = '';
@@ -481,6 +501,7 @@ export class StubElement {
         // `querySelector('#x')` 与 `getElementById('x')` 会找不到自己的节点.
         if (name === 'id') this.id = value;
         else if (name === 'class') this.className = value;
+        else if (name === 'type') this.type = value;
     }
 
     getAttribute(name: string): string | null {
@@ -491,6 +512,7 @@ export class StubElement {
         this.attributes.delete(name);
         if (name === 'id') this.id = '';
         else if (name === 'class') this.className = '';
+        else if (name === 'type') this.type = '';
     }
 
     /**

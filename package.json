@@ -40,14 +40,11 @@
     "**/*.css"
   ],
   "scripts": {
-    "predev": "npm run build",
-    "dev": "vite example",
     "clean": "node scripts/clean.mjs",
-    "prebuild": "npm run clean",
-    "build": "tsc -p tsconfig.build.json && node scripts/fix_esm_specifiers.mjs",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "dev": "npm run build && vite example",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "pretest": "node scripts/check_ui_boundary.mjs",
-    "test": "vitest run",
+    "test": "node scripts/check_ui_boundary.mjs && vitest run",
     "prepare": "npm run build"
   },
   "peerDependencies": {

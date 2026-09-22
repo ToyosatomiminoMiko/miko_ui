@@ -1,15 +1,22 @@
 /**
  * 按钮控件(`<button type="button">`).
  *
- * 页面上的按钮现在有三类:参数行的重置(↺),对象行的显隐(隐藏/显示),以及
- * 将来还会有的动作按钮.它们共同的部分是:永远是 `type="button"`(不该在
- * 任何地方触发表单提交),有独立的可访问名,可置灰,文案会变 -- 这些收在这里.
+ * 库内所有按钮的统一件.现在的消费者有五处:
+ * - 参数行的重置(↺,`param-reset-btn`);
+ * - 求值行末的"过程"(`row-process-btn`);
+ * - 行末显隐(`row-visibility-btn`,见 `shared/rowDom.ts`);
+ * - **窗口标题栏的控制按钮**(`window-control-btn`,见 `desktop/WindowFrame.ts`);
+ * - 库示例页的 RUN.
+ *
+ * 它们共同的部分是:永远是 `type="button"`(不该在任何地方触发表单提交),
+ * 有独立的可访问名,可置灰,文案会变 -- 这些收在这里.
  *
  * 与 `Switch` / `Segmented` 一致:选项只描述**外观**,点击回调在拿到句柄后
  * 用 `onClick(listener)` 注册.这样"建控件"与"接线"分开,回调也能引用尚未
  * 定义的闭包(如参数行里互相依赖的写值函数).
  *
- * 类名由调用方给(`param-reset-btn` / `row-visibility-btn`),样式仍归 CSS.
+ * 类名由调用方给(`param-reset-btn` / `row-visibility-btn` / `window-control-btn`),
+ * 样式仍归 CSS:库不替按钮决定长什么样(见 `styles/widgets.css` 的头).
  */
 import { el } from './dom';
 

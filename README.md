@@ -37,21 +37,30 @@ import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
 上面的构建步骤负责);`katex` 是可选 peer,只有引公式件时才需要(它同时会在运行时
 引自己的 `katex/dist/katex.min.css`,所以用公式件时 KaTeX 的样式不用你手动引).
 
-> **只面向打包器/浏览器**:`miko_ui` 的根入口会引 CSS,Node 原生 ESM 直接
-> `import 'miko_ui'` 会因为无法加载 `.css` 报 `ERR_UNKNOWN_FILE_EXTENSION`.
-> Vite / webpack / Next / Rollup 都没问题(它们把 CSS 当资源处理).要在 Node
-> 侧做 SSR 或单元测试,请让测试环境带 CSS 处理(如 Vitest),或在 Node 里只引
-> 具体子模块.
+> **只面向打包器/浏览器**,两条原因(都与"不发 npm"有关,见 `RELEASING.md`):
+>
+> 1. 根入口会引 CSS(`formula/FormulaView` 引 `katex/dist/katex.min.css`),Node
+>    原生 ESM 加载不了 `.css`(`ERR_UNKNOWN_FILE_EXTENSION`);
+> 2. 库内写无扩展名相对导入(`from './reactive'`),`tsc` 原样输出 —— 只有打包器
+>    的解析器会补 `.js` / `/index.js`,Node 原生 ESM 会 `ERR_MODULE_NOT_FOUND`.
+>
+> Vite / webpack / Next / Rollup 都没问题(它们既解析无扩展名、又把 CSS 当资源).
+> 要在 Node 侧做 SSR 或单元测试,请让测试环境带 CSS 处理(如 Vitest).**没有**
+> "在 Node 里只引具体子模块"这条路:`exports` 只暴露根入口与 `styles/`,内部路径
+> 不是公开面(见下面的"边界契约"第 7 条).
 
 ## 开发这个库
 
 ```bash
 npm ci                # 或 npm install(会跑 prepare,先产出一次 dist/)
-npm run dev           # 起 example/(Vite 会打印实际端口)
+npm run dev           # 构建 + 起 example/(Vite 会打印实际端口)
 npm run typecheck
-npm test              # 先跑边界守卫(pretest),再跑 vitest;不需要 Rust 工具链
-npm run build         # 产出 dist/(JS + .d.ts);消费者拿到的就是它
+npm test              # 边界守卫 + vitest;不需要 Rust 工具链
+npm run build         # clean + tsc,产出 dist/(JS + .d.ts);消费者拿到的就是它
 ```
+
+每一条只做命令里写出来的事:没有 `pre*` 隐式钩子(唯一的例外是 `prepare`,它是
+npm 的生命周期,`npm ci` 会顺带构建一次 `dist/` —— 原因见下面"边界契约").
 
 改依赖后重建 `package-lock.json` 之前,先读 `.github/workflows/ci.yml` 顶部的
 "库侧依赖/交付契约":用 `npm install --package-lock-only` 会丢掉跨平台可选依赖,
@@ -125,10 +134,11 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 ## 边界契约(有机器守,不靠自觉)
 
-`scripts/check_ui_boundary.mjs` 在每次 `npm test` 之前(走 `pretest`)跑八条
-断言.这份脚本跟着库从 `miko_graphcalc` 搬了过来 —— 库分出去之后,那边不再有
-库的源码,检查必须跟着库走.前三条断言在这里恒为 0(这个仓库里没有应用源码可
-引用),留着是因为 `@/` 那条同时也是"库内不许用路径别名"的机器保证:
+`npm test` 先跑 `scripts/check_ui_boundary.mjs`(八条断言),再跑 vitest;两条
+都写在 `test` 脚本里,不是隐式钩子.这份脚本跟着库从 `miko_graphcalc` 搬了过来
+—— 库分出去之后,那边不再有库的源码,检查必须跟着库走.前三条断言在这里恒为
+0(这个仓库里没有应用源码可引用),留着是因为 `@/` 那条同时也是"库内不许用路径
+别名"的机器保证:
 
 1. 库源码里没有 `@/contract` / `@/compiler` / `@/math` / `@/render` /
    `@/config/renderConfig`(库不认识领域模型);
@@ -139,11 +149,12 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 5. `styles/` 里没有 id 选择器(排除十六进制颜色与注释);
 6. `dependencies` 只允许 `@preact/signals-core`;`peerDependencies` 只允许
    `katex`;
-7. `exports` 只指向 `index.ts` 与 `styles/`,内部路径不进公开面;
+7. `exports` 只指向构建产物(`dist/index.js` + `dist/index.d.ts`)与 `styles/`,
+   内部路径不进公开面;
 8. 库里一次都没调用上游的批处理入口(更新路径不引调度器,见下).
 
 `boundary_baseline.json` 是分家那一刻的存档(八条全 0),现在由本仓库的
-`npm test`(走 `pretest`)守着:任何一条变正,测试直接失败.
+`npm test` 守着:任何一条变正,测试直接失败.
 
 ## 三条设计约束(改动前先读)
 

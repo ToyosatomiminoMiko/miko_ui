@@ -72,7 +72,7 @@ export function createNumberRow(
     field: NumberFieldHandle,
 ): { row: HTMLDivElement; label: HTMLLabelElement } {
     const label = createFieldLabel(text, field.input.id);
-    const row = createRow(label, field.input);
+    const row = createRow(label, field.element);
     return { row, label };
 }
 

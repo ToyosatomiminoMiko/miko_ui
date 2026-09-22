@@ -1,9 +1,10 @@
 /**
  * 滑块控件(`<input type="range">`).
  *
- * 目前的使用者是参数面板(参数行的"大热区");它与数字框是同一状态的两个
- * 显示入口:滑块是粗调,数字框是精调,写值收口在调用方(见
- * `ParamPanelController.writeValue`),控件本身只报"用户拖到多少".
+ * 目前的使用者是参数面板(参数行的"大热区");它与数字框是**同一个
+ * `signal<number>` 的两个显示入口**:滑块粗调,数字框精调.两边各自把用户的
+ * 操作写回那个信号(归一化只挂在数字框上,见 `NumberFieldOptions.normalize`),
+ * 控件之间不互相写,也不各自留一份缓存 -- 本控件只报"用户拖到多少".
  *
  * 产出的结构与原手写 HTML 一致(`<input type="range" min max step>`),
  * 样式由调用方所在的容器类(`.param-row`)提供,控件不引入新类名.
@@ -27,10 +28,12 @@ export interface SliderOptions {
 }
 
 export interface SliderHandle {
+    /** 根节点,插到行里用这个.本控件的根就是那个 `<input>`,与 `input` 同节点. */
     readonly element: HTMLInputElement;
+    /** 原生 range:标签关联(`<label for>`)、细粒度写入用它. */
     readonly input: HTMLInputElement;
     get(): number;
-    /** 程序化写值;不触发 `onInput`(那是用户拖动的语义). */
+    /** 程序化写值;不触发 `onInput`,也不写回值源(与 `SwitchHandle.set` 同义). */
     set(value: number): void;
     /** 注册拖动回调;返回退订函数. */
     onInput(listener: (value: number) => void): () => void;

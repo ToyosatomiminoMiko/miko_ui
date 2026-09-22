@@ -59,7 +59,7 @@
 
 ```sh
 cd packages/miko_ui
-npm run typecheck && npm test     # 边界守卫(pretest)+ vitest
+npm run typecheck && npm test     # 边界守卫 + vitest
 npm run build                     # 可选:消费者取库时会自己构建
 git commit ... && git push origin main
 ```

@@ -1,7 +1,8 @@
 /**
- * 数字输入控件(右侧"视图"面板里所有 `<input type="number">` 的统一件).
+ * 数字输入控件(页面上所有 `<input type="number">` 的统一件).
  *
- * 覆盖四处:点的"大小/缩放",坐标轴"线宽","大刻度线宽","小刻度线宽".
+ * 视图面板里覆盖四处:点的"大小/缩放",坐标轴"线宽","大刻度线宽","小刻度线宽";
+ * 参数面板还用它做参数行的精调框(与滑块共用同一个 `signal<number>`).
  *
  * 控件只负责"读文本 / 写文本 / 通知",**不替调用方决定非法输入怎么办** --
  * 那正是老代码三份实现分歧的地方:
@@ -55,8 +56,16 @@ export interface NumberFieldOptions {
     normalize?(value: number): number;
 }
 
-/** 数字框句柄:行里插入 `input`(它就是那个 `<input>`). */
+/**
+ * 数字框句柄.
+ *
+ * 与其它控件同一个句柄形状:`element` = 插进行里的根节点,`input` = 原生输入框.
+ * 本控件的根就是那个 `<input>`,所以两者同节点 -- `SliderHandle` 也是这样.
+ */
 export interface NumberFieldHandle {
+    /** 根节点,插到行里用这个.与 `input` 同节点. */
+    readonly element: HTMLInputElement;
+    /** 原生 number:标签关联(`<label for>`)、属性级写入(`min`/`max`)用它. */
     readonly input: HTMLInputElement;
     /** 当前文本解析出的值;空串/中途态(`-` / `1e` / `0.`)为 null. */
     read(): number | null;
@@ -152,6 +161,7 @@ export function createNumberField(options: NumberFieldOptions): NumberFieldHandl
     });
 
     return {
+        element: input,
         input,
         read: () => parse(input.value),
         readText: () => input.value,

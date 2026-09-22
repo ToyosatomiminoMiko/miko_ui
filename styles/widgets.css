@@ -8,7 +8,10 @@
  *   .control-toggle-group  行内小开关组(X/Y/Z 标签,网格 XZ/XY/YZ)
  *   .segmented             分段按钮组(单选);列数由 --segmented-columns 给
  *   .switch / .slider      开关
- *   .button                `createButton` 的通用底样式
+ *
+ * 按钮**不在**这张表里:`createButton` 不设默认类名,它的 class 由调用方给
+ * (`.param-reset-btn` / `.row-visibility-btn` …),所以样式跟着消费者走;库这边
+ * 只固定 `<button type="button">` 这个结构.
  *
  * 只写**结构与交互**,不写主题:颜色/圆角/间距一律 var(--...),默认值在
  * `tokens.css`,消费者可以整份覆盖(U6).

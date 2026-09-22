@@ -1,11 +1,11 @@
 /* ==========================================================================
  * 最小示例**自己的**样式.
  * --------------------------------------------------------------------------
- * 库的样式由 `miko_ui/styles.css` 提供(token + 控件 + 桌面窗口系统),这份
- * 文件只补两件事:
- *   1. **页面级**规则:盒模型、页面底色、`#app` 铺满 -- 库不管页面,只管
- *      它自己的组件(与主仓库的 `css/base.css` 同一个分工);
- *   2. **示例内容**的样式:`.demo-*` 那几个块.
+ * 库的样式由 `miko_ui/styles.css` 提供(token + 控件 + 桌面窗口系统).这份文件
+ * 只补两件事:
+ *   1. **页面级**规则:盒模型、页面底色、`#app` 铺满、深色声明 —— 库不管页面,
+ *      只管它自己的组件;
+ *   2. 窗口正文里那一行的内边距,以及两个控件各自的尺寸.
  *
  * 换句话说:示例页 import 的每一行要么是 `miko_ui/...`,要么是本目录的文件;
  * 这就是"只导入库就能起一个桌面"的可运行证据.
@@ -13,6 +13,8 @@
 
 /* ------------------------------------------------------------------ 页面 */
 
+/* 页面是深色的.声明 `color-scheme` 之后,浏览器才会按深色画**原生控件**
+   (range 的轨道),否则它用的是浅色那一套. */
 :root {
     color-scheme: dark;
 }
@@ -37,39 +39,25 @@ body {
     overflow: hidden;
 }
 
-/* 示例自己塞进桌面背景的占位块(真实应用这里是 3D 视口). */
-.demo-backdrop {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    color: var(--color-text-faint);
-    letter-spacing: 0.08em;
-    user-select: none;
-}
+/* ------------------------------------------------------ 窗口正文里的一行 */
 
-/* -------------------------------------------------------------- 示例内容 */
-
-.demo-panel {
+/* `.window-body > *` 会被拉满(库的桌面样式),这里只负责竖向居中与内边距. */
+.pane {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    padding: 0 16px;
 }
 
-.demo-title {
-    margin: 0 0 6px;
-    font-size: 18px;
+/* 原生 range 的拇指与已填充轨道用强调色:默认那套在深色底上太淡. */
+.pane input[type="range"] {
+    width: 100%;
+    accent-color: var(--color-accent);
 }
 
-.demo-text,
-.demo-echo,
-.demo-list {
-    margin: 0;
-    color: var(--color-text-muted);
-    font-size: 13px;
-    line-height: 1.6;
-}
-
-.demo-list {
-    padding-left: 18px;
+/* 数字只读,所以这里只给它一个够醒目的字号与等宽字形. */
+.readout {
+    font-family: var(--code-font-family);
+    font-size: 28px;
+    line-height: 1;
+    color: var(--color-text-strong);
 }

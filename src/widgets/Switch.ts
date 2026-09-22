@@ -40,10 +40,10 @@ export interface SwitchOptions {
 export interface SwitchHandle {
     /** 根节点(`<label class="switch">`),插到行里用这个. */
     readonly element: HTMLLabelElement;
-    /** 原生复选框:标签关联,`step` 之类的细粒度写入才用它. */
+    /** 原生复选框:标签关联(`<label for>`)与 `checked` 级读写才用它. */
     readonly input: HTMLInputElement;
     get(): boolean;
-    /** 程序化写值;不触发 `onChange`(那是用户操作的语义). */
+    /** 程序化写值;不触发 `onChange`,也不写回值源(状态请写 signal). */
     set(value: boolean): void;
     /** 注册用户切换回调;返回退订函数. */
     onChange(listener: (value: boolean) => void): () => void;
