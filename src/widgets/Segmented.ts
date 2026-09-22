@@ -81,7 +81,8 @@ export function createSegmented<T extends string>(
         class: options.modifier === undefined
             ? 'segmented'
             : `segmented ${options.modifier}`,
-        attrs: { role: 'group', 'aria-label': options.ariaLabel },
+        role: 'group',
+        'aria-label': options.ariaLabel,
     });
     element.style.setProperty('--segmented-columns', String(options.columns));
 
@@ -105,7 +106,7 @@ export function createSegmented<T extends string>(
     };
 
     for (const item of options.items) {
-        const button = create_element('button', { text: item.label });
+        const button = create_element('button', {}, item.label);
         button.type = 'button';
         button.addEventListener('click', () => select(item.value), { signal: abort.signal });
         buttons.push({ value: item.value, element: button });

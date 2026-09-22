@@ -88,7 +88,8 @@ function concrete(children: readonly Child[]): Array<Node | string> {
 export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     const element = create_element('section', {
         class: 'window',
-        attrs: { 'data-window': spec.id, role: 'region' },
+        'data-window': spec.id,
+        role: 'region',
     });
     // 可脚本聚焦(`reveal()` 的落点)但不进 Tab 序.
     element.tabIndex = -1;
@@ -96,7 +97,7 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     const title = create_element('span', { class: 'window-title' });
     // 读屏名指向标题文本;id 由窗口 id 派生,一个窗口只有一个标题.
     title.id = `window-title-${spec.id}`;
-    const label = create_element('span', { text: spec.title });
+    const label = create_element('span', {}, spec.title);
     title.append(label, ...concrete(spec.slots.title ?? []));
     element.setAttribute('aria-labelledby', title.id);
 
@@ -136,7 +137,7 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
         direction,
         element: create_element('div', {
             class: 'resize-handle',
-            attrs: { 'data-window-resize': direction },
+            'data-window-resize': direction,
         }),
     }));
 

@@ -39,7 +39,7 @@ export interface ButtonHandle {
 }
 
 export function createButton(options: ButtonOptions): ButtonHandle {
-    const element = create_element('button', { class: options.class, text: options.text });
+    const element = create_element('button', { class: options.class }, options.text);
     // 页面上没有表单,但显式声明 type 才不会在将来被塞进 <form> 时变成提交按钮
     element.type = 'button';
     if (options.ariaLabel !== undefined) {

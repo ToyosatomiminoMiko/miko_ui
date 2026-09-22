@@ -27,7 +27,7 @@ import type { SwitchHandle } from './Switch';
  * `ParamPanelController` 里的写法一致.
  */
 export function createFieldLabel(text: string, forId: string): HTMLLabelElement {
-    const label = create_element('label', { text });
+    const label = create_element('label', {}, text);
     label.htmlFor = forId;
     return label;
 }
@@ -41,11 +41,11 @@ export function createFieldLabel(text: string, forId: string): HTMLLabelElement 
  */
 export function createControlGroup(title: string, ...children: Child[]): HTMLElement {
     const titleId = nextWidgetId('control-title');
-    const header = create_element('header', { class: 'control-title', text: title });
+    const header = create_element('header', { class: 'control-title' }, title);
     header.id = titleId;
     return create_element(
         'section',
-        { class: 'control-group', attrs: { 'aria-labelledby': titleId } },
+        { class: 'control-group', 'aria-labelledby': titleId },
         header,
         ...children,
     );

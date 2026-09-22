@@ -65,12 +65,13 @@ export function mountDesktop(root: HTMLElement, spec: DesktopSpec): DesktopHandl
     const windowLayer = create_element('div', { class: 'window-layer', root: doc });
     const snapPreview = create_element('div', {
         class: 'snap-preview',
-        attrs: { 'aria-hidden': 'true' },
+        'aria-hidden': 'true',
         root: doc,
     });
     const dock = create_element('div', {
         class: 'dock',
-        attrs: { role: 'toolbar', 'aria-label': '窗口' },
+        role: 'toolbar',
+        'aria-label': '窗口',
         root: doc,
     });
     root.append(windowLayer, snapPreview, dock);

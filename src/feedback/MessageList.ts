@@ -85,8 +85,7 @@ export class MessageList {
         // 类名与文案口径不变:应用侧 CSS(`css/diagnostics.css`)按 `diagnostic-<level>` 着色.
         return create_element('div', {
             class: `diagnostic diagnostic-${level}`,
-            text: `[${level}] ${message}`,
             root: this.container.ownerDocument,
-        });
+        }, `[${level}] ${message}`);
     }
 }

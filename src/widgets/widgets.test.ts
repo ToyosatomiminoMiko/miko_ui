@@ -315,7 +315,7 @@ describe('createPopover', () => {
         handle: ReturnType<typeof createPopover>;
     } {
         const root = create_element('div');
-        const trigger = create_element('button', { text: '示例' });
+        const trigger = create_element('button', {}, '示例');
         const panel = create_element('div', { class: 'example-menu' });
         panel.id = 'example-menu';
         root.append(trigger, panel);
@@ -354,7 +354,7 @@ describe('createPopover', () => {
         const { trigger, panel, root, handle } = setup();
         stub(trigger).dispatch('click');
 
-        const inside = create_element('span', { text: '项' });
+        const inside = create_element('span', {}, '项');
         panel.append(inside);
         stub(root).dispatch('click', { target: inside });
         expect(handle.isOpen).toBe(true);

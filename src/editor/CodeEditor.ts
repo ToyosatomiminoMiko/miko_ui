@@ -65,7 +65,7 @@ export function createCodeEditor(options: CodeEditorOptions): CodeEditorHandle {
 
     const textarea = create_element('textarea', {
         class: 'code-editor-textarea',
-        attrs: { spellcheck: String(options.spellcheck ?? false) },
+        spellcheck: String(options.spellcheck ?? false),
         root,
     });
     textarea.value = options.value ?? '';
@@ -73,14 +73,14 @@ export function createCodeEditor(options: CodeEditorOptions): CodeEditorHandle {
     const lines = create_element('pre', { class: 'code-editor-lines', root });
     const gutter = create_element('div', {
         class: 'code-editor-gutter',
-        attrs: { 'aria-hidden': 'true' },
+        'aria-hidden': 'true',
         root,
     }, lines);
 
     const highlightCode = create_element('pre', { class: 'code-editor-highlight-code', root });
     const highlightScroller = create_element('div', {
         class: 'code-editor-highlight',
-        attrs: { 'aria-hidden': 'true' },
+        'aria-hidden': 'true',
         root,
     }, highlightCode);
 

@@ -59,15 +59,13 @@ export function createDock(
 
     const group = create_element('div', { class: 'dock-group' });
     for (const spec of windows) {
-        const label = create_element('span', { class: 'dock-btn-label', text: spec.dock.label });
+        const label = create_element('span', { class: 'dock-btn-label' }, spec.dock.label);
         const button = create_element('button', {
             class: 'dock-btn',
-            attrs: {
-                type: 'button',
-                'data-window': spec.id,
-                'aria-pressed': 'false',
-                title: spec.title,
-            },
+            type: 'button',
+            'data-window': spec.id,
+            'aria-pressed': 'false',
+            title: spec.title,
         });
         button.append(label);
 
@@ -87,16 +85,16 @@ export function createDock(
 
     const exitFullscreen = create_element('button', {
         class: 'dock-action',
-        text: '退出全屏',
-        attrs: { type: 'button', 'data-dock-action': 'exit-fullscreen' },
-    });
+        type: 'button',
+        'data-dock-action': 'exit-fullscreen',
+    }, '退出全屏');
     exitFullscreen.addEventListener('click', () => handlers.onExitFullscreen());
 
     const restoreAll = create_element('button', {
         class: 'dock-action',
-        text: '全部还原',
-        attrs: { type: 'button', 'data-dock-action': 'restore-all' },
-    });
+        type: 'button',
+        'data-dock-action': 'restore-all',
+    }, '全部还原');
     restoreAll.addEventListener('click', () => handlers.onRestoreAll());
 
     const actions = create_element('div', { class: 'dock-actions' }, exitFullscreen, restoreAll);
