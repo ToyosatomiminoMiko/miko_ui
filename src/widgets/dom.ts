@@ -16,7 +16,7 @@
  */
 import { rootDocument, type DomRoot } from '../dom/root';
 
-/** 子节点:假值一律跳过,便于在声明里写 `cond && el(...)`. */
+/** 子节点:假值一律跳过,便于在声明里写 `cond && create_element(...)`. */
 export type Child = Node | string | null | false | undefined;
 
 export interface ElementOptions {
@@ -41,21 +41,21 @@ export interface ElementOptions {
  * 只接受字符串子节点与真节点:字符串用 `createTextNode` 落地,不用
  * `innerHTML`,避免把源码/公式这类外部文本当 HTML 解析.
  *
- * 两个重载:已知标签(`el('span')`)返回具体的 `HTMLSpanElement`,便于取
- * `input.value` / `label.htmlFor` 这类具体成员;运行时才知道的字符串标签
- * (`el(tag)`,来自上层参数)退回 `HTMLElement`.
+ * 两个重载:已知标签(`create_element('span')`)返回具体的 `HTMLSpanElement`,
+ * 便于取 `input.value` / `label.htmlFor` 这类具体成员;运行时才知道的字符串
+ * 标签(`create_element(tag)`,来自上层参数)退回 `HTMLElement`.
  */
-export function el<K extends keyof HTMLElementTagNameMap>(
+export function create_element<K extends keyof HTMLElementTagNameMap>(
     tag: K,
     options?: ElementOptions,
     ...children: Child[]
 ): HTMLElementTagNameMap[K];
-export function el(
+export function create_element(
     tag: string,
     options?: ElementOptions,
     ...children: Child[]
 ): HTMLElement;
-export function el(
+export function create_element(
     tag: string,
     options: ElementOptions = {},
     ...children: Child[]
@@ -77,9 +77,9 @@ export function el(
 /**
  * 把 `Child[]` 落成真节点(字符串 -> 文本节点,假值跳过).
  *
- * `el()` 内部走同一套规则;"先建容器、稍后再搬节点"的场景(`mountDesktop` 的
- * 背景节点、`WindowManager` 的窗口正文)也要用它,所以单独导出,避免各写一份
- * 过滤逻辑而漏掉字符串/假值中的一种.
+ * `create_element()` 内部走同一套规则;"先建容器、稍后再搬节点"的场景
+ * (`mountDesktop` 的背景节点、`WindowManager` 的窗口正文)也要用它,所以单独
+ * 导出,避免各写一份过滤逻辑而漏掉字符串/假值中的一种.
  */
 export function childNodes(children: readonly Child[], root?: DomRoot): Node[] {
     const doc = rootDocument(root);

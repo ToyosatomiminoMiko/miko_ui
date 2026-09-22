@@ -24,7 +24,7 @@
  * 槽宽 32"这套应用取值.节点建在 `options.root` 上(D7).
  */
 import type { DomRoot } from '../dom/root';
-import { el } from '../widgets/dom';
+import { create_element } from '../widgets/dom';
 import { EditorHighlight } from './EditorHighlight';
 import { EditorLineNumbers } from './EditorLineNumbers';
 
@@ -63,30 +63,30 @@ export interface CodeEditorHandle {
 export function createCodeEditor(options: CodeEditorOptions): CodeEditorHandle {
     const root = options.root;
 
-    const textarea = el('textarea', {
+    const textarea = create_element('textarea', {
         class: 'code-editor-textarea',
         attrs: { spellcheck: String(options.spellcheck ?? false) },
         root,
     });
     textarea.value = options.value ?? '';
 
-    const lines = el('pre', { class: 'code-editor-lines', root });
-    const gutter = el('div', {
+    const lines = create_element('pre', { class: 'code-editor-lines', root });
+    const gutter = create_element('div', {
         class: 'code-editor-gutter',
         attrs: { 'aria-hidden': 'true' },
         root,
     }, lines);
 
-    const highlightCode = el('pre', { class: 'code-editor-highlight-code', root });
-    const highlightScroller = el('div', {
+    const highlightCode = create_element('pre', { class: 'code-editor-highlight-code', root });
+    const highlightScroller = create_element('div', {
         class: 'code-editor-highlight',
         attrs: { 'aria-hidden': 'true' },
         root,
     }, highlightCode);
 
     // 顺序即契约:textarea 与高亮层必须是相邻兄弟(见文件头第 1 条).
-    const input = el('div', { class: 'code-editor-input', root }, textarea, highlightScroller);
-    const element = el('div', { class: 'code-editor', root }, gutter, input);
+    const input = create_element('div', { class: 'code-editor-input', root }, textarea, highlightScroller);
+    const element = create_element('div', { class: 'code-editor', root }, gutter, input);
 
     const lineNumbers = new EditorLineNumbers(
         textarea,

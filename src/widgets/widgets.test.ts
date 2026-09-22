@@ -12,7 +12,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub, StubElement } from '../../test/domStub';
 import { createButton } from './Button';
-import { el } from './dom';
+import { create_element } from './dom';
 import { createNumberField } from './NumberField';
 import { createPopover } from './Popover';
 import {
@@ -314,9 +314,9 @@ describe('createPopover', () => {
         root: HTMLDivElement;
         handle: ReturnType<typeof createPopover>;
     } {
-        const root = el('div');
-        const trigger = el('button', { text: '示例' });
-        const panel = el('div', { class: 'example-menu' });
+        const root = create_element('div');
+        const trigger = create_element('button', { text: '示例' });
+        const panel = create_element('div', { class: 'example-menu' });
         panel.id = 'example-menu';
         root.append(trigger, panel);
         document.body.append(root);
@@ -354,7 +354,7 @@ describe('createPopover', () => {
         const { trigger, panel, root, handle } = setup();
         stub(trigger).dispatch('click');
 
-        const inside = el('span', { text: '项' });
+        const inside = create_element('span', { text: '项' });
         panel.append(inside);
         stub(root).dispatch('click', { target: inside });
         expect(handle.isOpen).toBe(true);

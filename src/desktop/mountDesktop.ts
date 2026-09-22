@@ -14,7 +14,7 @@
  * 构造参数(见 `desktop/types.ts`);库默认值 `DEFAULT_DESKTOP_CONFIG` 只够
  * 立起一个能拖能缩的空桌面,给最小示例页用.
  */
-import { childNodes, el, type Child } from '../widgets/dom';
+import { childNodes, create_element, type Child } from '../widgets/dom';
 import { WindowManager, type WindowContentProvider } from './WindowManager';
 import type { DesktopConfig } from './types';
 
@@ -62,13 +62,13 @@ export function mountDesktop(root: HTMLElement, spec: DesktopSpec): DesktopHandl
     // (层叠顺序由配置里的 z-index 决定,这里只是让人读起来是同一个结构).
     root.append(...childNodes(spec.background ?? [], doc));
 
-    const windowLayer = el('div', { class: 'window-layer', root: doc });
-    const snapPreview = el('div', {
+    const windowLayer = create_element('div', { class: 'window-layer', root: doc });
+    const snapPreview = create_element('div', {
         class: 'snap-preview',
         attrs: { 'aria-hidden': 'true' },
         root: doc,
     });
-    const dock = el('div', {
+    const dock = create_element('div', {
         class: 'dock',
         attrs: { role: 'toolbar', 'aria-label': '窗口' },
         root: doc,

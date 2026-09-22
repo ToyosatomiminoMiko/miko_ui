@@ -31,7 +31,7 @@
  * 校验连同它们的失败分支一起消失.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
-import { el } from './dom';
+import { create_element } from './dom';
 
 export interface SegmentedItem<T extends string> {
     readonly value: T;
@@ -77,7 +77,7 @@ export function createSegmented<T extends string>(
     const buttons: Array<{ value: T; element: HTMLButtonElement }> = [];
     let current = peekValue(source);
 
-    const element = el('div', {
+    const element = create_element('div', {
         class: options.modifier === undefined
             ? 'segmented'
             : `segmented ${options.modifier}`,
@@ -105,7 +105,7 @@ export function createSegmented<T extends string>(
     };
 
     for (const item of options.items) {
-        const button = el('button', { text: item.label });
+        const button = create_element('button', { text: item.label });
         button.type = 'button';
         button.addEventListener('click', () => select(item.value), { signal: abort.signal });
         buttons.push({ value: item.value, element: button });

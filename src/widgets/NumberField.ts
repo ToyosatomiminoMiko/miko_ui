@@ -23,7 +23,7 @@
  * 跳过**(见 `selfWrite`),文本只在别处改值时被规范化.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
-import { el, nextWidgetId } from './dom';
+import { create_element, nextWidgetId } from './dom';
 
 export interface NumberFieldOptions {
     /** 初值,或一个会驱动本控件的 signal. */
@@ -95,7 +95,7 @@ export function createNumberField(options: NumberFieldOptions): NumberFieldHandl
     const format = options.format ?? ((value: number) => String(value));
     const parse = options.parse ?? defaultParse;
 
-    const input = el('input');
+    const input = create_element('input');
     input.type = 'number';
     input.id = nextWidgetId('number');
     if (options.min !== undefined) input.min = String(options.min);

@@ -18,7 +18,7 @@
  * 类名由调用方给(`param-reset-btn` / `row-visibility-btn` / `window-control-btn`),
  * 样式仍归 CSS:库不替按钮决定长什么样(见 `styles/widgets.css` 的头).
  */
-import { el } from './dom';
+import { create_element } from './dom';
 
 export interface ButtonOptions {
     text: string;
@@ -39,7 +39,7 @@ export interface ButtonHandle {
 }
 
 export function createButton(options: ButtonOptions): ButtonHandle {
-    const element = el('button', { class: options.class, text: options.text });
+    const element = create_element('button', { class: options.class, text: options.text });
     // 页面上没有表单,但显式声明 type 才不会在将来被塞进 <form> 时变成提交按钮
     element.type = 'button';
     if (options.ariaLabel !== undefined) {

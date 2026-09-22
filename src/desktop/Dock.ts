@@ -11,7 +11,7 @@
  * 而"清单是唯一真相源"是本方案的硬约束(见 docs/windowing-plan.md §5.3).
  */
 import { type WindowConfigEntry, type WindowId } from './types';
-import { el } from '../widgets/dom';
+import { create_element } from '../widgets/dom';
 import type { WindowState } from './WindowManager';
 
 /** 桌面动作区的两个全局入口:退出全屏与一键复位. */
@@ -57,10 +57,10 @@ export function createDock(
 ): DockHandle {
     const buttons = new Map<WindowId, DockButtonHandle>();
 
-    const group = el('div', { class: 'dock-group' });
+    const group = create_element('div', { class: 'dock-group' });
     for (const spec of windows) {
-        const label = el('span', { class: 'dock-btn-label', text: spec.dock.label });
-        const button = el('button', {
+        const label = create_element('span', { class: 'dock-btn-label', text: spec.dock.label });
+        const button = create_element('button', {
             class: 'dock-btn',
             attrs: {
                 type: 'button',
@@ -85,22 +85,22 @@ export function createDock(
         group.append(button);
     }
 
-    const exitFullscreen = el('button', {
+    const exitFullscreen = create_element('button', {
         class: 'dock-action',
         text: '退出全屏',
         attrs: { type: 'button', 'data-dock-action': 'exit-fullscreen' },
     });
     exitFullscreen.addEventListener('click', () => handlers.onExitFullscreen());
 
-    const restoreAll = el('button', {
+    const restoreAll = create_element('button', {
         class: 'dock-action',
         text: '全部还原',
         attrs: { type: 'button', 'data-dock-action': 'restore-all' },
     });
     restoreAll.addEventListener('click', () => handlers.onRestoreAll());
 
-    const actions = el('div', { class: 'dock-actions' }, exitFullscreen, restoreAll);
-    const inner = el('div', { class: 'dock-inner' }, group, actions);
+    const actions = create_element('div', { class: 'dock-actions' }, exitFullscreen, restoreAll);
+    const inner = create_element('div', { class: 'dock-inner' }, group, actions);
     container.replaceChildren(inner);
 
     // 初始状态走与运行期同一条路径(`setState`),不在这里另写一份 `data-state`:

@@ -1,9 +1,9 @@
 /**
  * 行 DOM 的通用件:实体列表与求值列表共用的最小词表.
  *
- * 建元素本身不在这里了 -- 统一走 `widgets/dom.ts` 的 {@link el},与视图面板
- * 的控件同一套原语(实体/求值 item 的调用点已直接用 `el`).这里只剩两栏真正
- * 共用的**行结构**:
+ * 建元素本身不在这里了 -- 统一走 `widgets/dom.ts` 的 {@link create_element},
+ * 与视图面板的控件同一套原语(实体/求值 item 的调用点已直接用
+ * `create_element`).这里只剩两栏真正共用的**行结构**:
  *
  * - {@link createObjectRow}:行外壳(`<article>` + `.row-main` + 行末动作容器),
  *   实体 item 与求值 item 用的是同一个;
@@ -25,7 +25,7 @@
  * `evaluation/evaluationDom.ts`.
  */
 import { createButton } from '../widgets/Button';
-import { el } from '../widgets/dom';
+import { create_element } from '../widgets/dom';
 
 /**
  * 行外壳:`<article class="object-row <rowClass>">`,内容分两层.
@@ -56,9 +56,9 @@ export function createObjectRow(
     rowClass: string,
     actions: HTMLElement | null,
 ): { readonly row: HTMLElement; readonly main: HTMLElement } {
-    const row = el('article', { class: `object-row ${rowClass}` });
+    const row = create_element('article', { class: `object-row ${rowClass}` });
     row.setAttribute('role', 'listitem');
-    const main = el('div', { class: 'row-main' });
+    const main = create_element('div', { class: 'row-main' });
     row.append(main);
     if (actions !== null) row.append(actions);
     return { row, main };
@@ -79,7 +79,7 @@ export function createObjectRow(
 export function createRowActions(
     ...actions: Array<HTMLElement | null | false | undefined>
 ): HTMLElement {
-    const container = el('div', { class: 'row-actions' });
+    const container = create_element('div', { class: 'row-actions' });
     for (const action of actions) {
         if (action) container.append(action);
     }

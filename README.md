@@ -121,7 +121,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 | 分组 | 内容 |
 | --- | --- |
-| `dom/` | `el` / `childNodes`(`Child` 类型)、`DomRoot` 与 `rootDocument`(root 注入)、`runLegacyEditorCommand` |
+| `dom/` | `create_element` / `childNodes`(`Child` 类型)、`DomRoot` 与 `rootDocument`(root 注入)、`runLegacyEditorCommand` |
 | `reactive/` | `signal` / `computed` / `effect` / `derivedSignal` / `onValueChange` / `isSignal` / `ValueSource` 工具 |
 | `widgets/` | `Button` `Switch` `Segmented` `Slider` `NumberField` `Popover`,以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
 | `shared/` | 键盘唯一出口 `KeyboardController`、唯一拖拽实现 `bindDragGesture`、行缓存 `KeyedRowList`、`numberText`、行外壳 `rowDom` |

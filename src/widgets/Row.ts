@@ -16,7 +16,7 @@
  *
  * 用这些件时,**控件不要再给 `aria-label`**:可见标签已经命名了它.
  */
-import { el, nextWidgetId, type Child } from './dom';
+import { create_element, nextWidgetId, type Child } from './dom';
 import type { NumberFieldHandle } from './NumberField';
 import type { SwitchHandle } from './Switch';
 
@@ -27,7 +27,7 @@ import type { SwitchHandle } from './Switch';
  * `ParamPanelController` 里的写法一致.
  */
 export function createFieldLabel(text: string, forId: string): HTMLLabelElement {
-    const label = el('label', { text });
+    const label = create_element('label', { text });
     label.htmlFor = forId;
     return label;
 }
@@ -41,9 +41,9 @@ export function createFieldLabel(text: string, forId: string): HTMLLabelElement 
  */
 export function createControlGroup(title: string, ...children: Child[]): HTMLElement {
     const titleId = nextWidgetId('control-title');
-    const header = el('header', { class: 'control-title', text: title });
+    const header = create_element('header', { class: 'control-title', text: title });
     header.id = titleId;
-    return el(
+    return create_element(
         'section',
         { class: 'control-group', attrs: { 'aria-labelledby': titleId } },
         header,
@@ -53,7 +53,7 @@ export function createControlGroup(title: string, ...children: Child[]): HTMLEle
 
 /** 行容器:`<div class="control-row">...</div>`. */
 export function createRow(...children: Child[]): HTMLDivElement {
-    return el('div', { class: 'control-row' }, ...children);
+    return create_element('div', { class: 'control-row' }, ...children);
 }
 
 /** 一行"文字 + 开关":`<div class="control-row"><label for>文字</label>开关</div>`. */
@@ -78,7 +78,7 @@ export function createNumberRow(
 
 /** 行内小开关组(`.control-toggle-group`):"标签 X/Y/Z"与"网格 XZ/XY/YZ". */
 export function createInlineToggle(text: string, toggle: SwitchHandle): HTMLDivElement {
-    return el(
+    return create_element(
         'div',
         { class: 'control-toggle-group' },
         createFieldLabel(text, toggle.input.id),

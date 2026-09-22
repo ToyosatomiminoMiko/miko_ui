@@ -12,7 +12,7 @@
  */
 import { type WindowSlot } from './types';
 import { createButton, type ButtonHandle } from '../widgets/Button';
-import { el, type Child } from '../widgets/dom';
+import { create_element, type Child } from '../widgets/dom';
 import {
     geometryStyle,
     type Geometry,
@@ -78,7 +78,7 @@ export function clearGeometry(element: HTMLElement): void {
     }
 }
 
-/** `el()` 会跳过假值,直接 `append` 不会:这里统一把 `Child[]` 收成真节点. */
+/** `create_element()` 会跳过假值,直接 `append` 不会:这里统一把 `Child[]` 收成真节点. */
 function concrete(children: readonly Child[]): Array<Node | string> {
     return children.filter(
         (child): child is Node | string => child !== null && child !== undefined && child !== false,
@@ -86,23 +86,27 @@ function concrete(children: readonly Child[]): Array<Node | string> {
 }
 
 export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
-    const element = el('section', {
+    const element = create_element('section', {
         class: 'window',
         attrs: { 'data-window': spec.id, role: 'region' },
     });
     // 可脚本聚焦(`reveal()` 的落点)但不进 Tab 序.
     element.tabIndex = -1;
 
-    const title = el('span', { class: 'window-title' });
+    const title = create_element('span', { class: 'window-title' });
     // 读屏名指向标题文本;id 由窗口 id 派生,一个窗口只有一个标题.
     title.id = `window-title-${spec.id}`;
-    const label = el('span', { text: spec.title });
+    const label = create_element('span', { text: spec.title });
     title.append(label, ...concrete(spec.slots.title ?? []));
     element.setAttribute('aria-labelledby', title.id);
 
-    const actions = el('div', { class: 'window-actions' }, ...concrete(spec.slots.actions ?? []));
+    const actions = create_element(
+        'div',
+        { class: 'window-actions' },
+        ...concrete(spec.slots.actions ?? []),
+    );
 
-    const controls = el('div', { class: 'window-controls' });
+    const controls = create_element('div', { class: 'window-controls' });
     const controlHandles = new Map<string, ButtonHandle>();
     for (const control of spec.controls) {
         const button = createButton({
@@ -118,12 +122,19 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
 
     // 浮层是 header 的直接子节点(不是 .window-actions 的子节点,那一层是按钮行),
     // 也必须在 .window-body 之外,否则会被正文的裁切切掉(§11.1 B2).
-    const header = el('header', { class: 'window-header' }, title, actions, controls, ...concrete(spec.slots.overlays ?? []));
-    const body = el('div', { class: 'window-body' });
+    const header = create_element(
+        'header',
+        { class: 'window-header' },
+        title,
+        actions,
+        controls,
+        ...concrete(spec.slots.overlays ?? []),
+    );
+    const body = create_element('div', { class: 'window-body' });
 
     const handles = RESIZE_DIRECTIONS.map((direction) => ({
         direction,
-        element: el('div', {
+        element: create_element('div', {
             class: 'resize-handle',
             attrs: { 'data-window-resize': direction },
         }),

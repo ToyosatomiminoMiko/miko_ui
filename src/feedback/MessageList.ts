@@ -12,7 +12,7 @@
  *
  * D7:节点建在**容器所属**的 document 上,库不读全局 `document`.
  */
-import { el } from '../widgets/dom';
+import { create_element } from '../widgets/dom';
 
 export type MessageLevel = 'warning' | 'error';
 
@@ -83,7 +83,7 @@ export class MessageList {
 
     private _createNode(level: MessageLevel, message: string): HTMLElement {
         // 类名与文案口径不变:应用侧 CSS(`css/diagnostics.css`)按 `diagnostic-<level>` 着色.
-        return el('div', {
+        return create_element('div', {
             class: `diagnostic diagnostic-${level}`,
             text: `[${level}] ${message}`,
             root: this.container.ownerDocument,

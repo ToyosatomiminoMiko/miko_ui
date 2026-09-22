@@ -12,7 +12,7 @@
  * `value` 可以是普通值或 signal(P3):给 signal 时滑块由绑定驱动,拖动写回它.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
-import { el, nextWidgetId } from './dom';
+import { create_element, nextWidgetId } from './dom';
 
 export interface SliderOptions {
     /** 初值,或一个会驱动本控件的 signal. */
@@ -42,7 +42,7 @@ export interface SliderHandle {
 
 export function createSlider(options: SliderOptions): SliderHandle {
     const source = options.value;
-    const input = el('input');
+    const input = create_element('input');
     input.type = 'range';
     input.id = nextWidgetId('slider');
     input.min = String(options.min);

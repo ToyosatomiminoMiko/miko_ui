@@ -12,7 +12,7 @@
 import {
     DEFAULT_DESKTOP_CONFIG,
     createSlider,
-    el,
+    create_element,
     mountDesktop,
     signal,
     watchValue,
@@ -42,7 +42,7 @@ const slider = createSlider({
 
 // ── 窗口二:数字(只读显示,订阅同一个 signal)────────────────────────────
 // `watchValue` 订阅时立刻回调一次,所以初值不用在这里再写一遍.
-const readout = el('output', { class: 'readout' });
+const readout = create_element('output', { class: 'readout' });
 watchValue(value, (next) => {
     readout.textContent = String(next);
 });
@@ -82,8 +82,12 @@ const CONFIG: DesktopConfig = { ...DEFAULT_DESKTOP_CONFIG, windows: WINDOWS };
 mountDesktop(root, {
     ...CONFIG,
     content: (id) => {
-        if (id === 'slider') return { body: [el('div', { class: 'pane' }, slider.element)] };
-        if (id === 'number') return { body: [el('div', { class: 'pane' }, readout)] };
+        if (id === 'slider') {
+            return { body: [create_element('div', { class: 'pane' }, slider.element)] };
+        }
+        if (id === 'number') {
+            return { body: [create_element('div', { class: 'pane' }, readout)] };
+        }
         return { body: [] };
     },
 });

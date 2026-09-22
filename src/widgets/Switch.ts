@@ -21,7 +21,7 @@
  * 手工回路.普通值路径的行为一个字没变.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
-import { el, nextWidgetId } from './dom';
+import { create_element, nextWidgetId } from './dom';
 
 export interface SwitchOptions {
     /** 初值,或一个会驱动本控件的 signal. */
@@ -53,7 +53,7 @@ export interface SwitchHandle {
 
 export function createSwitch(options: SwitchOptions): SwitchHandle {
     const source = options.value;
-    const input = el('input');
+    const input = create_element('input');
     input.type = 'checkbox';
     input.id = nextWidgetId('switch');
     input.checked = peekValue(source);
@@ -61,11 +61,11 @@ export function createSwitch(options: SwitchOptions): SwitchHandle {
         input.setAttribute('aria-label', options.ariaLabel);
     }
 
-    const element = el(
+    const element = create_element(
         'label',
         { class: 'switch' },
         input,
-        el('span', { class: 'slider' }),
+        create_element('span', { class: 'slider' }),
     );
 
     const listeners = new Set<(value: boolean) => void>();
