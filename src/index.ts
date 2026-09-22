@@ -1,9 +1,9 @@
 /**
- * `@miko/ui` 的公共 API 唯一出口.
+ * `miko_ui` 的公共 API 唯一出口.
  *
  * 约定(docs/ui-library-extraction-plan.md §9 的形态断言):
- * - 包外的消费者**只**从 `@miko/ui` 导入;`package.json` 的 `exports` 也只放
- *   这一个入口,内部路径(`@miko/ui/src/...`)不是公开面,重构时不必对外兼容.
+ * - 包外的消费者**只**从 `miko_ui` 导入;`package.json` 的 `exports` 也只放
+ *   这一个入口,内部路径(`miko_ui/src/...`)不是公开面,重构时不必对外兼容.
  * - 这里一律用 `export *`,不再抄一遍名字:抄一遍的代价是"新增一个件忘了导出"
  *   这种只在运行期炸的错,而 `export *` 的重名冲突在 `tsc` 就会报.
  *

@@ -1,4 +1,4 @@
-# `@miko/ui` 最小示例
+# `miko_ui` 最小示例
 
 这是 `docs/ui-library-extraction-plan.md` §8 里 **P1 的验收物**,P4 之后又补上了
 样式的一环:一个只 import 库的页面。它存在的意义不是好看,而是把"库能被外部
@@ -17,7 +17,7 @@ npm run dev             # Vite 会打印实际端口
 | 配置已注入(D4) | 窗口清单、动作、夹取常量来自 `DEFAULT_DESKTOP_CONFIG`;消费者可以整份换掉 |
 | root 注入(D7) | 库内不读全局 `document` / `window`;本示例没有为库提供任何全局钩子 |
 | 库不依赖应用源码 | 这个目录的 import 里没有一条 `@/...`;`example/` 也不在 `src` 的依赖图里 |
-| **样式随库走**(P4/D8) | `import '@miko/ui/styles.css'` 就是全套默认主题(色板/圆角/控件/窗口外壳);本目录的 CSS 只剩页面级规则与示例内容 |
+| **样式随库走**(P4/D8) | `import 'miko_ui/styles.css'` 就是全套默认主题(色板/圆角/控件/窗口外壳);本目录的 CSS 只剩页面级规则与示例内容 |
 | **状态绑定**(P3) | 控件直接绑 signal:`createNumberField({ value: radiusSignal })`,没有 `onChange` + `set()` 的手工回路 |
 
 ## 它不证明什么
@@ -35,6 +35,6 @@ npm run dev             # Vite 会打印实际端口
 example/
   index.html      只有一个 #app 的页面
   main.ts         窗口清单 + 内容装配 + 控件接线(signal)
-  example.css     页面级规则 + 示例内容样式(库的样式在 @miko/ui/styles.css)
-  vite-env.d.ts   CSS import 的类型声明
+  example.css     页面级规则 + 示例内容样式(库的样式在 miko_ui/styles.css)
+  vite_env.d.ts   CSS import 的类型声明
 ```

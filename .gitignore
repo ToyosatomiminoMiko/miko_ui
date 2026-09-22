@@ -8,3 +8,9 @@
 # TypeScript 增量缓存
 *.tsbuildinfo
 
+# npm 凭据(通过 NPM_CONFIG_USERCONFIG 指到本目录时用;里面是明文 token,绝不能提交)
+/.npmrc
+
+# npm 打包产物
+/*.tgz
+

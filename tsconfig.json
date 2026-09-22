@@ -1,6 +1,6 @@
 {
   /**
-   * `@miko/ui` 自己的类型检查配置,自包含:不 `extends` 仓库外的任何文件.
+   * `miko_ui` 自己的类型检查配置,自包含:不 `extends` 仓库外的任何文件.
    *
    * 为什么写全而不是继承:这份仓库是从 `miko_graphcalc` 里搬出来的,搬之前它
    * 写的是 `"extends": "../../tsconfig.json"`.那个相对路径在 workspace 里恰好
@@ -11,7 +11,7 @@
    *
    * 没有 `paths`:库内一律用包内相对路径,别名只属于消费者那一侧.这不是图省事,
    * 是"库不假设消费者怎么解析模块"的一半(另一半是不引 `vite/client` 的类型,
-   * 见 `src/css-modules.d.ts`).
+   * 见 `src/css_modules.d.ts`).
    */
   "compilerOptions": {
     "target": "ES2020",

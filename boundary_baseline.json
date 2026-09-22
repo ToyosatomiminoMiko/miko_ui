@@ -1,0 +1,13 @@
+{
+  "note": "P2 结束状态:七条全为 0 -- 库的源码与测试都不再引用应用侧任何东西(自带 test/domStub.ts 与 test/desktopFixture.ts).从这一刻起这份基线就是**硬约束**:任何一条变正都会让 npm test 失败,必须改成注入或自带实现;确实必要就先在评审里说明,再跑 --update.§9 的第三条(css-ids)要等 P4/D8 把 css/ 搬进 styles/ 之后才真正生效.计数口径见 scripts/check_ui_boundary.mjs 的头部注释.",
+  "counts": {
+    "domain-imports": 0,
+    "app-config-imports": 0,
+    "app-source-imports": 0,
+    "global-dom": 0,
+    "css-ids": 0,
+    "deps": 0,
+    "exports-surface": 0,
+    "no-batch": 0
+  }
+}

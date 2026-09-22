@@ -1,0 +1,29 @@
+{
+  /**
+   * 发版用的构建配置:在 `tsconfig.json` 之上只改"要不要产出文件"这件事.
+   *
+   * 为什么不复用同一份配置:开发配置里 `noEmit: true`(类型检查专用,不落盘),
+   * 而且 `include` 把 `test/**` `example/**` 都收进来了.发版产物里既不该有
+   * 测试,也不该有 example,所以这里必须换一份 `include`/`exclude`.
+   *
+   * 为什么不把 `noEmit` 反过来写进 `tsconfig.json`:那样 `npm run typecheck`
+   * 会顺手往工作区里丢一堆 JS;两者目标不同,分开两份最省解释.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // 参考配置是 noEmit,这里显式打开产出.
+    "noEmit": false,
+    "declaration": true,
+    // 产物落在包根的 dist/;`rootDir: src` 保证目录结构 1:1,不会多出 `src/` 这一层.
+    "outDir": "dist",
+    "rootDir": "src",
+    /**
+     * 发布出去的库代码不碰 Node(测试才用 `node:fs`),所以这里把 `types` 清空:
+     * 万一将来有人在库里误引 `node:*`,这一步会直接编译失败,而不是悄悄把
+     * "这个库需要 Node 环境"带进产物.
+     */
+    "types": []
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+}

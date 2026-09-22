@@ -1,7 +1,7 @@
 /**
- * `@miko/ui` 的最小消费者示例.
+ * `miko_ui` 的最小消费者示例.
  *
- * 约束(也是这份示例存在的意义):这里 import 的每一行都必须来自 `@miko/ui`
+ * 约束(也是这份示例存在的意义):这里 import 的每一行都必须来自 `miko_ui`
  * 或本目录,不许出现主仓库的 `@/...`.库要能被外部消费,靠的是这条约束在
  * **可运行**的代码里成立,而不是靠 `src` 的 grep 断言.
  *
@@ -25,9 +25,9 @@ import {
     createSwitchRow,
     el,
     mountDesktop,
-} from '@miko/ui';
+} from 'miko_ui';
 // 库自带的样式:token + 控件 + 桌面窗口系统;示例只额外给示例内容的样式.
-import '@miko/ui/styles.css';
+import 'miko_ui/styles.css';
 import './example.css';
 
 const root = document.getElementById('app');
@@ -84,10 +84,10 @@ const mainBody = el('div', { class: 'demo-panel' },
     echo);
 
 const sideBody = el('div', { class: 'demo-panel' },
-    el('h1', { class: 'demo-title', text: '@miko/ui' }),
+    el('h1', { class: 'demo-title', text: 'miko_ui' }),
     el('p', {
         class: 'demo-text',
-        text: '这个页面只 import 了 @miko/ui 与本目录的样式:窗口、Dock、吸附、控件全部来自库.',
+        text: '这个页面只 import 了 miko_ui 与本目录的样式:窗口、Dock、吸附、控件全部来自库.',
     }),
     el('ul', { class: 'demo-list' },
         el('li', { text: '拖动标题栏移动窗口,双击最大化' }),

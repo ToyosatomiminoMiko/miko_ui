@@ -34,7 +34,25 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # `pretest` 会先跑边界守卫(scripts/check-ui-boundary.mjs),八条断言全 0
+      # `pretest` 会先跑边界守卫(scripts/check_ui_boundary.mjs),八条断言全 0
       # 才算过,然后再跑 vitest.
       - name: Boundary check and test
         run: npm test
+
+      # 发版产物的形状必须每次 push 都验:构建能过、tarball 里不能混进测试与
+      # example.这两步是"发版失败发现得太晚"的唯一防线 —— 本地忘了 build 不会
+      # 影响这里,`npm pack` 自己会跑 prepack.
+      - name: Build
+        run: npm run build
+
+      - name: Inspect tarball contents
+        run: |
+          npm pack --dry-run 2>&1 | tee /tmp/pack.txt
+          # 白名单是 files 字段,这里断言它没被破坏.
+          if grep -E '^npm notice .*(\.test\.|/test/|/example/|/src/)' /tmp/pack.txt; then
+            echo "::error::tarball 里混进了不该发布的文件"
+            exit 1
+          fi
+          grep -q 'dist/index.js' /tmp/pack.txt
+          grep -q 'dist/index.d.ts' /tmp/pack.txt
+          grep -q 'styles/styles.css' /tmp/pack.txt

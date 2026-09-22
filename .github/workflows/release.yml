@@ -1,0 +1,67 @@
+name: Release
+
+# 推一个 `v` 开头的 tag 就发一版:`git tag v0.1.1 && git push origin v0.1.1`.
+#
+# 认证走 **Trusted Publishing(OIDC)**:仓库里不存任何 npm token。npm CLI 会自动
+# 检测 OIDC 环境并用它换取一次性的发布凭据,npm 页面上还会自动带上 provenance
+# 签名(证明这个版本是哪个仓库、哪个 commit、哪个 workflow 发出来的)。
+#
+# 前置(缺一不可,详见 RELEASING.md §4):
+#   1. 这个包**已经存在**(先手动发过一次)——Trusted Publisher 的配置入口在
+#      npmjs.com 的"包设置"页里,包不存在就没有这一页;
+#   2. npmjs.com -> 包 Settings -> Trusted Publisher -> GitHub Actions,填
+#      owner / repo / workflow 文件名(只填文件名,不含路径,要带 .yml);
+#   3. npm CLI >= 11.5.1 且 Node >= 22.14.0 —— 下面有一步显式保证 npm 版本。
+#
+# GitHub 的 self-hosted runner 目前不支持 trusted publishing,必须用 GitHub
+# 托管的 runner(ubuntu-latest)。
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  # OIDC 必需:没有它就拿不到 id token,npm 会退回去找 token 然后失败.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          # 必须显式指到官方源:发布不能走镜像(镜像只读).
+          registry-url: "https://registry.npmjs.org"
+          # 官方示例在发布流程里明确关掉依赖缓存:release 构建不引入缓存这条
+          # 供应链攻击面.
+          package-manager-cache: false
+
+      # 官方要求 npm CLI >= 11.5.1(低于它不会自动用 OIDC 换凭据,会直接
+      # 报 403/ENEEDAUTH).runner 镜像自带的 npm 版本不保证,所以显式拉一次.
+      - name: Ensure npm CLI >= 11.5.1
+        run: npm install --global npm@^11.5.1 --no-audit --no-fund && npm --version
+
+      - name: Install pinned dependencies
+        run: npm ci --no-audit --no-fund
+
+      # tag 与 package.json 的版本必须一致,否则这一版发出去就再也收不回来.
+      - name: Check tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::tag v$TAG_VERSION 与 package.json 的 $PKG_VERSION 不一致"
+            exit 1
+          fi
+
+      # `npm publish` 自己会按顺序跑 prepublishOnly(typecheck + test)与
+      # prepack(build),所以这里不需要再重复一遍构建与测试.
+      # 不要设 NODE_AUTH_TOKEN:设了反而会盖掉 OIDC 这条路.
+      - name: Publish to npm
+        run: npm publish

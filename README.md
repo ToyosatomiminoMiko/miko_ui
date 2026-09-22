@@ -1,4 +1,4 @@
-# `@miko/ui`
+# `miko_ui`
 
 GraphCalc 的网页 UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 + 桌面窗口系统 +
 编辑器外壳 + 主题**.它从应用里抽出来,只保留"结构与交互",不认识任何领域模型
@@ -8,12 +8,44 @@ GraphCalc 的网页 UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 +
 > `docs/ui-library-extraction-plan.md`(本文件的每一节都能在那份计划里找到
 > 出处).这份仓库是那个计划 P4 结束后的产物.
 
+## 安装
+
+```bash
+npm install miko_ui
+# 用到公式件(FormulaView / FormulaCopyController)时再装它;不用可以不装
+npm install katex
+```
+
+包是**纯 ESM + 自带类型声明**,装完直接用,不需要消费者再编译 `node_modules`:
+
+```ts
+import { mountDesktop, signal } from 'miko_ui';
+import 'miko_ui/styles.css';          // token + 控件 + 桌面,一次全要
+// 或者按分组引:miko_ui/styles/tokens.css / widgets.css / desktop.css / editor.css
+```
+
+运行时依赖只有 `@preact/signals-core` 一个;`katex` 是可选 peer,只有引公式件
+时才需要(它同时会在运行时引自己的 `katex/dist/katex.min.css`,所以用公式件时
+KaTeX 的样式不用你手动引).
+
+> **只面向打包器/浏览器**:`miko_ui` 的根入口会引 CSS,Node 原生 ESM 直接
+> `import 'miko_ui'` 会因为无法加载 `.css` 报 `ERR_UNKNOWN_FILE_EXTENSION`.
+> Vite / webpack / Next / Rollup 都没问题(它们把 CSS 当资源处理).要在 Node
+> 侧做 SSR 或单元测试,请让测试环境带 CSS 处理(如 Vitest),或在 Node 里只引
+> 具体子模块.
+
+## 开发这个库
+
 ```bash
 npm install
 npm run dev           # 起 example/(Vite 会打印实际端口)
 npm run typecheck
 npm test              # 先跑边界守卫(pretest),再跑 vitest;不需要 Rust 工具链
+npm run build         # 产出 dist/(JS + .d.ts);发版前由 prepack 自动跑
 ```
+
+发版流程(含 npm org、Cloudflare 挡住网页时怎么注册、以及"不要只打 tag"这个坑)
+单独写在 `RELEASING.md` —— 那份文件不在 `files` 白名单里,不会被发布出去。
 
 ## 用起来是什么样
 
@@ -27,8 +59,8 @@ import {
     createSwitchRow,
     mountDesktop,
     signal,
-} from '@miko/ui';
-import '@miko/ui/styles.css'; // token + 控件 + 桌面样式;或按分组单独引
+} from 'miko_ui';
+import 'miko_ui/styles.css'; // token + 控件 + 桌面样式;或按分组单独引
 
 const radius = signal(0.2);
 const visible = signal(true);
@@ -79,7 +111,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 ## 边界契约(有机器守,不靠自觉)
 
-`scripts/check-ui-boundary.mjs` 在每次 `npm test` 之前(走 `pretest`)跑八条
+`scripts/check_ui_boundary.mjs` 在每次 `npm test` 之前(走 `pretest`)跑八条
 断言.这份脚本跟着库从 `miko_graphcalc` 搬了过来 —— 库分出去之后,那边不再有
 库的源码,检查必须跟着库走.前三条断言在这里恒为 0(这个仓库里没有应用源码可
 引用),留着是因为 `@/` 那条同时也是"库内不许用路径别名"的机器保证:
@@ -96,7 +128,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 7. `exports` 只指向 `index.ts` 与 `styles/`,内部路径不进公开面;
 8. 库里一次都没调用上游的批处理入口(更新路径不引调度器,见下).
 
-`boundary-baseline.json` 是分家那一刻的存档(八条全 0),现在由本仓库的
+`boundary_baseline.json` 是分家那一刻的存档(八条全 0),现在由本仓库的
 `npm test`(走 `pretest`)守着:任何一条变正,测试直接失败.
 
 ## 三条设计约束(改动前先读)
