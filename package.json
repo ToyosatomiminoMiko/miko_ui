@@ -1,6 +1,6 @@
 {
   "name": "miko_ui",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "GraphCalc 的通用 UI 库: DOM 原语 + 控件 + 布局 + 桌面窗口系统 + 主题",
   "license": "AGPL-3.0-or-later",
