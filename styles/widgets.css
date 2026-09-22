@@ -174,7 +174,6 @@
     min-width: 0;
     margin-right: auto;
     color: var(--color-text-muted);
-    cursor: pointer;
 }
 
 /* 名称后的小字提示(单位/说明) */
@@ -184,9 +183,18 @@
     white-space: nowrap;
 }
 
-/* 循环类系数:名字后的 ↻ 与这一抹高亮说明取值在圆周上(语义在控件里) */
-.slider-field.is-cyclic .slider-field-label {
-    color: var(--color-accent);
+/* 循环类系数:名字后那枚 `cyclic` 徽章,与应用里"类型"标签同一套观感
+   (浅底 + 深色字,胶囊形).名字本身**不**变色:语义标记只落在徽章上. */
+.slider-field-tag {
+    flex: 0 0 auto;
+    padding: 2px 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+    color: var(--color-badge-ink);
+    font-size: 10px;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
 }
 
 /* 数值框:固定宽,数字右对齐 */
@@ -207,15 +215,15 @@
     outline: none;
 }
 
-/* 重置按钮:占位一直保留(不做悬停才出现),否则鼠标扫过时行内控件会跳动;
+/* 重置按钮:文字就是 reset,宽度按内容给(滑块独占一行,不必为 22px 的图标
+   省地方);占位一直保留(不做悬停才出现),否则鼠标扫过时行内控件会跳动;
    已经停在目标值上时置灰,表示点了也没有变化. */
 .slider-field-reset {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
     height: 22px;
-    padding: 0;
+    padding: 0 10px;
     background: transparent;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-sm);

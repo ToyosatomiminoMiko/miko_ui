@@ -7,9 +7,9 @@
  * <div class="slider-field [is-cyclic]">       <- 根,样式由 .slider-field 一处控制
  *   <input class="slider-field-range" type="range">   <- 粗调(RangeInput)
  *   <div class="slider-field-meta">
- *     <label class="slider-field-label" for=滑杆>名称 <small>提示</small></label>
+ *     <label class="slider-field-label" for=滑杆>名称 <small>提示</small> <span class="slider-field-tag">cyclic</span></label>
  *     <input class="slider-field-value" type="number">  <- 精调(NumberField)
- *     <button class="slider-field-reset">↺</button>     <- 重置(Button)
+ *     <button class="slider-field-reset">reset</button>  <- 重置(Button)
  *   </div>
  * </div>
  * ```
@@ -68,7 +68,7 @@ export interface SliderOptions extends Omit<RangeInputOptions, 'ariaLabel'> {
     label: string;
     /** 名称后的小字提示(单位 / 说明);省略时不建那个 `<small>`. */
     hint?: string;
-    /** 循环类系数:名称后加 ↻,并给根节点加 `is-cyclic`(样式表据此高亮). */
+    /** 循环类系数:名称后挂一枚 `cyclic` 徽章,并给根节点加 `is-cyclic`. */
     cyclic?: boolean;
     /** 重置目标值;默认取建控件时 `value` 的值(声明值). */
     resetValue?: number;
@@ -139,18 +139,26 @@ export function createSlider(options: SliderOptions): SliderHandle {
     });
     const reset = createButton({
         class: 'slider-field-reset',
-        text: '↺',
+        text: 'reset',
         // 名字进 aria-label,目标值进 title:重置是"回到某个确定的值",点之前就该看到它是多少.
         title: `重置为 ${format(resetValue)}`,
         ariaLabel: `重置 ${options.label} 为 ${format(resetValue)}`,
     });
 
-    // 循环参数在名字后加 ↻:让"这个量在圆周上"在面板里可见.
+    // 循环参数在名字后挂一枚 `cyclic` 徽章(与应用里"类型"标签同一种观感):
+    // 让"这个量在圆周上"看得见,但**不**给名字本身换颜色.
+    // 名字与徽章之间那个空格只进可访问名(`<label for>` 的文本);flex 布局里
+    // 纯空白文本节点不渲染,视觉间距仍由 CSS 的 gap 给.
+    const tag = options.cyclic
+        ? create_element('span', { class: 'slider-field-tag' }, 'cyclic')
+        : null;
     const label = create_element(
         'label',
         { class: 'slider-field-label' },
-        options.cyclic ? `${options.label} ↻` : options.label,
+        options.label,
         options.hint === undefined ? null : create_element('small', {}, options.hint),
+        tag === null ? null : ' ',
+        tag,
     );
     label.htmlFor = range.input.id;
 

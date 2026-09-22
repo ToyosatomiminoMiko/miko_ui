@@ -2,7 +2,7 @@
  * 按钮控件(`<button type="button">`).
  *
  * 库内所有按钮的统一件.现在的消费者有五处:
- * - 参数行的重置(↺,`param-reset-btn`);
+ * - 系数滑块的重置(`reset`,`slider-field-reset`);
  * - 求值行末的"过程"(`row-process-btn`);
  * - 行末显隐(`row-visibility-btn`,见 `shared/rowDom.ts`);
  * - **窗口标题栏的控制按钮**(`window-control-btn`,见 `desktop/WindowFrame.ts`);
@@ -15,7 +15,7 @@
  * 用 `onClick(listener)` 注册.这样"建控件"与"接线"分开,回调也能引用尚未
  * 定义的闭包(如参数行里互相依赖的写值函数).
  *
- * 类名由调用方给(`param-reset-btn` / `row-visibility-btn` / `window-control-btn`),
+ * 类名由调用方给(`slider-field-reset` / `row-visibility-btn` / `window-control-btn`),
  * 样式仍归 CSS:库不替按钮决定长什么样(见 `styles/widgets.css` 的头).
  */
 import { create_element } from './dom';

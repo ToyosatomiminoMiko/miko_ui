@@ -302,10 +302,12 @@ describe('createSlider(系数滑块)', () => {
         expect(range.type).toBe('range');
         expect(meta.className).toBe('slider-field-meta');
         expect(label.className).toBe('slider-field-label');
+        // 普通参数没有 cyclic 徽章
+        expect(handle.label.querySelector('.slider-field-tag')).toBeNull();
         expect(numberInput.type).toBe('number');
         expect(reset.className).toBe('slider-field-reset');
         expect(reset.tagName).toBe('button');
-        expect(reset.textContent).toBe('↺');
+        expect(reset.textContent).toBe('reset');
         // 开局就在目标值上,重置按钮置灰
         expect(reset.disabled).toBe(true);
     });
@@ -332,13 +334,17 @@ describe('createSlider(系数滑块)', () => {
         expect(handle.reset.element.title).toBe('重置为 1');
     });
 
-    it('循环参数:名称带 ↻,根节点标 is-cyclic,文案带循环提示', () => {
-        const handle = createSlider({ ...BASE, value: 0, label: 'φ', cyclic: true });
+    it('循环参数:名称后挂 cyclic 徽章,根节点标 is-cyclic,文案带循环提示', () => {
+        const handle = createSlider({ ...BASE, value: 0, label: '方位角', cyclic: true });
+        const tag = handle.label.querySelector<HTMLElement>('.slider-field-tag');
 
         expect(handle.element.classList.contains('is-cyclic')).toBe(true);
-        expect(handle.label.textContent).toBe('φ ↻');
-        expect(handle.number.input.getAttribute('aria-label')).toBe('φ 数值(循环)');
-        expect(handle.reset.element.getAttribute('aria-label')).toBe('重置 φ 为 0');
+        expect(tag).not.toBeNull();
+        expect(tag?.textContent).toBe('cyclic');
+        // 名字不变色:语义标记只落在徽章上;空格只进可访问名.
+        expect(handle.label.textContent).toBe('方位角 cyclic');
+        expect(handle.number.input.getAttribute('aria-label')).toBe('方位角 数值(循环)');
+        expect(handle.reset.element.getAttribute('aria-label')).toBe('重置 方位角 为 0');
     });
 
     it('hint 落成名称后的小字;format 同时用于数值框与重置标题', () => {
@@ -436,8 +442,8 @@ describe('createSlider(系数滑块)', () => {
 describe('createButton', () => {
     it('永远是 type=button,类名/文案/可访问名/标题/禁用态按选项落地', () => {
         const handle = createButton({
-            class: 'param-reset-btn',
-            text: '↺',
+            class: 'slider-field-reset',
+            text: 'reset',
             ariaLabel: '重置 a 为 1',
             title: '重置为 1',
             disabled: true,
@@ -445,8 +451,8 @@ describe('createButton', () => {
 
         expect(handle.element.tagName).toBe('button');
         expect(handle.element.type).toBe('button');
-        expect(handle.element.className).toBe('param-reset-btn');
-        expect(handle.element.textContent).toBe('↺');
+        expect(handle.element.className).toBe('slider-field-reset');
+        expect(handle.element.textContent).toBe('reset');
         expect(handle.element.getAttribute('aria-label')).toBe('重置 a 为 1');
         expect(handle.element.title).toBe('重置为 1');
         expect(handle.element.disabled).toBe(true);
