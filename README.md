@@ -53,9 +53,9 @@ npm test              # 先跑边界守卫(pretest),再跑 vitest;不需要 Rust
 npm run build         # 产出 dist/(JS + .d.ts);消费者拿到的就是它
 ```
 
-改依赖后重建 `package-lock.json` 之前,先读 `RELEASING.md` §2.1:用
-`npm install --package-lock-only` 会丢掉跨平台可选依赖,而 CI 的 npm 11 会因此
-直接拒掉 `npm ci`(本地 npm 10 看不出来).
+改依赖后重建 `package-lock.json` 之前,先读 `.github/workflows/ci.yml` 顶部的
+"库侧依赖/交付契约":用 `npm install --package-lock-only` 会丢掉跨平台可选依赖,
+而 CI 的 npm 11 会因此直接拒掉 `npm ci`(本地 npm 10 看不出来).
 
 改完推到 `main` 就够了:消费者下次取库时会拿到(那边
 `bash scripts/fetch_ui.sh --update`,CI 则是干净 clone).交付方式与"什么算交付"

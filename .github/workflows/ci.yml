@@ -15,7 +15,38 @@ jobs:
   # 的证据.这条 job 是从 `miko_graphcalc` 的 deploy.yml 里搬过来的:库分出去
   # 之后,那边不再有库的源码,检查必须跟着库走.
   #
-  # 这里没有任何"发布"步骤:库不发 npm,交付方式就是消费者
+  # ==========================================================================
+  # 库侧的依赖/交付契约(这段注释是真身;应用侧那半在 miko_graphcalc 的
+  # scripts/fetch_ui.sh 顶部)
+  # --------------------------------------------------------------------------
+  # 为什么写在这里而不是写进 package.json:package.json 是严格 JSON,放不了注释;
+  # 而这个 workflow 正是下面每一条的**执行点** —— 违反哪条,红的就是这个 job.
+  #
+  # 1. 不发布 npm、不写版本号、不打 tag.没有 registry 包、没有 `publishConfig`、
+  #    没有 release workflow,`package.json` 里 `private: true`.库只服务一个消费
+  #    者(miko_graphcalc),还在 demo 期:版本号只是负债 —— 每改一次都要决定升哪
+  #    一位,而没有任何人依赖这个决定(取舍与归档见 RELEASING.md).
+  # 2. `scripts.prepare` 必须是 `npm run build`,不能删.这个 job 的顺序是
+  #    `npm ci` -> `typecheck` -> `test` -> `build`,而 `tsconfig.json` 把
+  #    `example/**` 也收进类型检查,example 又通过**包名自引用** `miko_ui`;那份
+  #    类型只来自 `dist/index.d.ts`(exports 指向产物).fresh clone 里 `dist/` 还
+  #    不存在,只能靠 `prepare` 在 `npm ci` 阶段先构建一次.删掉它的症状是一串
+  #    `example/main.ts(...): error TS7006: Parameter 'value' implicitly has an
+  #    'any' type` —— 看起来像 example 写错了,其实是产物没构建.
+  # 3. `package-lock.json` 只允许用**完整** `npm install` 重建.
+  #    `npm install --package-lock-only` 只按**当前平台**算理想树,会把跨平台可选
+  #    依赖(`lightningcss-*`、`@rolldown/binding-*` 等 22 条)从锁里丢掉.后果有
+  #    两个,而且总是一起发生:这个 job 的 `npm ci` 直接 EUSAGE(`Missing: ... from
+  #    lock file`),以及 miko_graphcalc 的 CI 连带失败(它的 preinstall 会在库目录
+  #    里跑同一个 `npm ci`).依赖没变、只是要重写元数据时,别重新解析,从历史里取
+  #    回完整的那份即可.
+  # 4. 本地与 CI 的 npm 不是同一个版本(本地 Node 22 带 npm 10,CI Node 24 带
+  #    npm 11),对锁的校验严格程度不同:第 3 条只有 npm 11 会拒,本地 npm 10 一路
+  #    绿.所以动过锁或依赖之后,交付前跑一次:
+  #        npx --yes npm@11 ci --no-audit --no-fund
+  # ==========================================================================
+  #
+  # 这里没有任何"发布"步骤:交付方式就是消费者
   # (`miko_graphcalc/scripts/fetch_ui.sh`)直接 clone 本仓库的 main 分支并构建.
   # 于是 CI 的职责只剩一条:保证 main 上永远是"能装、能查、能测、能构建"的形态.
   test:

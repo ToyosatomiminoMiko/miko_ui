@@ -68,44 +68,30 @@ git commit ... && git push origin main
 job。库自己的 CI(`.github/workflows/ci.yml`)只验一件事:推到 `main` 上的东西
 **装得上、查得过、测得过、构建得出来**。
 
-### 2.1 锁文件:重建只能用完整 `npm install`
+### 2.1 依赖/交付规则的真身不在本文档里
 
-**不要**用 `npm install --package-lock-only` 重建 `package-lock.json`。它只按
-**当前平台**算理想树,会把跨平台可选依赖(`lightningcss-*`、`@rolldown/binding-*`
-等 22 条)从锁里丢掉。npm 10 的 `npm ci` 不管这个,但 CI 用的 **npm 11 会直接
-EUSAGE 拒掉**,报一串 `Missing: ... from lock file` —— 而且应用仓库那条链也会跟着
-挂(它的 `preinstall` 会在库目录里跑同一个 `npm ci`)。
+这些规则以前抄在这里,但抄一遍就会漂移一次(这次 CI 双红就是这么来的):规则写在
+各自的**执行点**旁边,本文档只当索引。
 
-重建的两种正确做法:
+| 规则 | 真身在哪 |
+| --- | --- |
+| 不发布 npm / 不写版本号 / 不打 tag / `private: true` | `.github/workflows/ci.yml` 顶部第 1 条 |
+| `scripts.prepare` 必须留着(以及删了会报什么) | `.github/workflows/ci.yml` 顶部第 2 条 |
+| 锁只能用**完整** `npm install` 重建;npm 10 与 11 的差别 | `.github/workflows/ci.yml` 顶部第 3、4 条 |
+| 为什么 `prepare` 能救 typecheck(example 自引用包名,类型只在 `dist/`) | `tsconfig.json` 的 `include` 旁 |
+| 应用侧怎么取库:`file:` 链接、为什么否掉 npm / 归档 tarball / npm git 依赖 / submodule | `miko_graphcalc/scripts/fetch_ui.sh` 顶部 |
+| 为什么必须去重(`vi.mock` 拦不住、signal/effect 双注册表) | `miko_graphcalc/vite.config.ts` 的 `resolve.dedupe` |
 
-1. 依赖没变、只是要重写元数据:别重新解析,从历史里取回完整的那份;
-2. 依赖真的变了:在库目录里跑**完整** `npm install`(不加 `--package-lock-only`),
-   它会把每个平台的可选依赖都写进锁。
-
-自查就用 CI 同款的 npm 11:
+动过锁或依赖之后,交付前跑一次 CI 同款校验:
 
 ```sh
-npx --yes npm@11 ci --no-audit --no-fund     # 应当直接通过;EUSAGE 就是锁缺条目
+npx --yes npm@11 ci --no-audit --no-fund     # EUSAGE 就是锁缺跨平台条目
 ```
 
-> 为什么本地容易漏:本地 Node 22 带 npm 10,CI 是 Node 24 带 npm 11。两者对锁的
-> 校验严格程度不同,而 `npm ci` 只在 npm 11 下会拒。改依赖后请按上面那行验一次。
-
-### 2.2 `prepare` 为什么必须留着
-
-`"prepare": "npm run build"` 看着像发布设施,其实不是。CI 的顺序是
-`npm ci` → `typecheck` → `test` → `build`,而 `npm run typecheck` 用的
-`tsconfig.json` 把 `example/**` 也收进来了,example 又通过**包名自引用** `miko_ui`
-—— 那份类型只能来自 `dist/index.d.ts`。fresh clone 里 `dist/` 还不存在,所以必须
-靠 `prepare` 在 `npm ci` 阶段先构建一次。
-
-删掉它的后果不是"少构建一次",而是 typecheck 直接失败,报一串
-`example/main.ts(...): error TS7006: Parameter 'value' implicitly has an 'any' type`
-—— 看起来像 example 的代码写错了,其实是产物还没构建。
-
-> 代价:应用侧的 `scripts/fetch_ui.sh` 会在库的 `npm ci` 之后**再**跑一次
-> `npm run build`,于是构建两遍。这是刻意留的冗余 —— 那一遍保证"即使 `prepare`
-> 被跳过(`--ignore-scripts`)、或 `node_modules` 早就在,`dist/` 也一定是最新的"。
+> `prepare` 的代价顺带记一句:应用侧的 `scripts/fetch_ui.sh` 会在库的 `npm ci`
+> 之后**再**跑一次 `npm run build`,于是构建两遍。这是刻意留的冗余 —— 那一遍保证
+> "即使 `prepare` 被跳过(`--ignore-scripts`)、或 `node_modules` 早就在,`dist/`
+> 也一定是最新的"。
 
 ## 3. 应用侧怎么接
 

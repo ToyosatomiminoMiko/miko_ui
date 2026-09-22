@@ -33,6 +33,13 @@
      */
     "types": ["node"]
   },
+  /**
+   * `example/**` 也进类型检查:示例是"公开面够不够用"唯一的实测点.代价是
+   * example 通过**包名自引用** `miko_ui`,类型只能来自 `dist/index.d.ts`
+   * (exports 指向产物),所以 `npm run typecheck` 要求 `dist/` 已经构建好 ——
+   * 这正是 `package.json` 里 `prepare: npm run build` 必须留着的原因(那条规则
+   * 的执行点与失败症状写在 `.github/workflows/ci.yml` 顶部第 2 条).
+   */
   "include": ["src/**/*.ts", "test/**/*.ts", "example/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
