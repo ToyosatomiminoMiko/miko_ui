@@ -157,8 +157,8 @@ curl -s -H "Authorization: Bearer $TOKEN" https://registry.npmjs.org/-/npm/v1/to
 > 注意:npm 正在收紧"绕过 2FA 的 token"。从 2026 年 8 月起,bypass 只对**发布**有效,
 > 涉及账号身份与账号治理的操作(改邮箱、加维护者等)永远要求交互式 2FA。
 
-**C. 长远解法:干脆不用 token** —— 见 §4 的 Trusted Publishing,CI 发布完全绕开
-2FA 与 token 管理。
+**C. 长远解法:OIDC(Trusted Publishing)** —— 详见 §4。但要注意它**不是立刻可用
+的退路**:配置 Trusted Publisher 本身就要过 2FA,见 §4 开头的说明。
 
 ## 3. 之后每次发版
 
@@ -172,42 +172,70 @@ git push --follow-tags
 
 自动发(推荐):配好 §4 之后,`git push --follow-tags` 就是全部动作。
 
-## 4. CI 自动发布(推荐):Trusted Publishing
+## 4. CI 自动发布:推 tag 即发布
 
-`.github/workflows/release.yml`:推 `v*` tag 即发布,用 **Trusted Publishing
-(OIDC)**,仓库里**不存 token**,因此**根本不存在 2FA 那个 403**。
+`.github/workflows/release.yml`:推 `v*` tag 即发布。当前认证方式是存在仓库
+secret 里的 **Granular Access Token**(§4.1),不是 Trusted Publishing。
 
-官方硬要求(两条都卡死,少一条就失败):
+### 为什么不是 Trusted Publishing
 
-- **npm CLI >= 11.5.1** —— 低于它不会自动用 OIDC 换凭据。workflow 里有一
-  步显式 `npm install -g npm@^11.5.1` 兜底。
-- **Node >= 22.14.0** —— workflow 用 `node-version: "24"`。
-- 只支持 **GitHub 托管的 runner**(`ubuntu-latest`);self-hosted runner 目前不支持。
+它本来更好(无长期凭据 + 自动 provenance),但它要求你先在 npmjs.com 上配置
+Trusted Publisher,而**配置它属于 npm 的"账号治理操作":从 2026 年 8 月起,治理
+操作永远要求交互式 2FA,bypass-2FA token 在这里无效**(bypass 只对"发布"有效)。
 
-配置步骤:
+而 npm 的 2FA **不是验证器 App**,是 **WebAuthn 安全密钥**,官方原文:
 
-1. **先手动成功发布过一次** —— Trusted Publisher 的配置入口在 npmjs.com 的
-   "包设置"页里,包不存在就没有这一页(所以 §2 那一步绕不过去);
-2. npmjs.com → 包 `miko_ui` → Settings → **Trusted Publisher** → 选
-   **GitHub Actions**;
-3. 填三个必填项:
-   - Organization or user:`ToyosatomiminoMiko`
-   - Repository:`miko_ui`
-   - Workflow filename:`release.yml`(**只填文件名**,不含路径,必须带 `.yml`)
-   - Environment name:留空(除非你用 GitHub environment 做发布审批)
-4. 之后每次:
+> You will be prompted to authenticate with a security-key. The security-key flow
+> allows you to use biometric devices such as Apple Touch ID, Face ID or Windows
+> Hello as well as physical keys such as Yubikey, Thetis or Feitian.
+
+所以:有 Touch ID / Windows Hello(Mac/Windows)或硬件密钥 → 可以按 §4.2 升级到
+OIDC;没有(例如 Linux 桌面)——用 §4.1。Linux 对 WebAuthn 平台认证器支持很差。
+
+### 4.1 token 路线(当前采用)
+
+一次性配置:
+
+1. 建 token(同 §2.1 的 B):Granular Access Token,`Packages and scopes →
+   Read and write`,**勾上 Bypass two-factor authentication**;
+2. GitHub 仓库 → Settings → Secrets and variables → Actions → New repository
+   secret,名字 `NPM_TOKEN`,值填那个 token;
+3. 之后每次:
    ```bash
-   npm version patch          # 0.1.0 -> 0.1.1,自动 commit + 打 tag
+   npm version patch          # 0.1.0 → 0.1.1,自动 commit + 打 tag
    git push --follow-tags     # 触发 release.yml 自动发布
    ```
 
-**不要**在 workflow 里设 `NODE_AUTH_TOKEN` —— 设了会盖掉 OIDC 那条路。`id-token:
-write` 权限是必需的(已在 workflow 里)。
+代价与注意事项:
+
+- **没有 provenance 签名** —— provenance 只能由 OIDC 发布产生;
+- token 是长期凭据,存在 GitHub secret 里,拥有仓库 admin 权限的人都能取用;
+- **必须轮换**:当前 token 有效期到 2026-12-20,到期前换新的并更新 secret,
+  否则发布会在那天突然失败。
+
+### 4.2 有安全密钥时升级到 OIDC
+
+1. npm 头像 → Account → Enable 2FA,按 WebAuthn 流程绑定(Touch ID / Windows
+   Hello / 硬件密钥);
+2. npmjs.com → 包 `miko_ui` → Settings → **Trusted Publisher** → GitHub Actions,
+   填三个必填项:
+   - Organization or user:`ToyosatomiminoMiko`
+   - Repository:`miko_ui`
+   - Workflow filename:`release.yml`(**只填文件名**,不含路径,必须带 `.yml`)
+   - Environment name:**留空**。它是给"用 GitHub environment 做发布审批"的项目用
+     的;要填就必须和 workflow 里 job 的 `environment:` **字面完全一致**,否则
+     OIDC 声明对不上会失败;
+3. 改 `release.yml`:加回 `permissions: id-token: write`,删掉 publish 那步的
+   `env: NODE_AUTH_TOKEN`;
+4. 之后可以删掉 `NPM_TOKEN` secret,每个版本自动带 provenance。
+
+走 OIDC 时的官方硬要求:**npm CLI >= 11.5.1**、**Node >= 22.14.0**、只支持
+**GitHub 托管的 runner**(self-hosted 不支持)。
 
 发布成功后 npm 页面会显示 **provenance**:这个版本来自哪个仓库、哪个 commit、
-哪个 workflow。这就是"GitHub 与 npm 同步"最硬的形态——不需要你维护任何密钥。
+哪个 workflow。
 
-workflow 第一步会校验 tag 与 `package.json` 的版本号一致,不一致直接失败。
+workflow 里有一道 tag 与 `package.json` 版本号一致性的校验,不一致直接失败。
 
 > 仓库里现存的 `v0.1.0` tag 指向的是**改名之前**的形态,所以第一次自动发布要从
 > `v0.1.1`(或 `v0.2.0`)开始,不要复用 `v0.1.0`。
