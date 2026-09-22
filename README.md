@@ -8,25 +8,34 @@ GraphCalc 的网页 UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 +
 > `docs/ui-library-extraction-plan.md`(本文件的每一节都能在那份计划里找到
 > 出处).这份仓库是那个计划 P4 结束后的产物.
 
-## 安装
+## 取用:消费者 clone + 构建,不走 npm
 
-```bash
-npm install miko_ui
-# 用到公式件(FormulaView / FormulaCopyController)时再装它;不用可以不装
-npm install katex
-```
+本库**不发 npm**:没有 registry 包、没有 tarball、没有 tag、没有版本号.它目前
+完全为 [miko_graphcalc](https://github.com/ToyosatomiminoMiko/miko_graphcalc)
+服务,还没正式立项,所以也谈不上"发布".
 
-包是**纯 ESM + 自带类型声明**,装完直接用,不需要消费者再编译 `node_modules`:
+消费者那边的唯一入口是 `miko_graphcalc/scripts/fetch_ui.sh`:
+
+1. `packages/miko_ui` 不存在就 `git clone` 本仓库的 `main`(存在就复用,`--update`
+   才快进);
+2. 在库目录里 `npm ci` + `npm run build`,产出 `dist/`;
+3. 应用侧用一条本地依赖接进来 —— `"@miko/ui": "file:packages/miko_ui"`.
+
+于是应用里的 `import '@miko/ui'` 解析到的是**构建产物** `dist/index.js` +
+`dist/index.d.ts`(纯 ESM + 自带类型声明),消费者不需要再编译 `node_modules`:
 
 ```ts
-import { mountDesktop, signal } from 'miko_ui';
-import 'miko_ui/styles.css';          // token + 控件 + 桌面,一次全要
-// 或者按分组引:miko_ui/styles/tokens.css / widgets.css / desktop.css / editor.css
+import { mountDesktop, signal } from '@miko/ui';
+import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
+// 或者按分组引:@miko/ui/styles/tokens.css / widgets.css / desktop.css / editor.css
 ```
 
-运行时依赖只有 `@preact/signals-core` 一个;`katex` 是可选 peer,只有引公式件
-时才需要(它同时会在运行时引自己的 `katex/dist/katex.min.css`,所以用公式件时
-KaTeX 的样式不用你手动引).
+> `@miko/ui` 只是应用侧给这条 `file:` 依赖起的名字,目录里的包名仍是 `miko_ui`.
+> 公开面由 `package.json` 的 `exports` 定义,与包名无关.
+
+运行时依赖只有 `@preact/signals-core` 一个(装在库自己的 `node_modules` 里,由
+上面的构建步骤负责);`katex` 是可选 peer,只有引公式件时才需要(它同时会在运行时
+引自己的 `katex/dist/katex.min.css`,所以用公式件时 KaTeX 的样式不用你手动引).
 
 > **只面向打包器/浏览器**:`miko_ui` 的根入口会引 CSS,Node 原生 ESM 直接
 > `import 'miko_ui'` 会因为无法加载 `.css` 报 `ERR_UNKNOWN_FILE_EXTENSION`.
@@ -37,15 +46,16 @@ KaTeX 的样式不用你手动引).
 ## 开发这个库
 
 ```bash
-npm install
+npm ci                # 或 npm install
 npm run dev           # 起 example/(Vite 会打印实际端口)
 npm run typecheck
 npm test              # 先跑边界守卫(pretest),再跑 vitest;不需要 Rust 工具链
-npm run build         # 产出 dist/(JS + .d.ts);发版前由 prepack 自动跑
+npm run build         # 产出 dist/(JS + .d.ts);消费者拿到的就是它
 ```
 
-发版流程(含 npm org、Cloudflare 挡住网页时怎么注册、以及"不要只打 tag"这个坑)
-单独写在 `RELEASING.md` —— 那份文件不在 `files` 白名单里,不会被发布出去。
+改完推到 `main` 就够了:消费者下次取库时会拿到(那边
+`bash scripts/fetch_ui.sh --update`,CI 则是干净 clone).交付方式与"什么算交付"
+写在 `RELEASING.md`.
 
 ## 用起来是什么样
 
@@ -154,9 +164,14 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 表格件 / `Dialog`·`Toast` / `Tooltip`.它们是新功能而不是"分离"的前置条件,
 按普通排期补即可(该长成什么样取决于下一个真实消费者).
 
-## 发布
+## 交付
+
+不发 npm、不打 tag、不写版本号.交付 = 把 `main` 推到 GitHub:
 
 ```sh
-npm version patch          # 0.1.0 -> 0.1.1,自动 commit + 打 tag
-git push --follow-tags     # 触发 release.yml 自动发布
+git push origin main
 ```
+
+`miko_graphcalc` 的 `scripts/fetch_ui.sh` 会 clone(或 `--update` 快进)这个
+`main` 并在本地构建 `dist/`.为什么这么定、本地副本什么时候会被拒绝更新,见
+`RELEASING.md`.

@@ -1,7 +1,7 @@
 {
   "name": "miko_ui",
-  "version": "0.1.2",
   "type": "module",
+  "private": true,
   "description": "GraphCalc 的通用 UI 库: DOM 原语 + 控件 + 布局 + 桌面窗口系统 + 主题",
   "license": "AGPL-3.0-or-later",
   "keywords": [
@@ -39,16 +39,6 @@
   "sideEffects": [
     "**/*.css"
   ],
-  "files": [
-    "dist",
-    "styles",
-    "README.md",
-    "LICENSE"
-  ],
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
   "scripts": {
     "predev": "npm run build",
     "dev": "vite example",
@@ -57,11 +47,7 @@
     "build": "tsc -p tsconfig.build.json && node scripts/fix_esm_specifiers.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "pretest": "node scripts/check_ui_boundary.mjs",
-    "test": "vitest run",
-    "check:registry": "node scripts/check_registry_sync.mjs",
-    "prepack": "npm run build",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm run typecheck && npm test"
+    "test": "vitest run"
   },
   "peerDependencies": {
     "katex": "^0.18.5"
