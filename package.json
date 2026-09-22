@@ -47,7 +47,8 @@
     "build": "tsc -p tsconfig.build.json && node scripts/fix_esm_specifiers.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "pretest": "node scripts/check_ui_boundary.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepare": "npm run build"
   },
   "peerDependencies": {
     "katex": "^0.18.5"

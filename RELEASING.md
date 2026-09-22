@@ -68,6 +68,45 @@ git commit ... && git push origin main
 job。库自己的 CI(`.github/workflows/ci.yml`)只验一件事:推到 `main` 上的东西
 **装得上、查得过、测得过、构建得出来**。
 
+### 2.1 锁文件:重建只能用完整 `npm install`
+
+**不要**用 `npm install --package-lock-only` 重建 `package-lock.json`。它只按
+**当前平台**算理想树,会把跨平台可选依赖(`lightningcss-*`、`@rolldown/binding-*`
+等 22 条)从锁里丢掉。npm 10 的 `npm ci` 不管这个,但 CI 用的 **npm 11 会直接
+EUSAGE 拒掉**,报一串 `Missing: ... from lock file` —— 而且应用仓库那条链也会跟着
+挂(它的 `preinstall` 会在库目录里跑同一个 `npm ci`)。
+
+重建的两种正确做法:
+
+1. 依赖没变、只是要重写元数据:别重新解析,从历史里取回完整的那份;
+2. 依赖真的变了:在库目录里跑**完整** `npm install`(不加 `--package-lock-only`),
+   它会把每个平台的可选依赖都写进锁。
+
+自查就用 CI 同款的 npm 11:
+
+```sh
+npx --yes npm@11 ci --no-audit --no-fund     # 应当直接通过;EUSAGE 就是锁缺条目
+```
+
+> 为什么本地容易漏:本地 Node 22 带 npm 10,CI 是 Node 24 带 npm 11。两者对锁的
+> 校验严格程度不同,而 `npm ci` 只在 npm 11 下会拒。改依赖后请按上面那行验一次。
+
+### 2.2 `prepare` 为什么必须留着
+
+`"prepare": "npm run build"` 看着像发布设施,其实不是。CI 的顺序是
+`npm ci` → `typecheck` → `test` → `build`,而 `npm run typecheck` 用的
+`tsconfig.json` 把 `example/**` 也收进来了,example 又通过**包名自引用** `miko_ui`
+—— 那份类型只能来自 `dist/index.d.ts`。fresh clone 里 `dist/` 还不存在,所以必须
+靠 `prepare` 在 `npm ci` 阶段先构建一次。
+
+删掉它的后果不是"少构建一次",而是 typecheck 直接失败,报一串
+`example/main.ts(...): error TS7006: Parameter 'value' implicitly has an 'any' type`
+—— 看起来像 example 的代码写错了,其实是产物还没构建。
+
+> 代价:应用侧的 `scripts/fetch_ui.sh` 会在库的 `npm ci` 之后**再**跑一次
+> `npm run build`,于是构建两遍。这是刻意留的冗余 —— 那一遍保证"即使 `prepare`
+> 被跳过(`--ignore-scripts`)、或 `node_modules` 早就在,`dist/` 也一定是最新的"。
+
 ## 3. 应用侧怎么接
 
 ```json
@@ -81,9 +120,13 @@ job。库自己的 CI(`.github/workflows/ci.yml`)只验一件事:推到 `main` �
 
 两个容易踩的点:
 
-1. **库的运行时依赖 `@preact/signals-core` 装在库自己的 `node_modules` 里**。
-   `file:` 链接不会把它提升到应用根目录,所以"取库 + 构建"这一步必须真的执行
-   (脚本会做);只把目录拷过来而没有 `node_modules` 的库会让应用构建报模块找不到。
+1. **库的运行时依赖 `@preact/signals-core` 会出现两份**:库自己的 `node_modules`
+   (构建库时 `npm ci` 装的那份)一份,npm 为 `file:` 链接在应用根目录提升的一份。
+   库产物里的 `import` 会就近解析到库自己那份,所以"取库 + 构建"这一步必须真的
+   执行(脚本会做),只把目录拷过来而没有 `node_modules` 的库会让应用构建报模块
+   找不到;应用的 `vite.config.ts` 再靠 `resolve.dedupe` 把
+   `@preact/signals-core` 与 `katex` 钉成一份,免得两个实例让 signal/effect 各记
+   一套订阅者。
 2. **`dist/` 必须在应用 typecheck / vite build 之前存在**。这就是取库脚本放在
    `preinstall` 的原因:它的执行时机早于 npm 解析 `file:` 依赖。
 

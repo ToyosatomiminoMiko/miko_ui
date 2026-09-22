@@ -46,12 +46,16 @@ import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
 ## 开发这个库
 
 ```bash
-npm ci                # 或 npm install
+npm ci                # 或 npm install(会跑 prepare,先产出一次 dist/)
 npm run dev           # 起 example/(Vite 会打印实际端口)
 npm run typecheck
 npm test              # 先跑边界守卫(pretest),再跑 vitest;不需要 Rust 工具链
 npm run build         # 产出 dist/(JS + .d.ts);消费者拿到的就是它
 ```
+
+改依赖后重建 `package-lock.json` 之前,先读 `RELEASING.md` §2.1:用
+`npm install --package-lock-only` 会丢掉跨平台可选依赖,而 CI 的 npm 11 会因此
+直接拒掉 `npm ci`(本地 npm 10 看不出来).
 
 改完推到 `main` 就够了:消费者下次取库时会拿到(那边
 `bash scripts/fetch_ui.sh --update`,CI 则是干净 clone).交付方式与"什么算交付"
