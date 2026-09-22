@@ -41,8 +41,9 @@
   ],
   "scripts": {
     "clean": "node scripts/clean.mjs",
-    "build": "npm run clean && tsc -p tsconfig.build.json && npm run typecheck",
-    "dev": "npm run build && vite example",
+    "build:dist": "npm run clean && tsc -p tsconfig.build.json",
+    "build": "npm run build:dist && npm run typecheck && npm test",
+    "dev": "npm run build:dist && vite example",
     "typecheck": "tsc --noEmit --noUnusedLocals --noUnusedParameters -p tsconfig.json",
     "test": "node scripts/check_ui_boundary.mjs && vitest run",
     "prepare": "npm run build"

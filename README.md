@@ -52,19 +52,30 @@ import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
 ## 开发这个库
 
 ```bash
-npm ci                # 或 npm install(会跑 prepare,先产出一次 dist/)
-npm run dev           # 构建 + 起 example/(Vite 会打印实际端口)
+npm ci                # 或 npm install(会跑 prepare -> 完整的 npm run build)
+npm run dev           # 只产出 dist/ 再起 example/(不跑检查,开发循环快)
 npm run typecheck     # tsconfig.json:src + test + example,带 noUnusedLocals/Parameters
 npm test              # 边界守卫 + vitest;不需要 Rust 工具链
-npm run build         # clean + tsc 产出 dist/(JS + .d.ts),再跑 typecheck;消费者拿到的就是它
+npm run build         # 生产闸门:= build:dist + typecheck + test,全绿再推
+npm run build:dist    # 只 clean + tsc 产出 dist/(给 dev 用的裸构建)
 ```
 
-`build` 里 `typecheck` 排在**产出之后**,不是笔误:`tsconfig.json` 收了
-`example/**`,而 example 通过包名自引用 `miko_ui`,类型只来自 `dist/index.d.ts`
-(exports 指向产物).先 `clean` 再查类型,只会查出一串"找不到模块"的假错误.
+`build` = **推生产前那一条**:`build:dist`(clean + tsc 写 `dist/`)→ `typecheck`
+(src + test + example)→ `test`(边界守卫 + vitest).它绿了就代表"能构建 + 类型全对 +
+测全绿",CI 与消费者脚本跑的是同一条.
+
+`build:dist` 是里面的裸构建(`dev` 用它,跳过检查换启动速度);`build` 只是把它和
+检查串起来 —— 想知道"只产出产物"和"产物 + 检查"分别是什么,看这两条就够.
+
+`typecheck` 排在**产出之后**不是笔误:`tsconfig.json` 收了 `example/**`,而 example
+通过包名自引用 `miko_ui`,类型只来自 `dist/index.d.ts`(exports 指向产物).先
+`clean` 再查类型,只会查出一串"找不到模块"的假错误.
+
+代价是 `prepare` = `npm run build`,所以 `npm ci` 会顺带跑一遍检查;`fetch_ui.sh`
+在产物已最新时根本不进这一步,只有真的要构建时才付这份时间.
 
 每一条只做命令里写出来的事:没有 `pre*` 隐式钩子(唯一的例外是 `prepare`,它是
-npm 的生命周期,`npm ci` 会顺带构建一次 `dist/` —— 原因见下面"边界契约").
+npm 的生命周期 —— 原因见下面"边界契约").
 
 改依赖后重建 `package-lock.json` 之前,先读 `.github/workflows/ci.yml` 顶部的
 "库侧依赖/交付契约":用 `npm install --package-lock-only` 会丢掉跨平台可选依赖,
