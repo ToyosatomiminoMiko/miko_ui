@@ -54,10 +54,14 @@ import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
 ```bash
 npm ci                # 或 npm install(会跑 prepare,先产出一次 dist/)
 npm run dev           # 构建 + 起 example/(Vite 会打印实际端口)
-npm run typecheck
+npm run typecheck     # tsconfig.json:src + test + example,带 noUnusedLocals/Parameters
 npm test              # 边界守卫 + vitest;不需要 Rust 工具链
-npm run build         # clean + tsc,产出 dist/(JS + .d.ts);消费者拿到的就是它
+npm run build         # clean + tsc 产出 dist/(JS + .d.ts),再跑 typecheck;消费者拿到的就是它
 ```
+
+`build` 里 `typecheck` 排在**产出之后**,不是笔误:`tsconfig.json` 收了
+`example/**`,而 example 通过包名自引用 `miko_ui`,类型只来自 `dist/index.d.ts`
+(exports 指向产物).先 `clean` 再查类型,只会查出一串"找不到模块"的假错误.
 
 每一条只做命令里写出来的事:没有 `pre*` 隐式钩子(唯一的例外是 `prepare`,它是
 npm 的生命周期,`npm ci` 会顺带构建一次 `dist/` —— 原因见下面"边界契约").
