@@ -60,7 +60,7 @@ export interface NumberFieldOptions {
  * 数字框句柄.
  *
  * 与其它控件同一个句柄形状:`element` = 插进行里的根节点,`input` = 原生输入框.
- * 本控件的根就是那个 `<input>`,所以两者同节点 -- `SliderHandle` 也是这样.
+ * 本控件的根就是那个 `<input>`,所以两者同节点 -- `RangeInputHandle` 也是这样.
  */
 export interface NumberFieldHandle {
     /** 根节点,插到行里用这个.与 `input` 同节点. */

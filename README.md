@@ -138,7 +138,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | --- | --- |
 | `dom/` | `create_element` / `childNodes`(`Child` 类型)、`DomRoot` 与 `rootDocument`(root 注入)、`runLegacyEditorCommand` |
 | `reactive/` | `signal` / `computed` / `effect` / `derivedSignal` / `onValueChange` / `isSignal` / `ValueSource` 工具 |
-| `widgets/` | `Button` `Switch` `Segmented` `Slider` `NumberField` `Popover`,以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
+| `widgets/` | `Button` `Switch` `Segmented` `RangeInput`(裸滑杆)、`Slider`(系数滑块:名称 + 滑杆 + 数值框 + 重置按钮)、`NumberField` `Popover`,以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
 | `shared/` | 键盘唯一出口 `KeyboardController`、唯一拖拽实现 `bindDragGesture`、行缓存 `KeyedRowList`、`numberText`、行外壳 `rowDom` |
 | `desktop/` | `mountDesktop`、`WindowManager` / `WindowFrame` / `WindowGeometry` / `WindowResize` / `Dock` / `SnapPreview`、`windowSlotsProvider`、桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
 | `editor/` | `CodeEditor`(建整套编辑器外壳)、`EditorLineNumbers` / `EditorHighlight`(分词与槽宽由消费者注入)、`HIGHLIGHT_ENABLED_CLASS` |

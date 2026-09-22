@@ -13,7 +13,7 @@ npm run dev             # Vite 会打印实际端口
 | --- | --- |
 | `mountDesktop(root, spec)` | 宿主由库建:`index.html` 只有一个空 `#app`,窗口层 / 吸附预览 / Dock / 每个窗口的外壳都是它按配置建的。窗口清单只换 `windows`,其余照用 `DEFAULT_DESKTOP_CONFIG`。 |
 | `signal(50)` | 两个窗口共享的唯一状态。 |
-| `createSlider({ value })` | 窗口「滑块」里唯一的输入,拖它写 signal。 |
+| `createSlider({ value, label })` | 窗口「滑块」里唯一的输入:名称 + 滑杆 + 数值框 + 重置组合成一条参数行,拖它写 signal。 |
 | `watchValue(value, …)` | 窗口「数字」订阅同一个 signal,把值写进那个只读数字。 |
 
 控件与展示件**互不认识**:滑块只知道往 signal 里写,数字只知道读 signal。

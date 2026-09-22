@@ -235,7 +235,7 @@ export class StubElement {
      * `input.type` 是**反射**属性:`input.type = 'number'` 与
      * `setAttribute('type', 'number')` 在真 DOM 里改的是同一处.
      *
-     * 三个控件都靠属性写法定类型(`createSwitch` / `createSlider` 的 range /
+     * 三个控件都靠属性写法定类型(`createSwitch` / `createRangeInput` 的 range /
      * `createNumberField` 的 number);桩里分成两个字段的话,
      * `querySelector('input[type="number"]')` 与 `getAttribute('type')` 就会
      * 读不到控件设进去的类型 -- 而 `styles/widgets.css` 正是按

@@ -65,6 +65,7 @@ describe('Slider', () => {
             min: 0,
             max: 1,
             step: 0.1,
+            label: '值',
         });
 
         value.value = 0.8;

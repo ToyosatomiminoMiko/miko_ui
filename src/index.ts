@@ -21,6 +21,7 @@ export * from './widgets/dom';
 export * from './widgets/Button';
 export * from './widgets/Switch';
 export * from './widgets/Segmented';
+export * from './widgets/RangeInput';
 export * from './widgets/Slider';
 export * from './widgets/NumberField';
 export * from './widgets/Popover';

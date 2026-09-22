@@ -31,13 +31,13 @@ if (!root) throw new Error('example/index.html 缺少 #app');
 const RANGE = { min: 0, max: 100, step: 1 } as const;
 const value = signal(50);
 
-// ── 窗口一:滑块(唯一的输入)──────────────────────────────────────────────
+// ── 窗口一:系数滑块(名称 + 滑杆 + 数值框 + 重置,唯一的输入)────────────
 const slider = createSlider({
     value,
     min: RANGE.min,
     max: RANGE.max,
     step: RANGE.step,
-    ariaLabel: '数值',
+    label: '数值',
 });
 
 // ── 窗口二:数字(只读显示,订阅同一个 signal)────────────────────────────

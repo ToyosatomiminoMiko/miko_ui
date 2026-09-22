@@ -7,7 +7,8 @@
  *   .control-row           "文字 + 控件"的行
  *   .control-toggle-group  行内小开关组(X/Y/Z 标签,网格 XZ/XY/YZ)
  *   .segmented             分段按钮组(单选);列数由 --segmented-columns 给
- *   .switch / .slider      开关
+ *   .switch / .slider      开关(圆钮那个 span 沿用 .slider 这个历史类名)
+ *   .slider-field          系数滑块(名称 + 滑杆 + 数值框 + 重置按钮)
  *
  * 按钮**不在**这张表里:`createButton` 不设默认类名,它的 class 由调用方给
  * (`.param-reset-btn` / `.row-visibility-btn` …),所以样式跟着消费者走;库这边
@@ -125,6 +126,118 @@
 .switch input:checked + .slider::before {
     transform: translateX(18px);
     background: var(--color-accent);
+}
+
+/* ==========================================================================
+ * 系数滑块(名称 + 滑杆 + 数值框 + 重置按钮)
+ * --------------------------------------------------------------------------
+ * 布局参考 metro_window 的 `settings.ts`:`<div class="slider-field">` 内部固定
+ * 两层 -- 上层滑杆,下层"名称(左) + 数值(右) + 重置(最右)".
+ * 内边距/间距/圆角/底色/宽度都只在这根节点上控制,消费方不再逐处拼样式.
+ *
+ * 只写结构,颜色一律 var(--...);数值框宽度给 CSS 变量留了出口,消费方覆盖即可:
+ *   --slider-field-value-width   数值框宽度(默认 76px)
+ * ========================================================================== */
+
+.slider-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-fill-inset);
+    font-size: 12px;
+    color: var(--color-text);
+}
+
+/* 滑杆:吃掉整行宽度,窄容器里也能收缩(min-width:0) */
+.slider-field-range {
+    width: 100%;
+    min-width: 0;
+    accent-color: var(--color-accent);
+    cursor: pointer;
+}
+
+/* 下层:名称在左,数值与重置贴右(名称的 margin-right:auto 把后两者顶过去) */
+.slider-field-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.slider-field-label {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    margin-right: auto;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+/* 名称后的小字提示(单位/说明) */
+.slider-field-label small {
+    color: var(--color-text-faint);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+/* 循环类系数:名字后的 ↻ 与这一抹高亮说明取值在圆周上(语义在控件里) */
+.slider-field.is-cyclic .slider-field-label {
+    color: var(--color-accent);
+}
+
+/* 数值框:固定宽,数字右对齐 */
+.slider-field-value {
+    flex: none;
+    width: var(--slider-field-value-width, 76px);
+    text-align: right;
+    background: var(--color-bg-sunken);
+    color: var(--color-text-strong);
+    border: 1px solid var(--color-border-input);
+    border-radius: var(--radius-sm);
+    padding: 4px 6px;
+    font-size: 12px;
+}
+
+.slider-field-value:focus {
+    border-color: var(--color-accent-border);
+    outline: none;
+}
+
+/* 重置按钮:占位一直保留(不做悬停才出现),否则鼠标扫过时行内控件会跳动;
+   已经停在目标值上时置灰,表示点了也没有变化. */
+.slider-field-reset {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.slider-field-reset:hover:not(:disabled) {
+    color: var(--color-text-strong);
+    border-color: var(--color-accent-border);
+}
+
+.slider-field-reset:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.slider-field-reset:focus-visible {
+    outline: 2px solid var(--color-accent-focus);
+    outline-offset: 1px;
 }
 
 /* ==========================================================================

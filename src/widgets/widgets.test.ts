@@ -11,10 +11,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub, StubElement } from '../../test/domStub';
+import { signal } from '../reactive';
 import { createButton } from './Button';
 import { create_element } from './dom';
 import { createNumberField } from './NumberField';
 import { createPopover } from './Popover';
+import { createRangeInput, DEFAULT_RANGE } from './RangeInput';
 import {
     createControlGroup,
     createInlineToggle,
@@ -236,9 +238,9 @@ describe('createNumberField', () => {
     });
 });
 
-describe('createSlider', () => {
+describe('createRangeInput(裸滑杆)', () => {
     it('写进 min/max/step/id,初值即 value', () => {
-        const handle = createSlider({ value: 1, min: 0, max: 5, step: 0.1 });
+        const handle = createRangeInput({ value: 1, min: 0, max: 5, step: 0.1 });
 
         expect(handle.input.type).toBe('range');
         expect(handle.input.min).toBe('0');
@@ -248,9 +250,17 @@ describe('createSlider', () => {
         expect(handle.get()).toBe(1);
     });
 
+    it('省略 min/max/step 时落到 DEFAULT_RANGE', () => {
+        const handle = createRangeInput({ value: 0.5 });
+
+        expect(handle.input.min).toBe(String(DEFAULT_RANGE.min));
+        expect(handle.input.max).toBe(String(DEFAULT_RANGE.max));
+        expect(handle.input.step).toBe(String(DEFAULT_RANGE.step));
+    });
+
     it('拖动回调收到数值;程序化 set 不回调;dispose 后不再回调', () => {
         const seen: number[] = [];
-        const handle = createSlider({ value: 1, min: 0, max: 5, step: 0.1 });
+        const handle = createRangeInput({ value: 1, min: 0, max: 5, step: 0.1 });
         handle.onInput((value) => seen.push(value));
 
         handle.input.value = '2.5';
@@ -264,6 +274,162 @@ describe('createSlider', () => {
         handle.dispose();
         stub(handle.input).dispatch('input');
         expect(seen).toEqual([2.5]);
+    });
+});
+
+describe('createSlider(系数滑块)', () => {
+    const BASE = { value: 1, min: 0, max: 5, step: 0.1, label: 'a' } as const;
+
+    /** 根 -> [滑杆, meta];meta -> [名称, 数值框, 重置]. */
+    function parts(handle: ReturnType<typeof createSlider>): {
+        range: StubElement;
+        meta: StubElement;
+        label: StubElement;
+        numberInput: StubElement;
+        reset: StubElement;
+    } {
+        const [range, meta] = stub(handle.element).children as StubElement[];
+        const [label, numberInput, reset] = meta.children as StubElement[];
+        return { range, meta, label, numberInput, reset };
+    }
+
+    it('产出 .slider-field 结构:滑杆在上,meta 里是名称/数值/重置', () => {
+        const handle = createSlider({ ...BASE });
+        const { range, meta, label, numberInput, reset } = parts(handle);
+
+        expect(handle.element.className).toBe('slider-field');
+        expect(range).toBe(stub(handle.input));
+        expect(range.type).toBe('range');
+        expect(meta.className).toBe('slider-field-meta');
+        expect(label.className).toBe('slider-field-label');
+        expect(numberInput.type).toBe('number');
+        expect(reset.className).toBe('slider-field-reset');
+        expect(reset.tagName).toBe('button');
+        expect(reset.textContent).toBe('↺');
+        // 开局就在目标值上,重置按钮置灰
+        expect(reset.disabled).toBe(true);
+    });
+
+    it('省略 min/max/step 时,滑杆与数值框共用 DEFAULT_RANGE 这一份区间', () => {
+        const handle = createSlider({ value: 0.5, label: 'k' });
+
+        expect(handle.input.min).toBe(String(DEFAULT_RANGE.min));
+        expect(handle.input.max).toBe(String(DEFAULT_RANGE.max));
+        expect(handle.input.step).toBe(String(DEFAULT_RANGE.step));
+        expect(handle.number.input.min).toBe(String(DEFAULT_RANGE.min));
+        expect(handle.number.input.max).toBe(String(DEFAULT_RANGE.max));
+        expect(handle.number.input.step).toBe(String(DEFAULT_RANGE.step));
+    });
+
+    it('label 通过 for 关联滑杆;数值框与重置各有独立可访问名', () => {
+        const handle = createSlider({ ...BASE });
+
+        expect(handle.label.htmlFor).toBe(handle.input.id);
+        expect(handle.label.textContent).toBe('a');
+        expect(handle.number.input.id).not.toBe(handle.input.id);
+        expect(handle.number.input.getAttribute('aria-label')).toBe('a 数值');
+        expect(handle.reset.element.getAttribute('aria-label')).toBe('重置 a 为 1');
+        expect(handle.reset.element.title).toBe('重置为 1');
+    });
+
+    it('循环参数:名称带 ↻,根节点标 is-cyclic,文案带循环提示', () => {
+        const handle = createSlider({ ...BASE, value: 0, label: 'φ', cyclic: true });
+
+        expect(handle.element.classList.contains('is-cyclic')).toBe(true);
+        expect(handle.label.textContent).toBe('φ ↻');
+        expect(handle.number.input.getAttribute('aria-label')).toBe('φ 数值(循环)');
+        expect(handle.reset.element.getAttribute('aria-label')).toBe('重置 φ 为 0');
+    });
+
+    it('hint 落成名称后的小字;format 同时用于数值框与重置标题', () => {
+        const handle = createSlider({
+            ...BASE,
+            value: 1.25,
+            resetValue: 1.25,
+            hint: '倍',
+            format: (value) => value.toFixed(2),
+        });
+
+        const { label } = parts(handle);
+        expect(label.textContent).toBe('a倍');
+        expect((label.children[1] as StubElement).tagName).toBe('small');
+        expect(handle.number.readText()).toBe('1.25');
+        expect(handle.reset.element.title).toBe('重置为 1.25');
+    });
+
+    it('拖动滑杆写回值源,数值框与 get() 同步', () => {
+        const value = signal(1);
+        const handle = createSlider({ ...BASE, value });
+        const seen: number[] = [];
+        handle.onInput((next) => seen.push(next));
+
+        handle.input.value = '2.5';
+        stub(handle.input).dispatch('input');
+
+        expect(value.peek()).toBe(2.5);
+        expect(handle.get()).toBe(2.5);
+        expect(handle.number.readText()).toBe('2.5');
+        expect(seen).toEqual([2.5]);
+    });
+
+    it('数值框按 normalize 写回,input 阶段保留用户文本,change 才落回归一化文本', () => {
+        const value = signal(1);
+        const handle = createSlider({
+            ...BASE,
+            value,
+            normalize: (raw) => Math.min(5, Math.max(0, raw)),
+        });
+
+        handle.number.writeText('9');
+        stub(handle.number.input).dispatch('input');
+        // 值已经归一化写回,文本仍是用户打到一半的样子
+        expect(value.peek()).toBe(5);
+        expect(handle.number.readText()).toBe('9');
+        expect(handle.input.value).toBe('5');
+
+        stub(handle.number.input).dispatch('change');
+        expect(handle.number.readText()).toBe('5');
+    });
+
+    it('重置回到目标值:值与文本一起还原,按钮随之置灰', () => {
+        const value = signal(1);
+        const handle = createSlider({ ...BASE, value });
+
+        handle.input.value = '3.5';
+        stub(handle.input).dispatch('input');
+        expect(handle.reset.element.disabled).toBe(false);
+
+        stub(handle.reset.element).dispatch('click');
+        expect(value.peek()).toBe(1);
+        expect(handle.input.value).toBe('1');
+        expect(handle.number.readText()).toBe('1');
+        expect(handle.reset.element.disabled).toBe(true);
+    });
+
+    it('输入框被清空时值没变,按钮仍可用(文本也要能恢复)', () => {
+        const handle = createSlider({ ...BASE });
+
+        handle.number.writeText('');
+        stub(handle.number.input).dispatch('input');
+        expect(handle.reset.element.disabled).toBe(false);
+
+        stub(handle.reset.element).dispatch('click');
+        expect(handle.number.readText()).toBe('1');
+        expect(handle.reset.element.disabled).toBe(true);
+    });
+
+    it('dispose 解绑全部子控件', () => {
+        const value = signal(1);
+        const handle = createSlider({ ...BASE, value });
+        const seen: number[] = [];
+        handle.onInput((next) => seen.push(next));
+
+        handle.dispose();
+        handle.input.value = '4';
+        stub(handle.input).dispatch('input');
+        stub(handle.reset.element).dispatch('click');
+        expect(seen).toEqual([]);
+        expect(value.peek()).toBe(1);
     });
 });
 

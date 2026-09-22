@@ -57,7 +57,7 @@ export interface SegmentedHandle<T extends string> {
     /**
      * 程序化选中.
      *
-     * 与 `SwitchHandle.set` / `SliderHandle.set` 同一条约定:**只改控件本身,
+     * 与 `SwitchHandle.set` / `RangeInputHandle.set` 同一条约定:**只改控件本身,
      * 不触发 `onChange`,也不写回值源** -- 用户操作的语义归 `onChange`,状态
      * 该由调用方写 signal.绑了 signal 时这一写会在下次值源变化时被拉回.
      */
