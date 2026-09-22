@@ -353,3 +353,28 @@ archive 里**没有 `dist/`**(`dist/` 在 `.gitignore` 里),而 `exports` 现在
 `src/formula/FormulaView.ts` 里那一行,改由消费者自己引 katex 的样式;代价是
 `miko_graphcalc` 那边要补一行 `import 'katex/dist/katex.min.css'`。属于跨仓库的
 行为变更,没做。
+
+## 7. 怎么知道 GitHub 与 npm 两边同步没有
+
+```bash
+npm run check:registry          # 检查 package.json 当前版本
+npm run check:registry 0.1.0    # 检查指定版本
+```
+
+`scripts/check_registry_sync.mjs` 做三道检查,退出码 0/1:
+
+1. **整包哈希**:本地 `npm pack` 的 integrity vs registry 的 `dist.integrity`。
+   实测 npm 打包是**确定的**(同一份代码连打两次哈希相同,tarball 内 mtime 被归一化
+   到 1985-10-26),所以哈希相同就是逐字节相同。
+2. **逐文件 sha256**:哈希不同时解包线上 tarball 逐文件比,直接指出哪几个文件不一样。
+   **内容是判定依据,打包字节不是** —— 不同 npm 版本打出来的字节可能不同,所以
+   "内容全同、只是哈希不同"算通过。
+3. **git 对应关系**:工作区是否干净、HEAD 是否正好在 `v<版本>` 这个 tag 上。前两道
+   只证明"npm == 我本地这份文件",这一道才把它接到"GitHub 上的哪个提交"。
+
+**为什么需要这道检查**:走 token 路线时 npm 上**没有 provenance 签名**,不存在任何
+密码学证据能把"某个 npm 版本"绑到"某个 git commit"。要那种证据只能用 OIDC(§4.2)。
+
+**一个必须记住的现实**:README、注释这类改动也要**发新版本**才会同步到 npm —— 线上
+那份是发布那一刻的快照,本地再改多少都不会自动跟过去。`check:registry` 抓到的
+"内容不同:README.md"通常就是这么来的。

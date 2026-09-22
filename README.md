@@ -153,3 +153,10 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 附录 B.2 列的 7 类补件:`TextField` / `Menu` / `Splitter` / `ScrollArea` /
 表格件 / `Dialog`·`Toast` / `Tooltip`.它们是新功能而不是"分离"的前置条件,
 按普通排期补即可(该长成什么样取决于下一个真实消费者).
+
+## 发布
+
+```sh
+npm version patch          # 0.1.0 -> 0.1.1,自动 commit + 打 tag
+git push --follow-tags     # 触发 release.yml 自动发布
+```
