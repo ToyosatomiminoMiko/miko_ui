@@ -34,6 +34,13 @@
 | `styles/` | 五份 CSS(exports 的 `./styles*`) |
 | `LICENSE` | AGPL-3.0-or-later,跟着产物一起分发 |
 
+清单里还有一个**由打包脚本写入**的字段:`gitHead` = 打这份包的 commit.库不写版本号,
+消费侧就靠它回答"我缓存的这份是不是最新发布的" —— 拿它比 `ui-latest` tag 指向的
+commit,不一致就重取.本地工作树有未提交改动时写的是 `<sha>-dirty`,那个值不等于
+任何 tag,所以消费侧会把它当"不是最新"而重取发布产物(这正是想要的:本地试验包不该
+被当成交付版本).`ci.yml` 的 dry-run 与 `release.yml` 的交付验收都会断言它等于
+本次构建的 commit.
+
 ### 1.1 清单为什么必须是"生成"的
 
 **`scripts` 绝不能进资产**。`npm install` 装 `file:` 链接的包时,会先跑目标清单里
@@ -55,7 +62,6 @@
 推到 `main` 就够了:
 
 ```sh
-cd packages/miko_ui
 npm run build          # 本地先跑同一条闸门(build:dist -> typecheck -> 边界守卫 -> vitest)
 npm run release:pack   # 可选:本地把资产打出来看一眼
 git commit ... && git push origin main
@@ -67,10 +73,10 @@ git commit ... && git push origin main
    构建只跑一次;闸门就是那条显式的 `npm run build`(与 `ci.yml` 同一条);
 2. `npm run release:pack` —— 产出 `release/miko_ui_dist.tar.gz`;
 3. `gh release create`(首次)或 `gh release upload --clobber`(之后)把它挂到
-   `ui-latest`;资产先就位、再把 tag 挪到本次 commit(这样 `git ls-remote --tags`
-   能对上"资产是哪一版");
-4. **验收**:从消费者用的那个公开 URL 重新下载一次,比对 sha256,并打印 release
-   页面与资产大小。
+   `ui-latest`;资产先就位、再把 tag 挪到本次 commit(`git ls-remote --tags` 能
+   对上"资产是哪一版",消费侧就是拿这个 tag 比资产清单里的 `gitHead`);
+4. **验收**:从消费者用的那个公开 URL 重新下载一次,比对 sha256 **并核对清单里的
+   `gitHead` 就是本次构建的 commit**,然后打印 release 页面与资产大小。
 
 为什么是"覆盖"而不是"删掉 release 再建":消费者取的是固定 URL,中间那段 404 窗口
 会让他们的 `preinstall` 直接失败。
@@ -92,7 +98,8 @@ git commit ... && git push origin main
    `npm ci` 反复跑是廉价的;
 3. **没有"clone 源码并本地构建"的回退**:拿不到资产就明确失败,并打印 release
    页面、期望 URL、手动下载与放置步骤。要靠本地源码构建排查库的问题时,去库仓库
-   (或相邻工作副本 `miko_graphcalc/packages/miko_ui`)跑 `npm run build:dist`。
+   (或它的本地工作副本;本机现在在 `/mnt/IVSTINIANVS/__projects_web/miko_ui`,
+   独立仓库,不在 `miko_graphcalc` 里)跑 `npm run build:dist`。
 
 消费侧脚本里可覆盖的变量(`MIKO_UI_REPO` / `MIKO_UI_RELEASE` / `MIKO_UI_ASSET` /
 `MIKO_UI_ASSET_URL` / `MIKO_UI_ASSET_FILE` / `MIKO_UI_DIR`)在两个仓库的

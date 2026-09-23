@@ -25,8 +25,9 @@ https://github.com/ToyosatomiminoMiko/miko_ui/releases/download/ui-latest/miko_u
 
 main 每次推送后,`.github/workflows/release.yml` 把包根(`dist/` + `styles/` +
 `LICENSE` + **运行期清单** `package.json`)打成 `miko_ui_dist.tar.gz` 挂到 tag
-`ui-latest`;消费者的 `scripts/fetch_ui.sh` 下载 -> 校验 -> 解开到
-`.cache/miko_ui/current`,再用一条本地依赖接进来:
+`ui-latest`;清单里的 `gitHead` 记着构建它的那个 commit,消费者的
+`scripts/fetch_ui.sh` 每次构建拿它比 `ui-latest` 指向的 commit(落后就自动重取),
+然后下载 -> 校验 -> 解开到 `.cache/miko_ui/current`,再用一条本地依赖接进来:
 
 ```json
 "@miko/ui": "file:.cache/miko_ui/current"
@@ -222,7 +223,7 @@ release `ui-latest`,并从**消费者用的那个公开 URL** 重新下载验一
 应用仓库的 `scripts/fetch_ui.sh` 取的就是这份资产.本地想先看一眼资产:
 
 ```sh
-npm run release:pack   # -> release/miko_ui_dist.tar.gz(清单、内容、sha256 都打在日志里)
+npm run release:pack   # -> release/miko_ui_dist.tar.gz(清单含 gitHead、内容、sha256 都打在日志里)
 ```
 
 为什么这么定、怎么强制重出、将来怎么固定/回滚,见 `RELEASING.md`.

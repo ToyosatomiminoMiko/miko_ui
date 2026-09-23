@@ -14,6 +14,14 @@
  *     styles/        <- 五份 CSS(exports 的 `./styles*`)
  *     LICENSE        <- AGPL-3.0-or-later,跟着产物一起分发
  *
+ * 其中清单里的 `gitHead` 是**本脚本写进去的**:这一份资产是哪个 commit 构建的.
+ * 库不写版本号,消费侧的 `fetch_ui.sh` 每次构建都要回答"我缓存的这份是不是最新
+ * 发布的":它拿 `ui-latest` tag 指向的 commit 当"最新",可这个 tag 是在资产
+ * **上传之后**才被强推过去的(见 `release.yml`),所以"下载的那一瞬 tag 指哪"并
+ * 不等于"资产是哪个 commit 建的".把 commit 写进资产,这件事就只剩两串 sha 的
+ * 相等比较.取不到 commit 时本脚本**直接失败** —— 一份说不清自己是什么的资产,
+ * 比没有资产更坏(消费侧会把它当"不是最新",每次构建重下一遍).
+ *
  * 为什么清单必须**重新生成**而不是照抄 `package.json`:
  *
  *   - `scripts` 绝不能带.`npm install` 装 `file:` 链接的包时会先跑它的
@@ -35,7 +43,8 @@
  *
  * 退出码:0 = 资产已就绪(并打印清单、tar 内容、sha256);非 0 = 明确失败.
  * 打出的 tar 是**可复现**的(排序 + 归零 mtime/uid/gid),所以内容不变则 sha256
- * 不变 —— 消费者缓存的"这一份对应哪个 commit"因此可以被人核对.
+ * 不变 —— 同一个 commit 打两次,`gitHead` 也一样,消费者缓存的"这一份对应哪个
+ * commit"因此可以被人核对(`.miko-ui-source` 那张纸条 + 清单里的 `gitHead`).
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -84,6 +93,10 @@ const RUNTIME_FIELDS = [
     'optionalDependencies',
     'peerDependencies',
     'peerDependenciesMeta',
+    // 不来自仓库的 package.json,由本脚本生成(见文件头):值是**构建 commit**.
+    // 列在这里只是为了让"白名单外字段直接失败"那条规则不误伤仓库清单里万一存在
+    // 的 gitHead(npm publish 会自己写这个字段);它的值一律被下面覆盖.
+    'gitHead',
 ];
 
 /**
@@ -107,6 +120,49 @@ const fail = (msg) => {
     console.error(`[PACK][ERROR] ${msg}`);
     process.exit(1);
 };
+
+/**
+ * 这一份资产是哪个 commit 构建的 —— 写进清单的 `gitHead`(npm 的既有字段,语义
+ * 就是"打这个包时所在的 commit").消费侧靠它判断"缓存是不是最新",见文件头.
+ *
+ *   - CI 里用 `GITHUB_SHA`:它就是本次构建的 commit,工作树脏不脏与它无关
+ *     (构建产物本来就在工作树里生成,而且构建产物全是 gitignore 的);
+ *   - 本地用 `git rev-parse HEAD`;有**未提交改动**时(只看已跟踪文件)标成
+ *     `<sha>-dirty`:本地打出来的包不对应任何 commit,这个值永远不等于 tag 指向
+ *     的 sha,消费侧会把它当"不是最新"重取发布产物 —— 正是想要的;
+ *   - 两种都拿不到就失败:一份说不清自己是什么的资产比没有资产更坏.
+ */
+function resolveGitHead() {
+    const git = (args) => {
+        try {
+            return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+        } catch {
+            return '';
+        }
+    };
+
+    const fromCI = (process.env.GITHUB_SHA ?? '').trim();
+    if (/^[0-9a-f]{40}$/.test(fromCI)) {
+        return fromCI;
+    }
+
+    const sha = git(['rev-parse', 'HEAD']);
+    if (!/^[0-9a-f]{40}$/.test(sha)) {
+        fail(
+            '取不到构建 commit(`GITHUB_SHA` 不是 40 位 sha,`git rev-parse HEAD` 也没结果);' +
+                'gitHead 是消费侧判断"缓存是不是最新"的唯一依据,不能缺 —— ' +
+                '请在 GitHub Actions 里跑,或在一个 git 工作树里跑',
+        );
+    }
+    if (git(['status', '--porcelain', '--untracked-files=no']) !== '') {
+        log(
+            `注意:工作树有未提交改动,gitHead 记成 ${sha}-dirty` +
+                '(它不等于任何 tag,消费侧会重取发布产物)',
+        );
+        return `${sha}-dirty`;
+    }
+    return sha;
+}
 
 /** 必须存在的产物入口;缺一个就说明 `npm run build` 没跑或跑挂了. */
 async function checkBuildOutput() {
@@ -134,13 +190,17 @@ async function checkBuildOutput() {
  * 未知顶层字段**直接失败**,不静默丢弃:白名单漏了新字段时,症状会是"资产里
  * 少了它",那太晚了.错误信息里直接说该往哪张表加.
  */
-function buildRuntimeManifest(pkg) {
+function buildRuntimeManifest(pkg, gitHead) {
     const manifest = {};
     for (const field of RUNTIME_FIELDS) {
         if (field in pkg) {
             manifest[field] = pkg[field];
         }
     }
+
+    // 由本脚本生成,不从仓库清单抄(见 resolveGitHead):这份资产是哪个 commit
+    // 构建的.仓库清单里即使已经有 gitHead(npm publish 会写),也一律覆盖.
+    manifest.gitHead = gitHead;
 
     const known = new Set([...RUNTIME_FIELDS, ...BUILD_ONLY_FIELDS]);
     const unknown = Object.keys(pkg).filter((field) => !known.has(field));
@@ -165,6 +225,9 @@ function buildRuntimeManifest(pkg) {
             fail(`生成出来的清单里不该有 ${forbidden}`);
         }
     }
+    if (!/^[0-9a-f]{40}(-dirty)?$/.test(manifest.gitHead ?? '')) {
+        fail(`生成出来的清单 gitHead 是 ${JSON.stringify(manifest.gitHead)},不是 commit sha`);
+    }
     return manifest;
 }
 
@@ -185,9 +248,11 @@ function createTarball() {
 }
 
 const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
-const manifest = buildRuntimeManifest(pkg);
+const gitHead = resolveGitHead();
+const manifest = buildRuntimeManifest(pkg, gitHead);
 await checkBuildOutput();
 
+log(`gitHead:${gitHead}(这份资产是哪个 commit 构建的)`);
 log('运行期清单(就是要放进资产的那份):');
 log(JSON.stringify(manifest, null, 2));
 

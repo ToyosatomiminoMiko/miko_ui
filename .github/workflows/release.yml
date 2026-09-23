@@ -18,7 +18,7 @@ name: Release
 # **这个 job 绿了、资产挂上了,库里改的东西才算交付出去**:main 上的源码本身
 # 不再是交付形态(消费者机器上没有 TypeScript,也不构建库).
 #
-# 四条不变量,违反哪条这里都会红:
+# 五条不变量,违反哪条这里都会红:
 #   1. 资产由 `scripts/pack_release.mjs` 生成,清单是**运行期清单**,不带
 #      `scripts`.原因:npm 装 `file:` 链接的包时会先跑目标的 `prepare`(实测
 #      npm 10.9.8),而资产里没有 `scripts/` 也没有 devDependencies,那一步必然
@@ -33,6 +33,10 @@ name: Release
 #      "删掉 release 再建" —— 那中间有一段 404 窗口,消费者的 preinstall 会失败.
 #   4. 发布只在 `main` 上跑;打包这件事本身在每个 PR/推送上由 `ci.yml` 的
 #      dry-run 步骤先验一遍,坏掉的清单不该等到发布才发现.
+#   5. 资产**自证 commit**:清单里的 `gitHead` 必须等于本次构建的 `GITHUB_SHA`
+#      (由 `pack_release.mjs` 写入).消费侧的 `fetch_ui.sh` 每次构建拿它比
+#      `ui-latest` tag 指向的 commit,落后就自动重取 —— 所以 tag 必须指向
+#      "资产里的那个 commit",下面的交付验收会从公开 URL 下回来的那份里核一次.
 #
 # 回滚怎么办:现在是滚动 tag,没有历史版本可挑.真要固定/回滚时,给某次 commit
 # 补一个版本 tag 并把资产也挂上去,消费侧把 `MIKO_UI_RELEASE` 指过去即可 ——
@@ -150,6 +154,22 @@ jobs:
             echo "::error::验收失败:公开 URL 下到的 ${ASSET_NAME} 与本地 sha256 不一致"
             exit 1
           fi
+
+          # 交付验收之二:资产清单里的 gitHead 必须就是本次构建的 commit.
+          # 这一条专供消费侧的"缓存是不是最新":它拿 gitHead 比 `ui-latest` tag
+          # 指向的 commit,所以"资产里的 commit"与"tag 指向的 commit"必须同一个;
+          # 只有在**公开 URL 下回来的那份**上验过,才算真的对得上.
+          tar -xzOf verify.tar.gz ./package.json > verify.package.json
+          node -e '
+            const manifest = require("./verify.package.json");
+            if (manifest.gitHead !== process.env.GITHUB_SHA) {
+              console.error(
+                `::error::资产清单 gitHead(${manifest.gitHead})与本次构建 commit(${process.env.GITHUB_SHA})不一致`,
+              );
+              process.exit(1);
+            }
+            console.log(`验收通过:资产 gitHead = ${manifest.gitHead}`);
+          '
 
           gh release view "$TAG" --json url,assets \
             --jq '.url, (.assets[] | "  \(.name)  \(.size) 字节")'

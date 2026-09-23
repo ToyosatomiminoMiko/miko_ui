@@ -29,6 +29,11 @@ jobs:
   # 1.1 发布 job 的"执行点"在 `release.yml` 顶部;那个文件只管 main 上的发布,
   #    所以打包本身在这里也 dry-run 一遍(下面的 "Pack release asset"):让
   #    "清单漏进 scripts"/"资产打不出来"在合入前就红,而不是等发布时才发现.
+  # 1.2 资产必须**自证 commit**:清单里的 `gitHead` = 构建它的那个 commit(打包
+  #    脚本写入;本地工作树脏时是 `<sha>-dirty`).消费侧的 `fetch_ui.sh` 每次
+  #    构建拿它比 `ui-latest` tag 指向的 commit,判断缓存是不是最新,落后就自动
+  #    重取.下面的 dry-run 断言它等于本次构建的 commit,`release.yml` 的交付
+  #    验收还会从公开 URL 下回来的那份里再核一次.
   # 2. `scripts.prepare` 必须是 `npm run build`,不能删.这个 job 的顺序是
   #    `npm ci`(prepare -> `npm run build`)-> `npm run build` -> 产物检查,
   #    而 `tsconfig.json` 把 `example/**` 也收进类型检查,example 又通过
@@ -110,4 +115,8 @@ jobs:
             if (manifest.devDependencies) throw new Error("资产清单里带了 devDependencies");
             if (manifest.name !== "miko_ui") throw new Error("资产清单 name 不是 miko_ui");
             if (!manifest.exports?.["."]) throw new Error("资产清单缺 exports[\".\"]");
+            if (!/^[0-9a-f]{40}$/.test(manifest.gitHead ?? "")) throw new Error("资产清单缺 gitHead:消费侧靠它判断缓存是不是最新");
+            if (process.env.GITHUB_SHA && manifest.gitHead !== process.env.GITHUB_SHA) {
+              throw new Error(`资产清单 gitHead(${manifest.gitHead})与本次构建 commit(${process.env.GITHUB_SHA})不一致`);
+            }
           '
