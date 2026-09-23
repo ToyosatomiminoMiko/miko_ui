@@ -71,7 +71,7 @@ import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
 npm ci                # 或 npm install(会跑 prepare -> 完整的 npm run build)
 npm run dev           # 只产出 dist/ 再起 example/(不跑检查,开发循环快)
 npm run typecheck     # tsconfig.json:src + test + example,带 noUnusedLocals/Parameters
-npm test              # 边界守卫 + vitest;不需要 Rust 工具链
+npm test              # 边界守卫 + vitest
 npm run build         # 生产闸门:= build:dist + typecheck + test,全绿再推
 npm run build:dist    # 只 clean + tsc 产出 dist/(给 dev 用的裸构建)
 ```
@@ -228,7 +228,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 - 组件测试用库自带的 DOM 桩:`test/domStub.ts`(从应用侧复制一份,分家期间
   两边同步维护)与 `test/desktopFixture.ts`(窗口配置夹具).
 - 库的测试**不引用应用源码**:`npm test` 在库里单独跑得绿,是"UI 与计算真的
-  解耦了"最直接的证据(库的 job 不需要 wasm 工具链).
+  解耦了"最直接的证据(库的 job 只用 Node 就能跑).
 
 ## 还没做的
 

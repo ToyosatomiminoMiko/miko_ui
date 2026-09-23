@@ -300,11 +300,13 @@ describe('createSlider(系数滑块)', () => {
         expect(handle.element.className).toBe('slider-field');
         expect(range).toBe(stub(handle.input));
         expect(range.type).toBe('range');
+        expect(range.className).toBe('slider-field-range');
         expect(meta.className).toBe('slider-field-meta');
         expect(label.className).toBe('slider-field-label');
         // 普通参数没有 cyclic 徽章
         expect(handle.label.querySelector('.slider-field-tag')).toBeNull();
         expect(numberInput.type).toBe('number');
+        expect(numberInput.className).toBe('slider-field-value');
         expect(reset.className).toBe('ui-button slider-field-reset');
         expect(reset.tagName).toBe('button');
         expect(reset.textContent).toBe('reset');

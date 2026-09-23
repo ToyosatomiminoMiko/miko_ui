@@ -5,10 +5,10 @@
  *
  * ```text
  * <div class="slider-field [is-cyclic]">       <- 根,样式由 .slider-field 一处控制
- *   <input type="range">                       <- 粗调(RangeInput,自身不设类名)
+ *   <input class="slider-field-range" type="range">   <- 粗调(RangeInput,类名由本件挂上)
  *   <div class="slider-field-meta">
  *     <label class="slider-field-label" for=滑杆>名称 <small>提示</small> <span class="slider-field-tag">cyclic</span></label>
- *     <input type="number">                    <- 精调(NumberField,自身不设类名)
+ *     <input class="slider-field-value" type="number">  <- 精调(NumberField,类名由本件挂上)
  *     <button class="ui-button slider-field-reset">reset</button>  <- 重置(Button)
  *   </div>
  * </div>
@@ -138,6 +138,9 @@ export function createSlider(options: SliderOptions): SliderHandle {
         // 可见 label 关联的是滑杆(一行里那个大热区);数值框单独命名.
         ariaLabel: options.cyclic ? `${options.label} 数值(循环)` : `${options.label} 数值`,
     });
+    // 两个 input 的定位类名由本件挂上:RangeInput/NumberField 是裸件,外观交给复合件.
+    range.element.classList.add('slider-field-range');
+    number.input.classList.add('slider-field-value');
     const reset = createButton({
         class: 'slider-field-reset',
         text: 'reset',
