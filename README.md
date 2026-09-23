@@ -6,13 +6,13 @@
 GraphCalc 的 Web UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 + 桌面窗口系统 +
 编辑器外壳 + 主题**.它从应用里抽出来,只保留"结构与交互".
 
-> 抽取过程、每个决策的理由与全部去耦合项见原仓库 `miko_graphcalc` 里的
+> 抽取过程,每个决策的理由与全部去耦合项见原仓库 `miko_graphcalc` 里的
 > `docs/ui-library-extraction-plan.md`(本文件的每一节都能在那份计划里找到
 > 出处).这份仓库是那个计划 P4 结束后的产物.
 
 ## 取用:消费者下载 release 产物,不走 npm
 
-本库**不发 npm**:没有 registry 包、没有 `npm publish`、没有版本号.它同时服务
+本库**不发 npm**:没有 registry 包,没有 `npm publish`,没有版本号.它同时服务
 [miko_graphcalc](https://github.com/ToyosatomiminoMiko/miko_graphcalc) 与
 [ToyosatomiminoMiko.github.io](https://github.com/ToyosatomiminoMiko/ToyosatomiminoMiko.github.io)
 两个应用仓库,两边拿的是同一份产物.
@@ -50,17 +50,17 @@ import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
 需要(它同时会在运行时引自己的 `katex/dist/katex.min.css`,所以用公式件时 KaTeX
 的样式不用你手动引).**应用侧自己声明这两个依赖**:资产里没有 `node_modules`,
 而且"`file:` 链接的传递依赖装不装"取决于目标目录在不在应用根内(npm 实测:根内会
-装、根外不装).把它写成应用自己的依赖,行为才不依赖这个细节,也才能保证全程只有
-一份实例 —— 两个应用仓库都是这么写的.
+装,根外不装).把它写成应用自己的依赖,行为才不依赖这个细节,也才能保证全程只有
+一份实例 -- 两个应用仓库都是这么写的.
 
 > **只面向打包器/浏览器**,两条原因(都与"不发 npm"有关,见 `RELEASING.md`):
 >
 > 1. 根入口会引 CSS(`formula/FormulaView` 引 `katex/dist/katex.min.css`),Node
 >    原生 ESM 加载不了 `.css`(`ERR_UNKNOWN_FILE_EXTENSION`);
-> 2. 库内写无扩展名相对导入(`from './reactive'`),`tsc` 原样输出 —— 只有打包器
+> 2. 库内写无扩展名相对导入(`from './reactive'`),`tsc` 原样输出 -- 只有打包器
 >    的解析器会补 `.js` / `/index.js`,Node 原生 ESM 会 `ERR_MODULE_NOT_FOUND`.
 >
-> Vite / webpack / Next / Rollup 都没问题(它们既解析无扩展名、又把 CSS 当资源).
+> Vite / webpack / Next / Rollup 都没问题(它们既解析无扩展名,又把 CSS 当资源).
 > 要在 Node 侧做 SSR 或单元测试,请让测试环境带 CSS 处理(如 Vitest).**没有**
 > "在 Node 里只引具体子模块"这条路:`exports` 只暴露根入口与 `styles/`,内部路径
 > 不是公开面(见下面的"边界契约"第 7 条).
@@ -76,22 +76,29 @@ npm run build         # 生产闸门:= build:dist + typecheck + test,全绿再�
 npm run build:dist    # 只 clean + tsc 产出 dist/(给 dev 用的裸构建)
 ```
 
-`build` = **推生产前那一条**:`build:dist`(clean + tsc 写 `dist/`)→ `typecheck`
-(src + test + example)→ `test`(边界守卫 + vitest).它绿了就代表"能构建 + 类型全对 +
+`build` = **推生产前那一条**:`build:dist`(clean + tsc 写 `dist/`)-> `typecheck`
+(src + test + example)-> `test`(边界守卫 + vitest).它绿了就代表"能构建 + 类型全对 +
 测全绿",CI 与消费者脚本跑的是同一条.
 
 `build:dist` 是里面的裸构建(`dev` 用它,跳过检查换启动速度);`build` 只是把它和
-检查串起来 —— 想知道"只产出产物"和"产物 + 检查"分别是什么,看这两条就够.
+检查串起来 -- 想知道"只产出产物"和"产物 + 检查"分别是什么,看这两条就够.
 
 `typecheck` 排在**产出之后**不是笔误:`tsconfig.json` 收了 `example/**`,而 example
 通过包名自引用 `miko_ui`,类型只来自 `dist/index.d.ts`(exports 指向产物).先
 `clean` 再查类型,只会查出一串"找不到模块"的假错误.
 
-代价是 `prepare` = `npm run build`,所以 `npm ci` 会顺带跑一遍检查(本仓库自己、
-以及出 release 资产的 CI 都会付这份时间;消费侧不构建库,所以不受影响).
+代价是 `prepare` = `npm run build && git config --local core.hooksPath .githooks`,
+所以 `npm ci` 会顺带跑一遍检查(本仓库自己,以及出 release 资产的 CI 都会付这份
+时间;消费侧不构建库,所以不受影响).末尾那条只做一件小事:把 `core.hooksPath`
+设成版本库里的 `.githooks/`,让提交前自动跑 `scripts/autorun.py` 转换全角标点
+(详见该文件顶部注释),它要求当前目录是 git 仓库 -- 开发 clone 与 CI 的 checkout
+都满足;发布资产里没有 `scripts` 字段,消费侧根本不会跑到 `prepare`.
+
+提交前那次转换是就地改写工作区文件,再自动 `git add` 回暂存区,所以 `git status`
+未必看得到差异.临时跳过某次提交用 `git commit --no-verify`.
 
 每一条只做命令里写出来的事:没有 `pre*` 隐式钩子(唯一的例外是 `prepare`,它是
-npm 的生命周期 —— 原因见下面"边界契约").
+npm 的生命周期 -- 原因见下面"边界契约").
 
 改依赖后重建 `package-lock.json` 之前,先读 `.github/workflows/ci.yml` 顶部的
 "库侧依赖/交付契约":用 `npm install --package-lock-only` 会丢掉跨平台可选依赖,
@@ -171,22 +178,22 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 | 分组 | 内容 |
 | --- | --- |
-| `dom/` | `create_element` / `childNodes`(`Child` 类型)、`DomRoot` 与 `rootDocument`(root 注入) |
+| `dom/` | `create_element` / `childNodes`(`Child` 类型),`DomRoot` 与 `rootDocument`(root 注入) |
 | `reactive/` | `signal` / `computed` / `effect` / `derivedSignal` / `onValueChange` / `isSignal` / `ValueSource` 工具 |
-| `widgets/` | `Button` `Switch` `Segmented` `RangeInput`(裸滑杆)、`Slider`(系数滑块:名称 + 滑杆 + 数值框 + 重置按钮)、`NumberField` `Popover`,以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
-| `shared/` | 键盘唯一出口 `KeyboardController`、唯一拖拽实现 `bindDragGesture`、行缓存 `KeyedRowList`、`numberText`、行外壳 `rowDom` |
-| `desktop/` | `mountDesktop`、`WindowManager` / `WindowFrame` / `WindowGeometry` / `WindowResize` / `Dock` / `SnapPreview`、`windowSlotsProvider`、桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
-| `editor/` | `CodeEditor`(建整套编辑器外壳)、`EditorLineNumbers` / `EditorHighlight`(分词与槽宽由消费者注入)、`HIGHLIGHT_ENABLED_CLASS` |
+| `widgets/` | `Button` `Switch` `Segmented` `RangeInput`(裸滑杆),`Slider`(系数滑块:名称 + 滑杆 + 数值框 + 重置按钮),`NumberField` `Popover`,以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
+| `shared/` | 键盘唯一出口 `KeyboardController`,唯一拖拽实现 `bindDragGesture`,行缓存 `KeyedRowList`,`numberText`,行外壳 `rowDom` |
+| `desktop/` | `mountDesktop`,`WindowManager` / `WindowFrame` / `WindowGeometry` / `WindowResize` / `Dock` / `SnapPreview`,`windowSlotsProvider`,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
+| `editor/` | `CodeEditor`(建整套编辑器外壳),`EditorLineNumbers` / `EditorHighlight`(分词与槽宽由消费者注入),`HIGHLIGHT_ENABLED_CLASS` |
 | `feedback/` | `MessageList`(错误/警告列表,零领域依赖) |
-| `formula/` | `createFormulaElement`(KaTeX;`katex` 是**可选** peer)、`FormulaCopyController` |
-| `theme/` | `applyTheme(root, tokens)`、`DEFAULT_THEME_TOKENS` |
-| `styles/` | `tokens.css`(默认主题,最先加载)、`widgets.css`、`desktop.css`、`styles.css`(总入口) |
+| `formula/` | `createFormulaElement`(KaTeX;`katex` 是**可选** peer),`FormulaCopyController` |
+| `theme/` | `applyTheme(root, tokens)`,`DEFAULT_THEME_TOKENS` |
+| `styles/` | `tokens.css`(默认主题,最先加载),`widgets.css`,`desktop.css`,`styles.css`(总入口) |
 
 ## 边界契约(有机器守,不靠自觉)
 
 `npm test` 先跑 `scripts/check_ui_boundary.mjs`(八条断言),再跑 vitest;两条
 都写在 `test` 脚本里,不是隐式钩子.这份脚本跟着库从 `miko_graphcalc` 搬了过来
-—— 库分出去之后,那边不再有库的源码,检查必须跟着库走.前三条断言在这里恒为
+-- 库分出去之后,那边不再有库的源码,检查必须跟着库走.前三条断言在这里恒为
 0(这个仓库里没有应用源码可引用),留着是因为 `@/` 那条同时也是"库内不许用路径
 别名"的机器保证:
 
@@ -210,11 +217,11 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 1. **响应式层是薄封装**:消费者看不到 `@preact/signals-core`;换实现不该是
    破坏性变更.
-2. **不用批处理、不引调度器**:`effect` 同步执行(`set()` 返回时订阅者已经跑
-   完),所以库的更新路径不依赖 rAF/微任务 —— 这也是那套 900 行手写 DOM 桩
+2. **不用批处理,不引调度器**:`effect` 同步执行(`set()` 返回时订阅者已经跑
+   完),所以库的更新路径不依赖 rAF/微任务 -- 这也是那套 900 行手写 DOM 桩
    还能继续用的前提.
-3. **`root` 注入**:建节点、挂全局监听都从调用方给的 root 走,不读全局
-   `document` / `window`;同页两个实例、嵌进别人的页面、Shadow DOM 都靠这一条.
+3. **`root` 注入**:建节点,挂全局监听都从调用方给的 root 走,不读全局
+   `document` / `window`;同页两个实例,嵌进别人的页面,Shadow DOM 都靠这一条.
 
 ## 测试
 
@@ -231,7 +238,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 ## 交付
 
-不发 npm、不写版本号.交付 = 把 `main` 推到 GitHub:
+不发 npm,不写版本号.交付 = 把 `main` 推到 GitHub:
 
 ```sh
 git push origin main
@@ -242,7 +249,7 @@ release `ui-latest`,并从**消费者用的那个公开 URL** 重新下载验一
 应用仓库的 `scripts/fetch_ui.sh` 取的就是这份资产.本地想先看一眼资产:
 
 ```sh
-npm run release:pack   # -> release/miko_ui_dist.tar.gz(清单含 gitHead、内容、sha256 都打在日志里)
+npm run release:pack   # -> release/miko_ui_dist.tar.gz(清单含 gitHead,内容,sha256 都打在日志里)
 ```
 
-为什么这么定、怎么强制重出、将来怎么固定/回滚,见 `RELEASING.md`.
+为什么这么定,怎么强制重出,将来怎么固定/回滚,见 `RELEASING.md`.

@@ -47,7 +47,7 @@
     "typecheck": "tsc --noEmit --noUnusedLocals --noUnusedParameters -p tsconfig.json",
     "test": "node scripts/check_ui_boundary.mjs && vitest run",
     "release:pack": "node scripts/pack_release.mjs",
-    "prepare": "npm run build"
+    "prepare": "npm run build && git config --local core.hooksPath .githooks"
   },
   "peerDependencies": {
     "katex": "^0.18.5"

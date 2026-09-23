@@ -35,10 +35,6 @@ import { createSnapPreview, type SnapPreviewHandle } from './SnapPreview';
 
 /**
  * 窗口状态.
- *
- * 只有三种:没有真正的进程可关,`closed` 与 `minimized` 是同一件事(藏起来),
- * `fullscreen` 与 `maximized` 的区别也只剩"遮不遮顶部任务栏"--而任务栏不该被
- * 遮,所以后两者连同对应动作一起删掉了.
  */
 export type WindowState = 'normal' | 'maximized' | 'minimized';
 
@@ -60,7 +56,7 @@ export type WindowContent = Partial<Record<WindowSlot, readonly Child[]>>;
  *
  * 正文节点是**搬过来的,不是重建的**(监听/状态/引用都不能丢),库只负责把
  * `.window-body` 建好再 `append`.正文容器由库自己建,所以消费者不再需要事先在
- * HTML 里写一个带 id 的宿主(D1) —— `index.html` 因此能缩到一个 `#app`.
+ * HTML 里写一个带 id 的宿主(D1) -- `index.html` 因此能缩到一个 `#app`.
  */
 export interface WindowContentSpec {
     /** 标题栏槽位节点;缺省 = 不搬节点. */
@@ -137,7 +133,7 @@ export class WindowManager {
      * 建 frame + 搬正文 + 建 Dock + 起初始焦点 + 挂 resize.
      *
      * 顺序不能换:①先算全部默认几何(数组顺序即依赖顺序);②建 frame,把
-     * `content` 给的标题栏节点放进对应槽位、正文节点 append 进 `.window-body`;
+     * `content` 给的标题栏节点放进对应槽位,正文节点 append 进 `.window-body`;
      * ③Dock;④初始焦点(没有焦点就没有 z 序参照).
      */
     bind(): void {
@@ -434,9 +430,9 @@ export class WindowManager {
     /**
      * 把两个"CSS 必须自己读"的尺寸从 config 写到桌面根的 CSS 变量上.
      *
-     * 为什么由库写、而不是让消费者在主题里再传一遍:`dockReserve` 与
-     * `headerHeight` 各自有**两个**消费者--JS 几何(工作区上沿、正文高度换算)
-     * 与 CSS(`.dock` 高度、`.window.is-maximized` 的 `inset`、`.window-header`
+     * 为什么由库写,而不是让消费者在主题里再传一遍:`dockReserve` 与
+     * `headerHeight` 各自有**两个**消费者--JS 几何(工作区上沿,正文高度换算)
+     * 与 CSS(`.dock` 高度,`.window.is-maximized` 的 `inset`,`.window-header`
      * 高度).两处各留一份数就一定会漂:改了一处,窗口要么盖住任务栏,要么在
      * 任务栏下留一条缝.写在这里之后,`DesktopConfig` 是运行期唯一来源,
      * `styles/tokens.css` 里那份只是"没有 JS 时的兜底值".
@@ -525,7 +521,7 @@ export class WindowManager {
      * 拖动期间另记一份**没有被磁吸修正过**的位置(`unsnapped`),增量只累加在它
      * 上面.磁吸是"这一次移动"的显示修正,不能成为下一次增量的基准:真机上
      * 每个 `pointermove` 只有几个像素,拿被吸住的位置当基准,每一次增量都会
-     * 重新落回阈值内、被再吸一次,窗口就**再也离不开**那条共用的边(两个窗口
+     * 重新落回阈值内,被再吸一次,窗口就**再也离不开**那条共用的边(两个窗口
      * 都在 `x: { at: 16 }` 的示例里,表现就是"只能上下动").见
      * docs/windowing-plan.md §3.5:"下一次移动会先清掉修正再判".
      */

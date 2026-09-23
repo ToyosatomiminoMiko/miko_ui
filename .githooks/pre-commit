@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# ============================================================================
+# pre-commit: 提交前把本次暂存文件里的中文全角标点转成半角
+# ----------------------------------------------------------------------------
+# 由 git 通过 core.hooksPath=.githooks 调用(启用方式见 scripts/autorun.py 顶部
+# 那段长注释). 这个文件跟随仓库一起被提交, 所以换机器或重新 clone 之后不会像
+# .git/hooks 里的东西那样静默失效.
+#
+# 流程:
+#   git diff --cached --name-only -z --diff-filter=ACM
+#     -> 取出本次暂存的新增/修改/复制文件(不含删除)
+#     -> 交给 python3 scripts/autorun.py(文件模式, 原地改写)
+#     -> 只把**真正被改写**的文件重新 git add, 让修正进入这一次提交
+#
+# 注意:
+#   * 本文件自己也在修正范围内, 所以这里的注释一律只用半角标点(写全角会被它
+#     自己改掉). 为防"边执行边改写正在运行的 shell 脚本", 下面把它单独放到
+#     最后一步: 那时主逻辑已经跑完, bash 不再需要读后面的内容.
+#   * 没装 python3: 打印警告后放行, 不阻断提交.
+#   * 转换失败: 同样只警告, 不阻断提交 -- 钩子的职责是帮忙, 不是设卡.
+# ============================================================================
+set -u
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "[pre-commit] 警告: 未找到 python3, 跳过标点自动转换." >&2
+    exit 0
+fi
+
+# git 本来就在仓库根目录执行钩子, 这里显式 cd 一次, 不依赖那个前提
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+self=".githooks/pre-commit"
+
+# 暂存区里本次新增/修改/复制的文件; -z 是为了正确处理空格与中文文件名
+staged=()
+while IFS= read -r -d '' file; do
+    staged+=("$file")
+done < <(git diff --cached --name-only -z --diff-filter=ACM)
+
+if [ "${#staged[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+targets=()
+self_staged=0
+for file in "${staged[@]}"; do
+    if [ "$file" = "$self" ]; then
+        self_staged=1
+    else
+        targets+=("$file")
+    fi
+done
+
+# 对给定文件跑转换, 再把被改写过的重新加入暂存区.
+# 只 add 真正改过的文件: 否则会把暂存文件在工作区里的其他改动一起带进这次提交.
+fix_files() {
+    local output status=0
+    output=$(python3 scripts/autorun.py "$@") || status=$?
+    if [ "$status" -ne 0 ]; then
+        echo "[pre-commit] 警告: 标点转换对部分文件失败(见上面的 error 行), 已跳过." >&2
+    fi
+    if [ -z "$output" ]; then
+        return 0
+    fi
+    printf '%s\n' "$output"
+    local line
+    while IFS= read -r line; do
+        case "$line" in
+            "[fix_punctuation] fixed: "*)
+                git add -- "${line#\[fix_punctuation\] fixed: }"
+                ;;
+        esac
+    done <<< "$output"
+}
+
+if [ "${#targets[@]}" -gt 0 ]; then
+    fix_files "${targets[@]}"
+fi
+
+# 本文件最后处理(见上面第 1 条注意事项)
+if [ "$self_staged" -eq 1 ]; then
+    fix_files "$self"
+fi
+
+exit 0

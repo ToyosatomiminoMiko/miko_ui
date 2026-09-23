@@ -13,8 +13,8 @@
 # 谁 clone 下来都能用同一条命令启用.
 #
 # [启用自动运行(每个 clone 各做一次)]
-#     1) npm install              # package.json 的 prepare 会自动执行第 2 步
-#        或手动执行:
+#     1) npm install              # 或 npm ci:prepare 会先 build,再执行第 2 步
+#        或手动执行第 2 步:
 #        git config --local core.hooksPath .githooks
 #     2) 确认已生效:
 #        git config --get core.hooksPath        # 应输出 .githooks
