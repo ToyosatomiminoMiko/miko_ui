@@ -705,11 +705,8 @@ export interface DomStub {
     readonly resizeObservers: StubResizeObserver[];
     /** 写入根元素的 CSS 变量(applyUiConfig/PanelController). */
     readonly rootVariables: Map<string, string>;
-    /**
-     * 执行过的 `document.execCommand`:命令名序列,每次调用的完整参数,
-     * 以及可改写的返回值(测试用它模拟命令被拒绝).
-     */
-    readonly execCommand: { calls: string[]; args: unknown[][]; result: boolean };
+    /** 写入剪贴板的文本(按调用顺序);`fail` 置 true 让 `writeText` reject. */
+    readonly clipboard: { texts: string[]; fail: boolean };
     /**
      * 排队中的 `requestAnimationFrame` 回调数(测试用).
      *
@@ -762,9 +759,9 @@ export interface StubDocument {
 /**
  * 安装一套全局 DOM 桩(每个用例调一次,得到一棵干净的空树).
  *
- * 默认把剪贴板路径设成非安全上下文,让 FormulaCopyController 走 legacy 回退,
- * 从而可在 node 里断言"复制成功/失败提示";需要异步剪贴板路径的用例可以自己
- * 覆盖 `window.isSecureContext` 与 `navigator.clipboard`.
+ * 默认是"安全上下文 + 可写成功的异步剪贴板",从而可在 node 里断言"复制成功/失败
+ * 提示";要测失败路径改 `stub.clipboard.fail`,要测没有剪贴板 API(非安全上下文)就
+ * 删掉 `navigator.clipboard`.
  */
 export function installDomStub(): DomStub {
     const documentElement = new StubElement('html');
@@ -840,7 +837,7 @@ export function installDomStub(): DomStub {
 
     const resizeObservers: StubResizeObserver[] = [];
     const rootVariables = new Map<string, string>();
-    const execCommand = { calls: [] as string[], args: [] as unknown[][], result: true };
+    const clipboard = { texts: [] as string[], fail: false };
 
     // documentElement 上的变量写入便于断言 applyUiConfig 的默认目标.
     documentElement.style.setProperty = (name: string, value: string): void => {
@@ -849,7 +846,7 @@ export function installDomStub(): DomStub {
 
     const windowListeners = new Map<string, Array<(event: StubEvent) => void>>();
     const window: StubWindow = {
-        isSecureContext: false,
+        isSecureContext: true,
         addEventListener: (type, handler, options) => {
             const signal = options?.signal;
             if (signal?.aborted) return;
@@ -929,27 +926,28 @@ export function installDomStub(): DomStub {
             resizeObservers.push(this);
         }
     };
-    // Node 22 起 navigator 是可配置访问器;defineProperty 覆盖成"没有异步剪贴板".
+    // Node 22 起 navigator 是可配置访问器;defineProperty 覆盖成"安全上下文 + 能写
+    // 成功的异步剪贴板".`fail` 置 true 模拟权限被拒/失焦这类 reject.
     Object.defineProperty(globalThis, 'navigator', {
-        value: { clipboard: undefined },
+        value: {
+            clipboard: {
+                writeText: (text: string): Promise<void> => {
+                    if (clipboard.fail) return Promise.reject(new Error('clipboard denied'));
+                    clipboard.texts.push(text);
+                    return Promise.resolve();
+                },
+            },
+        },
         configurable: true,
         writable: true,
     });
-    (document as unknown as Record<string, unknown>).execCommand = (
-        command: string,
-        ...rest: unknown[]
-    ) => {
-        execCommand.calls.push(command);
-        execCommand.args.push([command, ...rest]);
-        return execCommand.result;
-    };
 
     return {
         document,
         window,
         resizeObservers,
         rootVariables,
-        execCommand,
+        clipboard,
         pendingFrameCount: () => frames.size,
         flushFrames: () => {
             // 先取出再执行:回调里新排的帧留到下一次 flush,与浏览器"一帧一次"一致.

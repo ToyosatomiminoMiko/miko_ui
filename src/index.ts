@@ -16,7 +16,6 @@ export * from './reactive';
 
 // DOM 原语与通用小件
 export * from './dom/root';
-export * from './dom/legacyCommand';
 export * from './widgets/dom';
 export * from './widgets/Button';
 export * from './widgets/Switch';

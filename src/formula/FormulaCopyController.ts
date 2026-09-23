@@ -22,46 +22,33 @@
  * 这条规则注册进去,由它统一分发.
  */
 import type { KeyboardBinding } from '../shared/KeyboardController';
-import { runLegacyEditorCommand } from '../dom/legacyCommand';
 
 const HINT_RESET_DELAY = 1200;
 
 const HINT_COPIED = '已复制 TeX';
 const HINT_FAILED = '复制失败';
 
-/** 优先走异步剪贴板 API;非安全上下文(如 file://)回退到 execCommand. */
-async function writeClipboardText(text: string, doc: Document): Promise<boolean> {
-    if (navigator.clipboard && doc.defaultView?.isSecureContext === true) {
-        try {
-            await navigator.clipboard.writeText(text);
-            return true;
-        } catch {
-            // 权限被拒或浏览器实现异常时,继续尝试旧通道而不是直接失败.
-        }
+/**
+ * 写剪贴板:只有异步剪贴板一条通道.
+ *
+ * `navigator.clipboard` 按规范只在安全上下文暴露(https、`localhost`/`127.0.0.1`、
+ * `file:`,见 Secure Contexts §3.1),非安全上下文里它直接是 undefined,取成员就抛
+ * TypeError;权限被拒、文档失焦同样会 reject.这些一律归一化成 false,由调用方回显
+ * 失败--不保留 `execCommand` 兜底:那条路要自造选区,而公式不是可选中文本,两个
+ * 消费者(应用 = localhost / GitHub Pages,全是安全上下文)也没有需要它的场景.
+ */
+async function writeClipboardText(text: string): Promise<boolean> {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch {
+        return false;
     }
-    return legacyCopy(text, doc);
-}
-
-/** 旧通道:临时 textarea + execCommand('copy'),兜住非 https 的本地打开场景. */
-function legacyCopy(text: string, doc: Document): boolean {
-    const staging = doc.createElement('textarea');
-    staging.value = text;
-    staging.setAttribute('readonly', '');
-    staging.style.position = 'fixed';
-    staging.style.top = '-1000px';
-    staging.style.opacity = '0';
-    doc.body.append(staging);
-    staging.select();
-
-    // 已弃用的 execCommand 只在 dom/legacyCommand 里收口调用一次.
-    const copied = runLegacyEditorCommand(doc, 'copy');
-    staging.remove();
-    return copied;
 }
 
 export class FormulaCopyController {
     private readonly defaultHint: string;
-    /** 提示节点所属的 document(D7):建节点与计时器都从它走,不读全局. */
+    /** 提示节点所属的 document(D7):计时器从它走,不读全局. */
     private readonly doc: Document;
     private abortController: AbortController | null = null;
 
@@ -128,7 +115,7 @@ export class FormulaCopyController {
     }
 
     private async _copy(tex: string): Promise<void> {
-        const copied = await writeClipboardText(tex, this.doc);
+        const copied = await writeClipboardText(tex);
         this._flashHint(copied ? HINT_COPIED : HINT_FAILED, copied);
     }
 

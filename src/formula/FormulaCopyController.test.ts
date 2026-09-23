@@ -6,7 +6,8 @@
  * 这里覆盖:binding 的键名与目标放行规则,click 委托,成功/失败两条回显路径.
  * `preventDefault` 归 KeyboardController 管,所以断言在 KeyboardController.test.ts.
  *
- * 剪贴板走 legacy 回退(`window.isSecureContext = false` + `document.execCommand`).
+ * 剪贴板只有异步通道:桩默认安全上下文 + 可写成功的 `navigator.clipboard`;
+ * 失败路径改 `stub.clipboard.fail`,没有剪贴板 API 的情形删 `navigator.clipboard`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub, type DomStub, type StubElement } from '../../test/domStub';
@@ -48,7 +49,7 @@ describe('鼠标与键盘两条复制入口(UI-P3.6)', () => {
         root.dispatch('click', { target: formula });
 
         await vi.waitFor(() => {
-            expect(stub.execCommand.calls).toEqual(['copy']);
+            expect(stub.clipboard.texts).toEqual(['x^2']);
             expect(hint.textContent).toBe('已复制 TeX');
         });
         expect(hint.classList.contains('is-copied')).toBe(true);
@@ -65,7 +66,7 @@ describe('鼠标与键盘两条复制入口(UI-P3.6)', () => {
         expect(run).not.toBeNull();
         run?.();
         await vi.waitFor(() => {
-            expect(stub.execCommand.calls).toEqual(['copy']);
+            expect(stub.clipboard.texts).toEqual(['x^2']);
             expect(hint.textContent).toBe('已复制 TeX');
         });
         controller.dispose();
@@ -93,13 +94,13 @@ describe('鼠标与键盘两条复制入口(UI-P3.6)', () => {
 
         root.dispatch('click', { target: root });
 
-        expect(stub.execCommand.calls).toEqual([]);
+        expect(stub.clipboard.texts).toEqual([]);
         controller.dispose();
     });
 
     it('复制失败时回显错误态', async () => {
         const { stub, controller, hint, root, formula } = setup();
-        stub.execCommand.result = false;
+        stub.clipboard.fail = true;
 
         root.dispatch('click', { target: formula });
 
@@ -107,6 +108,19 @@ describe('鼠标与键盘两条复制入口(UI-P3.6)', () => {
             expect(hint.textContent).toBe('复制失败');
         });
         expect(hint.classList.contains('is-error')).toBe(true);
+        controller.dispose();
+    });
+
+    it('非安全上下文没有异步剪贴板时归一化成失败,异常不冒泡', async () => {
+        const { controller, hint, root, formula } = setup();
+        // 真实浏览器里非安全上下文就是这个形态:`navigator.clipboard` 根本不存在.
+        delete (navigator as unknown as Record<string, unknown>).clipboard;
+
+        root.dispatch('click', { target: formula });
+
+        await vi.waitFor(() => {
+            expect(hint.textContent).toBe('复制失败');
+        });
         controller.dispose();
     });
 });

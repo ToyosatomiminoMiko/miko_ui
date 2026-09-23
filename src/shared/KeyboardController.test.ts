@@ -238,7 +238,7 @@ describe('与 FormulaCopyController 的端到端路由', () => {
         });
 
         await vi.waitFor(() => {
-            expect(stub.execCommand.calls).toEqual(['copy']);
+            expect(stub.clipboard.texts).toEqual(['x^2']);
             expect(hint.textContent).toBe('已复制 TeX');
         });
         expect(preventDefault).toHaveBeenCalledTimes(1);
