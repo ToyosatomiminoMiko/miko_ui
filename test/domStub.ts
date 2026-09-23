@@ -1,16 +1,15 @@
 /**
- * 手写 DOM 桩(库侧那一份).
+ * 手写 DOM 桩.
  *
- * 从 `src/testing/domStub.ts` 复制而来(docs/ui-library-extraction-plan.md
- * D10):库的测试自带到库,不再跨包引用应用源码.应用侧仍保留自己那份服务
- * `src/` 的测试;两份在分家期间保持同步,库独立成 repo 后各自演进.
+ * 库的测试自带 DOM 桩,不引用任何消费者的测试基建:桩是测试的一部分,
+ * 跟着被测代码一起演进,库能不能独立跑绿只取决于这个仓库.
  */
 /**
  * 测试用最小 DOM 桩(node 环境,不引入 jsdom).
  *
  * 为什么不用 jsdom:项目没有该依赖,且这里要锁的是**控制器自己的不变量**
  * (事件 -> 状态 -> DOM 写入),不是浏览器排版/事件冒泡的完整语义.桩只实现
- * `src/ui` 真正用到的 API,并刻意复刻真 DOM 里踩过的坑:
+ * 库真正用到的 API,并刻意复刻真 DOM 里踩过的坑:
  * - 节点只有一个父节点(`append`/`replaceChildren` 会先把节点从旧父节点摘除),
  *   否则"搬运模板子节点搬空缓存"这类回归会被遮住;
  * - `textContent` 取值拼接子文本节点,设置时清空子节点;
@@ -170,8 +169,7 @@ function matchesSimple(element: StubElement, selector: string): boolean {
  * 把复合选择器拆成简单选择器.
  *
  * 只在**方括号/引号之外**的 `.` / `#` / `[` 处切:`[data-example="a.miko"]` 里
- * 那个点属于属性值,切开会得到两个都匹配不上的碎片(这个坑在
- * `ExampleLoaderController.test.ts` 上真的踩到过).
+ * 那个点属于属性值,切开会得到两个都匹配不上的碎片.
  */
 function splitCompound(selector: string): string[] {
     const parts: string[] = [];
@@ -235,11 +233,11 @@ export class StubElement {
      * `input.type` 是**反射**属性:`input.type = 'number'` 与
      * `setAttribute('type', 'number')` 在真 DOM 里改的是同一处.
      *
-     * 三个控件都靠属性写法定类型(`createSwitch` / `createRangeInput` 的 range /
-     * `createNumberField` 的 number);桩里分成两个字段的话,
-     * `querySelector('input[type="number"]')` 与 `getAttribute('type')` 就会
-     * 读不到控件设进去的类型 -- 而 `styles/widgets.css` 正是按
-     * `input[type="number"]` 选中的.这一条与应用侧的桩逐字一致.
+     * 三个控件都靠属性写法定类型(`createSwitch` 的 checkbox /
+     * `createRangeInput` 的 range / `createNumberField` 的 number);桩里分成
+     * 两个字段的话,`querySelector('input[type="number"]')` 与
+     * `getAttribute('type')` 就会读不到控件设进去的类型 -- 而
+     * `styles/widgets.css` 正是按 `input[type="number"]` 选中的.
      */
     private typeValue = '';
 
@@ -267,7 +265,7 @@ export class StubElement {
      */
     innerHTML = '';
     checked = false;
-    /** 按钮的禁用态:参数行的重置按钮靠它在"已停在声明值"时置灰. */
+    /** 按钮的禁用态:Slider 的重置按钮靠它在"值与文本都停在重置值"时置灰. */
     disabled = false;
     /** `<details>` 的开合状态;普通元素上无意义. */
     open = false;
@@ -286,8 +284,8 @@ export class StubElement {
     /**
      * 真 DOM 的 `ownerDocument`.
      *
-     * 库的 root 注入(D7)从元素反查"我属于哪个 document":键盘监听挂在哪、
-     * 拖动收尾改谁的 `body.style.cursor`、公式模板建在谁身上,都走它.
+     * 库的 root 注入从元素反查"我属于哪个 document":键盘监听挂在哪,
+     * 拖动收尾改谁的 `body.style.cursor`,公式模板建在谁身上,都走它.
      */
     ownerDocument!: StubDocument;
     readonly style = new StubStyle();
@@ -496,8 +494,8 @@ export class StubElement {
 
     setAttribute(name: string, value: string): void {
         this.attributes.set(name, value);
-        // 真 DOM 的**反射属性**:按属性名写也会改到同名成员上.库的 `create_element()` 走
-        // `attrs` 建节点(`create_element('div', { attrs: { id: 'x' } })`),不反射的话
+        // 真 DOM 的**反射属性**:按属性名写也会改到同名成员上.库的 `create_element()` 用
+        // 属性表建节点(`create_element('div', { id: 'x' })`),不反射的话
         // `querySelector('#x')` 与 `getElementById('x')` 会找不到自己的节点.
         if (name === 'id') this.id = value;
         else if (name === 'class') this.className = value;
@@ -518,8 +516,8 @@ export class StubElement {
     /**
      * 布尔属性语义:存在即为真;`force` 给了就按其值设置.
      *
-     * 窗口的 `inert` 用 `toggleAttribute` 写(`applyState` 的唯一写入点),
-     * 桩不实现这一条,`WindowManager.test.ts` 连第一次 `applyState` 都过不去.
+     * 窗口的 `inert` 用 `toggleAttribute` 写(`_applyState` 的唯一写入点),
+     * 桩不实现这一条,`WindowManager.test.ts` 连第一次 `_applyState` 都过不去.
      */
     toggleAttribute(name: string, force?: boolean): boolean {
         const on = force ?? !this.attributes.has(name);
@@ -531,7 +529,7 @@ export class StubElement {
     /**
      * `title` 与 `title="..."` 是同一份数据(真 DOM 的反射属性).
      *
-     * 桩里两者必须反射到同一处:`create_element()` 的 `attrs` 走 `setAttribute`,
+     * 桩里两者必须反射到同一处:`create_element()` 的属性表走 `setAttribute`,
      * `createButton` 走 `element.title = ...`,真实 DOM 里两条路径等价,桩里
      * 分成两个字段就会让"按钮的 title 到底写进去没有"变成假阴性.
      */
@@ -615,7 +613,7 @@ export class StubElement {
         };
     }
 
-    /** 旧版剪贴板回退路径用到的临时 textarea API. */
+    /** 真 DOM 的表单控件方法(桩里为空实现). */
     select(): void {}
 
     focus(): void {}
@@ -703,7 +701,7 @@ export interface DomStub {
     readonly window: StubWindow;
     /** 本次安装后创建的 ResizeObserver(按创建顺序),测试可 trigger(). */
     readonly resizeObservers: StubResizeObserver[];
-    /** 写入根元素的 CSS 变量(applyUiConfig/PanelController). */
+    /** 写入根元素的 CSS 变量(applyTheme 等). */
     readonly rootVariables: Map<string, string>;
     /** 写入剪贴板的文本(按调用顺序);`fail` 置 true 让 `writeText` reject. */
     readonly clipboard: { texts: string[]; fail: boolean };
@@ -735,7 +733,7 @@ export interface StubWindow {
 export interface StubDocument {
     readonly documentElement: StubElement;
     readonly body: StubElement;
-    /** 真 DOM 的 `document.defaultView`:库从它取 window(D7). */
+    /** 真 DOM 的 `document.defaultView`:库从它取 window. */
     readonly defaultView: StubWindow;
     createElement(tag: string): StubElement;
     createTextNode(text: string): StubText;
@@ -743,10 +741,7 @@ export interface StubDocument {
     querySelector<T>(selector: string): T | null;
     querySelectorAll<T>(selector: string): T[];
     /**
-     * 按 id 取节点.
-     *
-     * 曾经用于按 `hostId` 取窗口正文宿主(D1 之后宿主由库自己建);
-     * 桩里走与 `querySelector('#id')` 同一条遍历,语义一致.
+     * 按 id 取节点;走与 `querySelector('#id')` 同一条遍历,语义一致.
      */
     getElementById<T>(id: string): T | null;
     /** document 级键盘监听(KeyboardController 的全局快捷键绑在这里). */
@@ -839,7 +834,7 @@ export function installDomStub(): DomStub {
     const rootVariables = new Map<string, string>();
     const clipboard = { texts: [] as string[], fail: false };
 
-    // documentElement 上的变量写入便于断言 applyUiConfig 的默认目标.
+    // documentElement 上的变量写入便于断言 CSS 变量的默认写入目标.
     documentElement.style.setProperty = (name: string, value: string): void => {
         rootVariables.set(name, value);
     };
@@ -885,9 +880,9 @@ export function installDomStub(): DomStub {
         clearTimeout: (id: number) => clearTimeout(id),
     };
 
-    // Node 没有 requestAnimationFrame;DslApp 的渲染循环与 EditorHighlight 的
-    // 重绘合并都依赖它,所以桩里必须有一份可控实现:注册即排队,由测试显式
-    // flush,这样"合帧"是可断言的而不是靠时序猜.
+    // Node 没有 requestAnimationFrame;EditorHighlight 的重绘合并依赖它,
+    // 所以桩里必须有一份可控实现:注册即排队,由测试显式 flush,这样"合帧"
+    // 是可断言的而不是靠时序猜.
     const frames = new Map<number, () => void>();
     let nextFrameId = 1;
     const requestFrame = (callback: () => void): number => {
@@ -909,11 +904,11 @@ export function installDomStub(): DomStub {
      * 计算样式桩:只认**写在元素上的行内样式**.
      *
      * `fontSize`/`fontFamily` 给固定值(行号栏量槽宽用,不关心具体字号);
-     * `cursor` 优先取元素自己的行内值 -- 真实标记里分隔条靠 CSS 类给出
-     * `cursor: ns-resize` / `ew-resize`(见 css/layout.css),桩不解析样式表,
-     * 所以需要断言光标的测试要像真标记那样把光标写在元素上(见
-     * `RightSplitController.test.ts` 的 fixture).没有行内值时退回 `ew-resize`,
-     * 与"面板宽度分隔条"这一默认场景一致.
+     * `cursor` 优先取元素自己的行内值 -- 真实标记里缩放柄靠 CSS 给出
+     * `cursor: ns-resize` / `ew-resize`(见 `styles/desktop.css`),桩不解析
+     * 样式表,所以需要断言光标的测试要像真标记那样把光标写在元素上(见
+     * `WindowResize.test.ts`).没有行内值时退回 `ew-resize`,与水平缩放柄
+     * 这一默认场景一致.
      */
     globals.getComputedStyle = (element?: { style?: { cursor?: string } }) => ({
         fontSize: '16px',

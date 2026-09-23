@@ -1,31 +1,31 @@
 /* ==========================================================================
- * GraphCalc 桌面窗口化样式
+ * miko_ui 桌面窗口化样式
  * --------------------------------------------------------------------------
  * 负责:
- *   - 三层容器与 3D 视口的堆叠(视口归消费者;.window-layer / .snap-preview / .dock 归本层)
+ *   - 三层容器与桌面背景的堆叠(背景归消费者;.window-layer / .snap-preview / .dock 归本层)
  *   - 窗口外壳(.window / .window-header / .window-title / .window-actions /
  *     .window-controls / .window-body)
  *   - 八向缩放手柄(.resize-handle + [data-window-resize])
  *   - Dock(顶部任务栏)与吸附高亮
  *
  * **这里没有窗口几何**:窗口的 left/top/width/height 由 WindowManager 按
- * UI_CONFIG.window + WindowGeometry 写成行内样式;CSS 只有两个"必须自己读"的
- * 常量(--window-header-height / --dock-reserve,真相源仍是 UI_CONFIG.window,
- * 由 applyUiConfig 写进 :root).
+ * DesktopConfig.windows 的 defaultGeometry + WindowGeometry 写成行内样式;
+ * CSS 只有两个"必须自己读"的常量(--window-header-height / --dock-reserve,
+ * 真相源在 DesktopConfig,由 WindowManager 写到桌面根节点的行内变量上).
  *
- * 三条必须守住的规则(见 docs/windowing-plan.md §11.1):
+ * 三条必须守住的规则:
  *   1. .window-layer 整层 pointer-events: none,只有 .window 自己 auto--
- *      否则窗口层会挡住 canvas,OrbitControls 立刻失效(W1 的核心约束);
- *   2. .window 不能 overflow: hidden(示例浮层要有意超出标题栏),裁切归
+ *      否则窗口层会挡住下层画布,画布上的指针交互立刻失效;
+ *   2. .window 不能 overflow: hidden(浮层要有意超出标题栏),裁切归
  *      .window-body;
  *   3. 窗口的隐藏态用 opacity + inert,不用 display: none--编辑器行号与高亮层
- *      在隐藏期间会量到 0 尺寸,恢复后对齐错乱(见 §5.6).
+ *      在隐藏期间会量到 0 尺寸,恢复后对齐错乱.
  * ========================================================================== */
 
 
 /* 窗口层:建立窗口的定位参照与 z-order 层.
-   整层不拦截指针是 W1 能成立的关键:桌面空白处(窗口没盖住的地方)
-   OrbitControls 照常收到事件. */
+   整层不拦截指针是关键:桌面空白处(窗口没盖住的地方)
+   画布照常收到事件. */
 .window-layer {
     position: absolute;
     inset: 0;
@@ -51,7 +51,7 @@
  * 窗口外壳
  * ========================================================================== */
 
-/* 窗口自己收指针(父层是 none),并且**不能裁切**:示例浮层有意超出标题栏. */
+/* 窗口自己收指针(父层是 none),并且**不能裁切**:浮层有意超出标题栏. */
 .window {
     position: absolute;
     display: flex;
@@ -78,7 +78,7 @@
     pointer-events: none;
 }
 
-/* 聚焦窗口:只提亮描边与标题,不做参考项目那种两套配色互换. */
+/* 聚焦窗口:只提亮描边与标题. */
 .window.is-focused {
     border-color: var(--color-accent-border);
 }
@@ -94,7 +94,7 @@
 }
 
 .window-header {
-    /* 示例浮层的定位锚点就是这一层(浮层是 header 的直接子节点). */
+    /* 浮层的定位锚点就是这一层(浮层是 header 的直接子节点). */
     position: relative;
     display: flex;
     align-items: center;
@@ -127,7 +127,7 @@
     -webkit-user-select: none;
 }
 
-/* 面板自带的动作(示例 / RUN):从 .panel-header 搬进窗口标题栏. */
+/* 标题栏动作槽:消费者搬进 `.window-actions` 的动作按钮(示例 / RUN 这类). */
 .window-actions {
     display: flex;
     align-items: center;
@@ -151,8 +151,8 @@
     border-color: var(--color-accent-border);
 }
 
-/* 标题栏动作槽里的按钮由消费者建(下游是裸 `create_element('button')`,没有
-   `.ui-button`),所以这一条仍是它们唯一的外观来源;库自己建的按钮(窗口控制 /
+/* 标题栏动作槽里的按钮由消费者建(可能是裸 `create_element('button')`,没有
+   `.ui-button`),所以这一条仍是它们外观的来源;库自己建的按钮(窗口控制 /
    Dock)不在这里,它们吃 `.ui-button` 基线. */
 .window-actions button:focus-visible {
     outline: 2px solid var(--color-accent-focus);
@@ -163,7 +163,7 @@
    容器只管排布;按钮本身**不另设外观** -- 它就是 `.ui-button` 基线,与示例里
    `createButton({ text: '计数 +1' })` 建出来的按钮长得一模一样.位置(在标题栏
    里)已经说明这两枚是什么,按钮之间真正的差别是行为(点下去改哪份状态),不是
-   长相.`.window-control-btn` 仍留在 DOM 上,只作为定位钩子(库自己不给它任何
+   长相.`.window-control-btn` 只作为定位钩子留在 DOM 上(库自己不给它任何
    声明,消费者要另眼相看再自己盖). */
 .window-controls {
     display: flex;
@@ -173,7 +173,7 @@
 }
 
 /* 窗口正文:确定高度 + 裁切都归它;里面的宿主由 `.window-body > *` 拉满.
-   漏掉 flex/min-height 不会报错,只是内容高度变成 0(见 §11.1 B5). */
+   漏掉 flex/min-height 不会报错,只是内容高度变成 0. */
 .window-body {
     display: flex;
     flex-direction: column;
@@ -191,9 +191,8 @@
 /* ==========================================================================
  * 八向缩放手柄
  * --------------------------------------------------------------------------
- * 手柄就是 `<div class="resize-handle" data-window-resize="e">`.类名保留原来
- * 的 .resize-handle(命中区与光标仍然只由 CSS 给,拖动起手时读的就是
- * getComputedStyle(handle).cursor),新增的只是八个方向.
+ * 手柄就是 `<div class="resize-handle" data-window-resize="e">`:命中区与光标
+ * 只由 CSS 给,拖动起手时读的就是 `getComputedStyle(handle).cursor`.
  * 手柄是 .window 的绝对定位子元素,不参与正文布局;负偏移让命中区跨在窗口
  * 边界上,配合 .window 的 overflow: visible 才点得到.
  * ========================================================================== */
@@ -320,8 +319,7 @@
     background: var(--color-accent-active-bg);
 }
 
-/* 隐藏态(最小化)只由按钮自身的淡化表达:曾经还有一个 6px 状态点,但它对这条
- * opacity 重复,对 maximized 与"窗口铺满桌面"也重复. */
+/* 隐藏态(最小化)只由按钮自身的淡化表达. */
 .dock-btn[data-state="minimized"] {
     opacity: 0.6;
 }

@@ -1,15 +1,15 @@
 /**
  * 按钮控件(`<button type="button">`).
  *
- * 库内所有按钮的统一件.现在的消费者有五处:
- * - 系数滑块的重置(`reset`,`slider-field-reset`);
- * - 求值行末的"过程"(`row-process-btn`);
+ * 库内所有按钮的统一件.库内的调用点:
+ * - 系数滑块的重置(`reset`,`slider-field-reset`,见 `widgets/Slider.ts`);
  * - 行末显隐(`row-visibility-btn`,见 `shared/rowDom.ts`);
  * - **窗口标题栏的控制按钮**(`window-control-btn`,见 `desktop/WindowFrame.ts`);
- * - 库示例页的 RUN.
+ * - **窗口按钮与"全部还原"**(`dock-btn` / `dock-action`,见 `desktop/Dock.ts`);
+ * - 库示例页的计数按钮(`计数 +1`,见 `example/main.ts`).
  *
  * 它们共同的部分是:永远是 `type="button"`(不该在任何地方触发表单提交),
- * 有独立的可访问名,可置灰,文案会变 -- 这些收在这里.
+ * 可给独立可访问名,可置灰,文案会变 -- 这些收在这里.
  *
  * 与 `Switch` / `Segmented` 一致:选项只描述**外观**,点击回调在拿到句柄后
  * 用 `onClick(listener)` 注册.这样"建控件"与"接线"分开,回调也能引用尚未

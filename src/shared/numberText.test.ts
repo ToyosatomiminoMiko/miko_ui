@@ -1,9 +1,8 @@
 /**
- * 列表内纯文本数值格式化单测.
+ * 纯文本数值格式化单测.
  *
- * 锁的是 `formatNumber` 的分档边界与去尾零正则:它在实体摘要里直接显示,
- * 1e-4 / 1e6 两个临界点和 `-0` 是唯一容易写错的地方
- * (`latexNumber.ts` 的 KaTeX 版本走另一套 `\times10^{n}` 口径,见其文件头).
+ * 锁的是 `formatNumber` 的分档边界与去尾零正则:输出会直接显示给用户,
+ * 1e-4 / 1e6 两个临界点和 `-0` 是唯一容易写错的地方.
  */
 import { describe, expect, it } from 'vitest';
 import { formatNumber, formatVector } from './numberText';

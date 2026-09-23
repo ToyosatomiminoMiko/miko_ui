@@ -1,14 +1,13 @@
 /**
  * 窗口外壳:声明式建 `.window` / `.window-header` / `.window-body` / 八根手柄.
  *
- * **窗外壳不写进 `index.html`**:标记只在 TS 里有一份真相源,`index.html` 只留
- * 正文宿主(见 docs/windowing-plan.md §5.3/§5.4).本文件只负责建结构,不订阅
- * 任何状态:拖动,缩放,按钮语义都由 `WindowManager` 在建完之后接线,与
- * "`PanelController.bind()` 才挂手柄"是同一时序.
+ * 标记只在 TS 里有一份真相源:本文件只负责建结构,不订阅任何状态,拖动,缩放,
+ * 按钮语义都由 `WindowManager` 在建完之后接线,所以建外壳与挂手柄是同一时序里
+ * 的两件事.
  *
- * 与 `spec.slots` 里的节点是**搬过来的,不是重建的**:`#example-btn` /
- * `#run-btn` 的监听,`#example-menu` 的浮层状态,`#formula-copy-hint` 的回显都
- * 不能丢,所以只 `append` 现成节点,不按 innerHTML 重做一份(见 §4.4).
+ * `spec.slots` 里的节点是**搬过来的,不是重建的**:消费者的监听,浮层状态与
+ * 文本回显都在那些节点上,不能丢,所以只 `append` 现成节点,不按 innerHTML
+ * 重做一份.
  */
 import { type WindowActionId, type WindowSlot } from './types';
 import { createButton, type ButtonHandle } from '../widgets/Button';
@@ -22,7 +21,7 @@ import { RESIZE_DIRECTIONS, type ResizeDirection } from './WindowResize';
 /** 标题栏上的一枚窗口按钮;`onClick` 由 `WindowManager` 给(它持有状态). */
 export interface WindowActionButton {
     readonly id: WindowActionId;
-    /** 按钮文案;同时是它的可访问名(不再单设读屏名,见 `types.ts`). */
+    /** 按钮文案;同时是它的可访问名(不单设读屏名,见 `types.ts`). */
     readonly text: string;
     readonly onClick: () => void;
 }
@@ -35,8 +34,7 @@ export interface WindowFrameSpec {
      *
      * 键取自 `desktop/types.ts` 的 `WindowSlot`:`title` 进 `.window-title`,`actions`
      * 进 `.window-actions`,`overlays` 是 `.window-header` 的直接子节点.这套词
-     * 与消费者的采用表说同一句话(应用的 adopted 表见 config/uiConfig.ts).
-     * 缺省槽位 = 不搬节点,不写空数组.
+     * 与消费者的采用表同一套.缺省槽位 = 不搬节点,不写空数组.
      */
     readonly slots: Partial<Record<WindowSlot, readonly Child[]>>;
     /** 由桌面配置的 `actions` 生成的窗口按钮(见 `WindowManager._actionButtons`). */
@@ -61,9 +59,8 @@ export interface WindowFrameHandle {
 /**
  * 逐条写四条几何属性:窗口几何**唯一允许的写入形状**.
  *
- * 不要用 `element.style.cssText = ...`:`cssText` 赋值会清空整个
- * 行内声明块,把 `focus()` 写的 `z-index` 一起清掉,被拖的窗口会当场掉到其它
- * 窗口后面(见 docs/windowing-plan.md §11.2 E8).
+ * 不要用 `element.style.cssText = ...`:`cssText` 赋值会清空整个行内声明块,
+ * 把 `focus()` 写的 `z-index` 一起清掉,被拖的窗口会当场掉到其它窗口后面.
  */
 export function writeGeometry(element: HTMLElement, g: Geometry): void {
     for (const [name, value] of Object.entries(geometryStyle(g))) {
@@ -71,7 +68,7 @@ export function writeGeometry(element: HTMLElement, g: Geometry): void {
     }
 }
 
-/** 清掉四条行内几何;进入 maximized 前必须调它(E9). */
+/** 清掉四条行内几何:进入 maximized 时必须调它,否则行内值会压过 `.is-maximized` 的 `inset`. */
 export function clearGeometry(element: HTMLElement): void {
     for (const name of ['left', 'top', 'width', 'height'] as const) {
         element.style.removeProperty(name);
@@ -121,7 +118,7 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     }
 
     // 浮层是 header 的直接子节点(不是 .window-actions 的子节点,那一层是按钮行),
-    // 也必须在 .window-body 之外,否则会被正文的裁切切掉(§11.1 B2).
+    // 也必须在 .window-body 之外,否则会被正文的裁切切掉.
     const header = create_element(
         'header',
         { class: 'window-header' },

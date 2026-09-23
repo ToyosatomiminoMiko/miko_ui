@@ -2,10 +2,6 @@
 /**
  * `miko_ui` 的独立性守卫.
  *
- * 这份脚本原本住在 `miko_graphcalc` 仓库(`packages/miko_ui` 还挂在它的 npm
- * workspace 里的时候);库搬到这个独立仓库后跟过来,路径常量从"仓库根 +
- * packages/miko_ui"改成了"仓库根",规则一条没动.
- *
  * 八条规则:
  *
  * | 规则 | 目标 |
@@ -19,16 +15,16 @@
  * | exports-surface | `exports` 只有根入口(构建产物 `dist/index.*`)与 `styles/`,内部路径不进公开面 |
  * | no-batch | 库里一次都不用 `batch()`:用了就等于在更新路径上引入调度器,手写 DOM 桩立刻失真 |
  *
- * 前三条的措辞还留着"应用侧"的说法,是为了让规则来源可查.搬出来之后这个仓库
- * 里根本没有应用源码可引用,所以它们恒为 0 -- 留着不是凑数:`@/` 这条同时也是
- * "库内不许用路径别名"的机器保证,而那正是"换消费者不用改 import"的前提.
+ * 前三条在这里恒为 0:本仓库没有应用源码可引用,`@/` 别名只属于消费者那一侧.
+ * 留着不是凑数:`@/` 这条同时也是"库内不许用路径别名"的机器保证,而那正是
+ * "换消费者不用改 import"的前提.
  *
  * 用法:
  *   node scripts/check_ui_boundary.mjs            # 与 baseline 比对;出现**新增**违例就非零退出
  *   node scripts/check_ui_boundary.mjs --update   # 按当前结果重写 baseline(耦合变少时用)
  *   node scripts/check_ui_boundary.mjs --list     # 打印全部违例明细
  *
- * `npm test` 会通过 `pretest` 自动跑这一条.
+ * `npm test` 的 `test` 脚本会先跑这一条.
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -120,7 +116,7 @@ function isCommentLine(line) {
 }
 
 /**
- * 全局 DOM 的判据:只看**裸标识符**,不把 `UI_CONFIG.window.` 这类属性访问
+ * 全局 DOM 的判据:只看**裸标识符**,不把 `root.window.` 这类属性访问
  * 算进来(负向后顾排除前面是 `.`/标识符字符的情形),也不看注释与测试文件.
  */
 const GLOBAL_DOM = [
@@ -157,7 +153,7 @@ function scanCssIds(files) {
     return hits;
 }
 
-/** 附录 E.3:库里多一个运行时依赖就是要评审的事件. */
+/** 库里多一个运行时依赖就是要评审的事件. */
 function checkDeps() {
     const pkgPath = join(ROOT, 'package.json');
     if (!existsSync(pkgPath)) return [];
@@ -179,19 +175,16 @@ function checkDeps() {
 }
 
 /**
- * §9 形态断言:内部路径不进 `exports`.
+ * 形态断言:内部路径不进 `exports`.
  *
  * 公开面**只有**三类,多一类都要在这里显式加:
- * 1. 根入口的构建产物 —— `./dist/index.js` 与 `./dist/index.d.ts`;
- * 2. 样式表 —— `./styles/` 下的任意 CSS(消费者按分组引);
- * 3. `./package.json` 自引用 —— 工具链(打包器、包管理器)读元数据要用的标准出口.
+ * 1. 根入口的构建产物 -- `./dist/index.js` 与 `./dist/index.d.ts`;
+ * 2. 样式表 -- `./styles/` 下的任意 CSS(消费者按分组引);
+ * 3. `./package.json` 自引用 -- 工具链(打包器,包管理器)读元数据要用的标准出口.
  *
  * 这条规则守的是"**唯一**出口"这个约定,所以它比"路径合法"更严:把
- * `./dist/widgets/Button.js` 挂成 `miko_ui/widgets/Button` 会被它拦下 ——
+ * `./dist/widgets/Button.js` 挂成 `miko_ui/widgets/Button` 会被它拦下 --
  * 那样一来库内目录结构就变成了对外契约,重构要对外兼容.
- *
- * 2026-09 之前这里的白名单写死成 `./src/index.ts`,因为那时还没构建步骤、
- * `exports` 直接指向源码.加了 dist 之后白名单跟着换成产物路径,规则意图一字未动.
  */
 const ALLOWED_EXPORT_EXACT = new Set([
     './dist/index.js',

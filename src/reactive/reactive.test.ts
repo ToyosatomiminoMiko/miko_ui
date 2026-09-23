@@ -1,17 +1,17 @@
 /**
- * 响应式层的语义测试(§8 P3 的验收项).
+ * 响应式层的语义测试.
  *
  * 锁四件事:
- * 1. **同值不通知**(`Object.is` 短路)-- "不抖动"的来源,也是"写回同一个值
+ * 1. **同值不通知**(`Object.is` 短路) -- "不抖动"的来源,也是"写回同一个值
  *    不会打转"的保证;
  * 2. `effect` 的**卸载**:退订之后不再重跑,回调返回的清理函数在重跑/销毁前执行;
  * 3. `computed` 从依赖算出值,依赖没变不重算;
- * 4. **更新是同步的**(不排队、不等帧):`set()` 返回时订阅者已经跑完.
- *    这条是手写 DOM 桩还能用的前提(R2).
+ * 4. **更新是同步的**(不排队,不等帧):写值返回时订阅者已经跑完.
+ *    这条是手写 DOM 桩还能用的前提.
  *
  * 另外两条边界断言:
- * - 公开面里**没有** `batch`(约束 2):`import * as reactive` 之后按键检查;
- * - 库源码里一次都没调用 `batch(`:同一条约束的源码侧检查(CI 里由
+ * - 公开面里**没有** `batch`:`import * as reactive` 之后按键检查;
+ * - 库源码里一次都没调用 `batch(`:这是源码侧的约束检查(CI 里由
  *   `scripts/check_ui_boundary.mjs` 的 `no-batch` 规则盯着,这里再本地守一遍).
  */
 import { readFileSync, readdirSync } from 'node:fs';
@@ -93,7 +93,7 @@ describe('effect', () => {
         effect(() => seen.push(value.value));
         value.value = 2;
 
-        // set() 返回时订阅者已经跑完(没有排队/微任务).
+        // 写值返回时订阅者已经跑完(没有排队/微任务).
         expect(seen).toEqual([1, 2]);
     });
 
@@ -178,7 +178,7 @@ describe('值源工具(ValueSource)', () => {
 
 describe('U7 的三条约束', () => {
     it('公开面里没有批处理入口(也不拿它做批处理)', () => {
-        // 约束 2:更新路径不引调度器.转出 batch 就等于把它开放给消费者.
+        // 更新路径不引调度器:转出 batch 就等于把它开放给消费者.
         expect('batch' in reactive).toBe(false);
         expect(Object.keys(reactive).sort()).not.toContain('batch');
     });

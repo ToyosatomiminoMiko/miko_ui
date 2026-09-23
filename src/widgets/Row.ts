@@ -1,18 +1,16 @@
 /**
- * 行,小节与行内小件:把视图面板里"文字 + 控件"的三种常见排布收成函数.
+ * 行,小节与行内小件:把"文字 + 控件"的三种常见排布收成函数.
  *
- * 类名固定,不再由调用方给:
- * - `.control-row`:相机行与各小节的行在 CSS 里本是同一条规则
- *   (`.point-row` / `.axis-row` / `.surface-row` / `.cam-toggle` 四份逐字相同),
- *   合并后差异不复存在,调用方也就没有"传哪个类名"的选择;
+ * 类名固定,调用方不给:
+ * - `.control-row`:"文字 + 控件"的行,相机行与各小节的行共用同一条规则,
+ *   调用方没有"传哪个类名"的选择;
  * - `.control-group` / `.control-title`:小节容器与标题;
  * - `.control-toggle-group`:行内小开关组(X/Y/Z 标签,网格 XZ/XY/YZ).
  *
  * 可见文字一律做成 `<label for>` 而不是 `<span>`:
  * - `.control-row` 的字号/颜色是**继承**的,`<label>` 与 `<span>` 渲染无差别;
- * - 但 `<label for>` 把可访问名给了控件,点文字也能切换开关 -- 老写法里
- *   `#pointVisible` / `#axisLabelX` 这些控件一个可访问名都没有(UI-P3.1 的
- *   同类问题).
+ * - 但 `<label for>` 把可访问名给了控件,点文字也能切换开关 -- 纯 `<span>`
+ *   标签则两者都做不到.
  *
  * 用这些件时,**控件不要再给 `aria-label`**:可见标签已经命名了它.
  */
@@ -23,8 +21,7 @@ import type { SwitchHandle } from './Switch';
 /**
  * 建一个与控件关联的可见标签.
  *
- * 关联走 `htmlFor` 属性(真 DOM 会把它反射成 `for` 属性),与
- * `ParamPanelController` 里的写法一致.
+ * 关联走 `htmlFor` 属性(真 DOM 会把它反射成 `for` 属性).
  */
 export function createFieldLabel(text: string, forId: string): HTMLLabelElement {
     const label = create_element('label', {}, text);
@@ -64,8 +61,8 @@ export function createSwitchRow(text: string, toggle: SwitchHandle): HTMLDivElem
 /**
  * 一行"文字 + 数字":数字框沿用 CSS 的 `margin-left:auto` 贴右.
  *
- * 返回标签节点是因为"点"那一行的文字要随模式改(大小 / 缩放),
- * 调用方拿到它即可改文案,不必再按 id 去查.
+ * 返回标签节点是给需要随模式改文案的调用方(如"大小" / "缩放"),
+ * 拿到它即可改文案,不必再按 id 去查.
  */
 export function createNumberRow(
     text: string,

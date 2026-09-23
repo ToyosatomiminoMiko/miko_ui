@@ -1,13 +1,13 @@
 /**
  * 源码高亮层:把注入的 `highlight(source)` 产物显示在 textarea 背后.
  *
- * 为什么是"叠层"而不是换个编辑器组件:项目只有 katex/three 两个运行时依赖,
- * 换 CodeMirror/Monaco 会把 `textarea` 连同行号栏,键盘绑定,示例载入一起
- * 换掉(见 EditorLineNumbers).叠层方案不动输入行为:光标,选区,撤销栈,
- * IME 全部还是浏览器原生 textarea 的,高亮只是一层 pointer-events: none
- * 的背景,着色错了也不影响编译.
+ * 为什么是"叠层"而不是换个编辑器组件:本库运行时只依赖 `@preact/signals-core`
+ * (`katex` 是可选 peer);换 CodeMirror/Monaco 会把 `textarea` 连同行号栏,
+ * 键盘绑定一起换掉(见 EditorLineNumbers).叠层方案不动输入行为:光标,选区,
+ * 撤销栈,IME 全部还是浏览器原生 textarea 的,高亮只是一层 pointer-events:
+ * none 的背景,着色错了也不影响编译.
  *
- * 三个必须对齐的点(与 editor.css 的注释配套):
+ * 三个必须对齐的点(与 `styles/editor.css` 的注释配套):
  * 1. 字体/字号/行高/制表位与 textarea 完全相同,否则字宽字高不一致;
  * 2. 内边距相同(10px 12px),首字符起点才一致;
  * 3. 滚动同步:把 textarea 的 scrollTop/scrollLeft 原样写成高亮内容的
@@ -25,7 +25,7 @@
  * 仍是普通不透明输入框--不会出现"字看不见,也没高亮"的黑洞.
  */
 
-/** 打开高亮层的类名:同时负责 textarea 文字透明与高亮层显示(见应用侧 editor.css). */
+/** 打开高亮层的类名:同时负责 textarea 文字透明与高亮层显示(见 `styles/editor.css`). */
 export const HIGHLIGHT_ENABLED_CLASS = 'is-highlighted';
 
 /**
@@ -34,25 +34,24 @@ export const HIGHLIGHT_ENABLED_CLASS = 'is-highlighted';
  */
 export interface EditorHighlightElements {
     /**
-     * 裁剪框(`#dsl-editor-highlight`),尺寸与 textarea 完全重合.
+     * 裁剪框(`.code-editor-highlight`),尺寸与 textarea 完全重合.
      *
      * 它只负责 `overflow: hidden` 裁剪,不承担滚动:偏移写在内容元素的
      * transform 上(见 sync).结构上仍然必需,所以取不到就构造报错.
      */
     readonly scroller: HTMLElement | null;
-    /** 承载高亮 HTML 的 `<pre>`(`#dsl-editor-highlight-code`),transform 的载体. */
+    /** 承载高亮 HTML 的 `<pre>`(`.code-editor-highlight-code`),transform 的载体. */
     readonly code: HTMLElement | null;
 }
 
 /**
- * 高亮层的可配置项(D6):**分词与配色由消费者注入**.
+ * 高亮层的可配置项:**分词由消费者注入,配色由消费者的样式表给**.
  *
- * 库不认识 DSL 的语法,也不认识 `dsl-comment` 这些配色类:应用侧给
- * `highlightDsl`,`css/editor.css` 定义类名怎么着色.换一门语言只换这个函数,
+ * 库不认识任何具体语言的语法,也不认识词法配色类名.换一门语言只换这个函数,
  * 高亮层的滚动同步/帧合并/结构契约一行都不用动.
  */
 export interface EditorHighlightOptions {
-    /** 源码全文 -> 高亮 HTML(应用侧是 `highlightDsl`). */
+    /** 源码全文 -> 高亮 HTML(由消费者注入). */
     readonly highlight: (source: string) => string;
 }
 
@@ -101,24 +100,24 @@ export class EditorHighlight {
         this.update();
     }
 
-    /**
-     * input 事件入口:把整份源码的重分词 + `innerHTML` 重排推到下一帧.
-     *
-     * 为什么必须合并:重绘代价与**全文长度**成正比(见注入的 highlight),而对
-     * 2.4kHz 键盘重复率来说"每次 input 都重排"意味着同一帧内可能排队好几次
-     * 全量重排.合并到一帧一次,肉眼等效(浏览器本来也只按帧呈现),省掉的是
-     * 同一帧里的重复分词与重复解析 HTML.
-     *
-     * 与 `sync()` 的分工不变:滚动/尺寸变化仍然即时同步(它只写一个 transform,
-     * 延后反而会看到高亮与文字错位).
-     */
+    /** 整份源码重新分词写入 `innerHTML`,再同步一次偏移(构造与 `refresh` 立即调用). */
     private readonly update = (): void => {
         if (this.disposed) return;
         this.code.innerHTML = this.highlight(this.editor.value);
         this.sync();
     };
 
-    /** 合并后的 input 处理:同一帧内的多次输入只重排一次. */
+    /**
+     * input 事件入口:把整份源码的重分词 + `innerHTML` 重排推到下一帧.
+     *
+     * 为什么必须合并:重绘代价与**全文长度**成正比(见注入的 highlight);按住键
+     * 连续输入时,"每次 input 都重排"意味着同一帧内可能排队好几次全量重排.
+     * 合并到一帧一次,肉眼等效(浏览器本来也只按帧呈现),省掉的是同一帧里的
+     * 重复分词与重复解析 HTML.
+     *
+     * 与 `sync()` 的分工:滚动/尺寸变化即时同步(它只写一个 transform,
+     * 延后反而会看到高亮与文字错位).
+     */
     private readonly onInput = (): void => {
         if (this.disposed || this.pendingUpdate !== null) return;
         this.pendingUpdate = requestAnimationFrame(() => {

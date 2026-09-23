@@ -1,26 +1,22 @@
 /**
  * 数字输入控件(页面上所有 `<input type="number">` 的统一件).
  *
- * 视图面板里覆盖四处:点的"大小/缩放",坐标轴"线宽","大刻度线宽","小刻度线宽";
- * 参数面板还用它做参数行的精调框(与滑块共用同一个 `signal<number>`).
+ * 消费者用它做参数行的精调框(与滑块共用同一个 `signal<number>`),以及线宽,
+ * 大小这类单值输入.
  *
- * 控件只负责"读文本 / 写文本 / 通知",**不替调用方决定非法输入怎么办** --
- * 那正是老代码三份实现分歧的地方:
- * - `AxisLineWidthController` / `GridTicksController` / `PointStyleController`:
- *   `input` 阶段解析不出数就立刻把文本回填成上一个合法值(用户打不出中途态);
- * - `ParamPanelController`:反过来,`input` 阶段保留用户文本,只在 `change`
- *   归一化后写回(否则空串与 `0.` 都会被 `Number()` 吞成 0,见 UI-P2.1).
+ * 控件只负责"读文本 / 写文本 / 通知",**不替调用方决定非法输入怎么办**:
+ * 解析失败时 `onInput` / `onCommit` 收到 `null`,想即时回退就在回调里调
+ * `write(上一个合法值)`(用户打不出中途态),想保留用户文本就什么都不做,
+ * 只在 `change` 阶段归一化后写回 -- `input` 阶段的文本可能是空串或中途态,
+ * 直接 `Number()` 会把空串吞成 0.
  *
- * 两种策略都实现得了,由调用方在 `onInput` 里选择:解析失败时回调收到
- * `null`,想即时回退就调 `write(上一个合法值)`,想保留文本就什么都不做.
+ * `parse` / `format` 也交给调用方:显示可以走 `toFixed(4)` 的口径,参数行可以
+ * 做区间夹取 / 圆周回绕,控件不预设任何一种.
  *
- * `parse` / `format` 也交给调用方:点的数字显示要走 `toFixed(4)` 的口径,
- * 参数行要做区间夹取/圆周回绕,控件不预设任何一种.
- *
- * `value` 可以是普通值或 signal(P3).给 signal 时有一个额外的小心处:用户
- * 输入的中途文本(`1.` / `0`)会被写回 signal,如果镜像更新立刻用 `format`
- * 改写文本,用户就打不出小数点了.所以**控件自己写进值源的那一次变化会被
- * 跳过**(见 `selfWrite`),文本只在别处改值时被规范化.
+ * `value` 可以是普通值或 signal.给 signal 时有一个额外的小心处:用户输入的
+ * 中途文本(`1.` / `0`)会被写回 signal,如果镜像更新立刻用 `format` 改写文本,
+ * 用户就打不出小数点了.所以**控件自己写进值源的那一次变化会被跳过**(见
+ * `selfWrite`),文本只在别处改值时被规范化.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
 import { create_element, nextWidgetId } from './dom';
@@ -31,7 +27,7 @@ export interface NumberFieldOptions {
     min?: number;
     max?: number;
     /**
-     * 步长;也可以是 signal(如"步长随显示模式变"的点大小输入框).
+     * 步长;也可以是 signal(步长随别处的状态变时).
      *
      * 与 `value` 同一套绑定语义:`input.step` 跟着它走.
      */
@@ -45,11 +41,11 @@ export interface NumberFieldOptions {
     /** 文本 -> 值;默认 trim 后 `Number.isFinite` 校验.返回 null 表示不可解析. */
     parse?(text: string): number | null;
     /**
-     * 写回值源前的归一化(夹取 / 圆周回绕 / 取整…);默认原样.
+     * 写回值源前的归一化(夹取 / 圆周回绕 / 取整...);默认原样.
      *
      * 只在"控件把用户输入写回 signal"这一条路上生效:**信号里永远不会出现
      * 未归一化的值**,于是绑在同一个信号上的其它控件(滑块)拿到的也是归一化
-     * 后的值,不需要各自再夹一次(参数面板正是这么用的).
+     * 后的值,不需要各自再夹一次.
      *
      * 它不影响 `read()` / `readText()`:那两个读的是用户眼前的文本.
      */
@@ -65,13 +61,13 @@ export interface NumberFieldOptions {
 export interface NumberFieldHandle {
     /** 根节点,插到行里用这个.与 `input` 同节点. */
     readonly element: HTMLInputElement;
-    /** 原生 number:标签关联(`<label for>`)、属性级写入(`min`/`max`)用它. */
+    /** 原生 number:标签关联(`<label for>`),属性级写入(`min`/`max`)用它. */
     readonly input: HTMLInputElement;
-    /** 当前文本解析出的值;空串/中途态(`-` / `1e` / `0.`)为 null. */
+    /** 当前文本解析出的值;空串/中途态(`-` / `1e` / `.`)为 null. */
     read(): number | null;
     /** 当前原始文本;需要比对"文本是否被改过"时(如参数行重置按钮)用它. */
     readText(): string;
-    /** 按 `format` 写回文本并更新值. */
+    /** 按 `format` 写文本;只改控件本身,不写回值源. */
     write(value: number): void;
     /** 原样写文本(不做 `format`). */
     writeText(text: string): void;
@@ -145,7 +141,7 @@ export function createNumberField(options: NumberFieldOptions): NumberFieldHandl
         notify(commitListeners, parsed);
     }, { signal: abort.signal });
 
-    // 步长同样可以是 signal(点大小的"大小/缩放"两档步长).
+    // 步长同样可以是 signal.
     const stopStep = options.step === undefined
         ? (): void => {}
         : watchValue(options.step, (next) => {

@@ -1,17 +1,18 @@
 /**
  * 窗口注册表 + 状态机 + z-order + 焦点 + 几何写入.
  *
- * 两条硬约束(继承自 `PanelController`,它当年就是为了修"模型与 DOM 分叉"):
+ * 两条硬约束(避免"模型与 DOM 分叉"):
  *
- * 1. **几何的唯一写入点**是 `_applyGeometry`:普通态把 `geometry` 逐条写进
+ * 1. **运行期几何的唯一写入点**是 `_applyGeometry`(建壳时 `createWindowFrame`
+ *    会先按 `spec.geometry` 写一次初值):普通态把 `geometry` 逐条写进
  *    `left/top/width/height`;`maximized` 态**清掉**这四条行内属性
  *    (几何交给 `.is-maximized` 的 `inset`).它不写类名,也**不碰 `z-index`**.
- * 2. **状态的唯一写入点**是 `_applyState`:`.window` 上的每一个类(除
- *    `.is-focused`)都在这里切,并刷新 `inert` / `aria-hidden` /
- *    Dock 的激活态与隐藏态.
+ * 2. **状态的唯一写入点**是 `_applyState`:状态类 `is-maximized` / `is-hidden`
+ *    都在这里切,并刷新 `inert` / `aria-hidden` / Dock 的激活态与隐藏态
+ *    (`is-focused` 由 `focus()` 写,`is-dragging` 只是拖动期间的瞬态类).
  *
- * `z-index` 有第三个写入点:`focus()`.几何写入会清行内属性,两者必须分开,
- * 否则会出现"拖动第一帧窗口就掉到后面"(见 docs/windowing-plan.md §11.2 E8).
+ * 运行期 `z-index` 只由 `focus()` 提升.几何必须逐条 `setProperty` 落地,不能用
+ * `cssText`(它会连 `z-index` 一起清掉),否则拖动第一帧窗口就会掉到后面.
  */
 import { type DesktopConfig, type WindowConfigEntry, type WindowId, type WindowSlot } from './types';
 import { bindDragGesture } from '../shared/dragGesture';
@@ -44,7 +45,7 @@ export type WindowState = 'normal' | 'maximized' | 'minimized';
  * 为什么不用 `dblclick`:拖动件在 `pointerdown` 里 `preventDefault()`(为了
  * 不选中标题文字),而浏览器正是在这一步决定要不要继续派发兼容鼠标事件,
  * 双击能不能到 `dblclick` 就变成了实现细节.按"两次 pointerdown 的间隔"判定
- * 不依赖任何兼容事件,触屏也照样成立(§10 原本担心的正是这个).
+ * 不依赖任何兼容事件,触屏也照样成立.
  */
 const DOUBLE_CLICK_MS = 300;
 
@@ -55,8 +56,8 @@ export type WindowContent = Partial<Record<WindowSlot, readonly Child[]>>;
  * 一个窗口的内容:标题栏槽位 + 正文节点.
  *
  * 正文节点是**搬过来的,不是重建的**(监听/状态/引用都不能丢),库只负责把
- * `.window-body` 建好再 `append`.正文容器由库自己建,所以消费者不再需要事先在
- * HTML 里写一个带 id 的宿主(D1) -- `index.html` 因此能缩到一个 `#app`.
+ * `.window-body` 建好再 `append`.正文容器由库自己建,消费者不必事先在 HTML 里
+ * 写一个带 id 的宿主.
  */
 export interface WindowContentSpec {
     /** 标题栏槽位节点;缺省 = 不搬节点. */
@@ -106,12 +107,12 @@ export class WindowManager {
 
     /**
      * @param config       桌面配置(窗口清单/动作/夹取常量/z 与吸附参数);
-     *                     由消费者传入,本类不读任何模块级单例(D4)
+     *                     由消费者传入,本类不读任何模块级单例
      * @param layer        `.window-layer`:窗口的定位参照与 z-order 层
      * @param dockElement  `.dock`:顶部任务栏容器
      * @param snapElement  `.snap-preview`:吸附高亮层
      * @param content      按窗口 id 取内容(标题栏槽位 + 正文节点):节点归消费者
-     *                     所有,本类只负责 `append`;正文容器 `.window-body` 由本类建(D1)
+     *                     所有,本类只负责 `append`;正文容器 `.window-body` 由本类建
      */
     constructor(
         private readonly config: DesktopConfig,
@@ -143,8 +144,8 @@ export class WindowManager {
         this.desktop = this._measureDesktop();
 
         // 三层容器的 z-index 来自配置(唯一来源):层必须在视口之上,Dock 在层
-        // 之上;吸附预览在层**之下**(见 config.z 的说明).窗口之间
-        // 的取号由 focus() 独占写入.
+        // 之上;吸附预览在层**之下**(见 config.z 的说明).窗口之间的初始取号
+        // 在下面按清单顺序写,之后由 focus() 独占提升.
         this.layer.style.zIndex = String(this.config.z.windowLayer);
         this.snapElement.style.zIndex = String(this.config.z.snapPreview);
         this.dockElement.style.zIndex = String(this.config.z.dock);
@@ -175,7 +176,7 @@ export class WindowManager {
             });
 
             // 正文节点原样搬进库建的 .window-body:节点身份不变,消费者的监听/
-            // 引用都还有效(旧写法搬的是 index.html 里的宿主,见 D1).
+            // 引用都还有效.
             const bodyNodes = childNodes(content.body ?? [], this.layer.ownerDocument);
             frame.body.append(...bodyNodes);
             this.layer.append(frame.element);
@@ -194,10 +195,9 @@ export class WindowManager {
             };
             this.entries.set(spec.id, entry);
             // 默认几何也要过一遍夹取:`resolveDefaultGeometry` 只做锚点换算,
-            // 小视口下它的结果可以低于 `minSize`(`view` 在 1280x700 上是 159 <
+            // 小视口下它的结果可以低于 `minSize`(`view` 在 1280x700 上是 178 <
             // 180),`objects` 的 `y` 甚至可能为负(标题栏被顶出桌顶,再也抓不回来).
-            // 与 `setGeometry` / `restoreAll` / `onDesktopResize` 共用 `fitGeometry`,
-            // 初始态不再是唯一例外.
+            // 用 `restoreAll` / `onDesktopResize` 同一条 `fitGeometry` 收回桌内.
             entry.geometry = fitGeometry(entry.geometry, this._limits(entry));
             // 初始 z 也要落到 DOM 上:层叠顺序不能靠 DOM 顺序(窗口层是个
             // 独立的层,z-index: auto 的窗口会被显式取号的窗口压住).
@@ -222,8 +222,8 @@ export class WindowManager {
             onRestoreAll: () => this.restoreAll(),
         });
 
-        // 0) 桌面尺寸变化:重新夹取(旧稿漏了这条).监听挂在窗口层所属的
-        // document 对应的 window 上(D7),库不读全局 window.
+        // 0) 桌面尺寸变化:重新夹取.监听挂在窗口层所属 document 的 window 上,
+        // 库不读全局 window.
         this.layer.ownerDocument.defaultView?.addEventListener(
             'resize',
             this.onDesktopResize,
@@ -236,7 +236,7 @@ export class WindowManager {
     }
 
     /**
-     * 抬升并聚焦:唯一入口(§3.2).
+     * 抬升并聚焦:唯一入口.
      *
      * **指针路径默认不夺 DOM 焦点**:点在编辑器里光标不能丢,点在参数输入框里
      * 焦点不能被窗口抢走.只有程序路径(`reveal()` / Dock 点击)才传
@@ -247,7 +247,7 @@ export class WindowManager {
         if (!entry || this._hidden(entry)) return;
 
         this.focusedId = id;
-        // 从 110 起递增,不做取模回收:会话内几百次提升不会溢出,回收只会引入
+        // 从 config.z.first 起递增,不做取模回收:会话内几百次提升不会溢出,回收只会引入
         // "层级回绕"的隐蔽 bug.
         this.z += 1;
         entry.zIndex = this.z;
@@ -265,7 +265,7 @@ export class WindowManager {
         }
     }
 
-    /** 恢复可见 + 抬升聚焦(点条目末尾的"过程",Dock 点击都走这里). */
+    /** 恢复可见 + 抬升聚焦(Dock 点击隐藏窗口走这里). */
     reveal(id: WindowId): void {
         const entry = this.entries.get(id);
         if (!entry) return;
@@ -333,7 +333,7 @@ export class WindowManager {
         this._applyGeometry(id);
     }
 
-    /** 把五个窗口复位到默认几何(对应参考项目的"恢复默认"). */
+    /** 把所有窗口复位到默认几何并回到 normal 态. */
     restoreAll(): void {
         const resolved = new Map<WindowId, Geometry>();
         for (const spec of this.config.windows) {
@@ -358,7 +358,7 @@ export class WindowManager {
         this._applyGeometry(id);
     }
 
-    /** 桌面尺寸变化的公开入口(`bind()` 已挂到 `window.resize`;测试也用它). */
+    /** 桌面尺寸变化的公开入口(`bind()` 已把它挂到所属 document 的 window.resize;测试也直接调它). */
     onDesktopResize = (): void => {
         if (!this.root) return;
         this.desktop = this._measureDesktop();
@@ -366,7 +366,7 @@ export class WindowManager {
             // 隐藏态(最小化)也要收:它保留的是普通态几何,而恢复路径不做夹取
             // --桌面变小期间停在桌外的窗口恢复后就再也抓不回来了.
             if (entry.state !== 'maximized') {
-                // resize 是外部变化:把窗口整体收回桌内(拖动仍按 §3.4 的夹取).
+                // resize 是外部变化:把窗口整体收回桌内(拖动时的夹取允许挂出边缘).
                 entry.geometry = fitGeometry(entry.geometry, this._limits(entry));
             }
             // maximized 的几何由 CSS 类接管,这里只需重刷状态类.
@@ -378,10 +378,9 @@ export class WindowManager {
     /**
      * 解绑:摘掉监听,把正文节点**还回桌面根**,再丢状态.
      *
-     * 正文节点必须在删窗口之前还回去:它们由消费者建(`#dsl-editor` 这类没有
-     * 第二份备份),留在已删除的外壳里就等于丢了 DOM(与 `PanelController.dispose()`
-     * "先把 DOM 复位再丢状态"同一条约定).还回的是**消费者给的节点本身**,
-     * 不是库建的 `.window-body` 容器.
+     * 正文节点必须在删窗口之前还回去:它们由消费者建,库没有第二份备份,留在
+     * 已删除的外壳里就等于丢了 DOM.还回的是**消费者给的节点本身**,不是库建的
+     * `.window-body` 容器.
      */
     dispose(): void {
         this.abort.abort();
@@ -472,7 +471,7 @@ export class WindowManager {
         }
     }
 
-    /** Dock 点击按状态分派(§3.6). */
+    /** Dock 点击按状态分派. */
     private _onDockSelect(id: WindowId): void {
         const entry = this._require(id);
         if (this._hidden(entry)) {
@@ -514,8 +513,7 @@ export class WindowManager {
      * 上面.磁吸是"这一次移动"的显示修正,不能成为下一次增量的基准:真机上
      * 每个 `pointermove` 只有几个像素,拿被吸住的位置当基准,每一次增量都会
      * 重新落回阈值内,被再吸一次,窗口就**再也离不开**那条共用的边(两个窗口
-     * 都在 `x: { at: 16 }` 的示例里,表现就是"只能上下动").见
-     * docs/windowing-plan.md §3.5:"下一次移动会先清掉修正再判".
+     * 都在 `x: { at: 16 }` 的示例里,表现就是"只能上下动").
      */
     private _bindWindowMove(entry: Entry): void {
         const id = entry.spec.id;
@@ -635,7 +633,7 @@ export class WindowManager {
      *
      * 最大化的几何由 `.is-maximized` 的 `inset` 负责,这里必须**先清掉四条行内
      * 几何**:行内 `left/top/width/height` 会压过类规则,不清就是"点了最大化
-     * 没反应"(见 §11.2 E9).
+     * 没反应".
      */
     private _applyGeometry(id: WindowId): void {
         const entry = this._require(id);
@@ -643,11 +641,11 @@ export class WindowManager {
             clearGeometry(entry.frame.element);
         } else {
             // 隐藏态也照常写几何:隐藏用 opacity + inert,尺寸必须仍然有效,
-            // 否则编辑器行号与高亮层会量到 0(见 §5.6).
+            // 否则编辑器行号与高亮层会量到 0.
             writeGeometry(entry.frame.element, entry.geometry);
         }
-        // 正文高度写成 CSS 变量:示例浮层的 `max-height` 要按**所属窗口正文**算,
-        // 而它在标题栏里,百分比解析不到窗口高度(见 §11.2 E5).这是给 CSS 的派生量,
+        // 正文高度写成 CSS 变量:消费者浮层的 `max-height` 要按**所属窗口正文**算,
+        // 而它在标题栏里,百分比解析不到窗口高度.这是给 CSS 的派生量,
         // 不是几何副本:四条几何属性仍然只有 writeGeometry 一个来源.
         entry.frame.element.style.setProperty(
             '--window-body-height',
@@ -672,8 +670,8 @@ export class WindowManager {
         const hidden = this._hidden(entry);
 
         element.classList.toggle('is-maximized', entry.state === 'maximized');
-        // 隐藏态只有一个(is-minimized 的实现):用 opacity + inert,不用
-        // display:none--编辑器行号与高亮层会量到 0 尺寸(见 §5.6).
+        // 隐藏态只有一个(`is-hidden`):用 opacity + inert,不用 display:none--
+        // 编辑器行号与高亮层会量到 0 尺寸.
         element.classList.toggle('is-hidden', hidden);
         element.toggleAttribute('inert', hidden);
         element.setAttribute('aria-hidden', String(hidden));

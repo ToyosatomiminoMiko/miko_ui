@@ -209,8 +209,8 @@ export function moveGeometry(g: Geometry, dx: number, dy: number, limits: Limits
  *
  * 与 `clampGeometry` 的分工:拖动的夹取刻意允许窗口挂出桌面边缘(否则"把窗口
  * 推到边上"就做不到了,见上面的 `x` 上下限),而视口变小属于外部变化,应该把
- * 用户摆好的窗口整体收回来(§9 第 11 项的"窗口不越界").窗口比工作区还大时收到
- * 工作区左上角(标题栏仍然抓得到).
+ * 用户摆好的窗口整体收回来,不留越界.窗口比工作区还大时收到工作区左上角
+ * (标题栏仍然抓得到).
  */
 export function fitGeometry(g: Geometry, limits: Limits): Geometry {
     const clamped = clampGeometry(g, limits);
@@ -239,8 +239,7 @@ export function resolveEdgeSnap(
     desktop: Desktop,
     snap: { readonly edge: number },
 ): { readonly target: Geometry; readonly kind: SnapKind } | null {
-    // 半屏与最大化两者几何一致(都铺满工作区),这样"怎么放都是同一个观感"
-    // (见 §4.2:三者观感统一).
+    // 半屏与最大化两者几何一致(都铺满工作区),这样"怎么放都是同一个观感".
     const top = workAreaTop(desktop);
     const height = desktop.h - top;
     if (pointer.y <= top + snap.edge) {
@@ -258,11 +257,12 @@ export function resolveEdgeSnap(
 }
 
 /**
- * 磁吸:把被拖窗口的左上边贴到其它可见窗口的对应边上,只改一个轴.
+ * 磁吸:把被拖窗口的左上边贴到其它可见窗口的对应边上.
  *
- * 距离最近的候选胜出;`magnet` 内没有候选就原样返回.修正量只是"这一次移动"
- * 的临时结果(由调用方按帧算),**不要**写回 `entry.geometry`,否则窗口会被
- * 永久吸住.
+ * x / y 两个轴各自判:每个轴在所有候选边里取距离最近的那条,只要修正量不超过
+ * `magnet` 就贴过去(两个轴都可能贴,互不影响).`magnet` 内没有候选就原样返回.
+ * 修正量只是"这一次移动"的临时结果(由调用方按帧算),**不要**写回
+ * `entry.geometry`,否则窗口会被永久吸住.
  */
 export function magnetize(g: Geometry, others: readonly Geometry[], magnet: number): Geometry {
     let x = g.x;
@@ -292,9 +292,9 @@ export function magnetize(g: Geometry, others: readonly Geometry[], magnet: numb
 /**
  * 几何的四条行内属性:窗口几何**唯一允许的写入形状**.
  *
- * `WindowManager` 逐条 `style.setProperty` 落地,不拼 `cssText`:`cssText` 赋值
- * 会清空整个行内声明块,把 `focus()` 写的 `z-index` 一起清掉(见
- * docs/windowing-plan.md 的 E8).
+ * `WindowFrame.writeGeometry` 逐条 `style.setProperty` 落地,不拼 `cssText`:
+ * `cssText` 赋值会清空整个行内声明块,把 `focus()` 写的 `z-index` 一起清掉,
+ * 被拖的窗口会当场掉到其它窗口后面.
  */
 export function geometryStyle(g: Geometry): Readonly<Record<'left' | 'top' | 'width' | 'height', string>> {
     return {

@@ -1,11 +1,11 @@
 /**
- * 控件与 signal 的绑定测试(P3 的增量路径).
+ * 控件与 signal 的绑定测试.
  *
- * `value: T | Signal<T>` 这条联合是 P3 落地的关键:传普通值 = 今天的行为
+ * `value: T | Signal<T>` 这条联合:传普通值只在建控件时读一次
  * (上面 `widgets.test.ts` 覆盖),传 signal 才订阅.这里锁的是 signal 一侧:
  *
- * 1. **signal → DOM**:写 signal,控件自己更新,调用方不需要 `set()`;
- * 2. **DOM → signal**:用户操作写回 signal(`onChange` 之外多出来的那条线);
+ * 1. **signal -> DOM**:写 signal,控件自己更新,调用方不需要 `set()`;
+ * 2. **DOM -> signal**:用户操作写回 signal(除控件自身回调之外的那条线);
  * 3. **不打架**:用户输入的中途文本不会被镜像更新格式化掉(数字框的 `1.`);
  * 4. **dispose 解绑**:销毁之后写 signal 不再碰 DOM(没有泄漏的回调).
  */
@@ -26,7 +26,7 @@ function stub(element: unknown): StubElement {
 }
 
 describe('Switch', () => {
-    it('signal → DOM:写值源就更新勾选态', () => {
+    it('signal -> DOM:写值源就更新勾选态', () => {
         const visible = signal(false);
         const handle = createSwitch({ value: visible });
 
@@ -36,7 +36,7 @@ describe('Switch', () => {
         expect(stub(handle.input).checked).toBe(true);
     });
 
-    it('DOM → signal:用户切换写回值源', () => {
+    it('DOM -> signal:用户切换写回值源', () => {
         const visible = signal(false);
         const handle = createSwitch({ value: visible });
 
@@ -58,7 +58,7 @@ describe('Switch', () => {
 });
 
 describe('Slider', () => {
-    it('signal → DOM 与 DOM → signal 双向成立', () => {
+    it('signal -> DOM 与 DOM -> signal 双向成立', () => {
         const value = signal(0.5);
         const handle = createSlider({
             value,
@@ -79,7 +79,7 @@ describe('Slider', () => {
 });
 
 describe('NumberField', () => {
-    it('signal → DOM:写值源按 format 落到文本', () => {
+    it('signal -> DOM:写值源按 format 落到文本', () => {
         const radius = signal(0.2);
         const handle = createNumberField({
             value: radius,
@@ -105,7 +105,7 @@ describe('NumberField', () => {
         expect(value.peek()).toBe(1);
     });
 
-    it('DOM → signal:输入解析成功就写回', () => {
+    it('DOM -> signal:输入解析成功就写回', () => {
         const value = signal(1);
         const handle = createNumberField({ value });
 
@@ -127,7 +127,7 @@ describe('NumberField', () => {
 });
 
 describe('Segmented', () => {
-    it('signal → DOM:写值源切高亮;DOM → signal:点击写回', () => {
+    it('signal -> DOM:写值源切高亮;DOM -> signal:点击写回', () => {
         const mode = signal<'size' | 'scale'>('size');
         const handle = createSegmented<'size' | 'scale'>({
             columns: 2,

@@ -10,16 +10,10 @@ import { describe, expect, it } from 'vitest';
  * 2. 库的其它样式表一律 `var(--...)`,不再出现 `#rrggbb` / `rgba(...)`;
  * 3. 语境不同但同值的写成别名(`--x: var(--y)`),别名也要指向真实存在的 token.
  *
- * 这三条靠注释守不住:新写一条硬编码色值、拼错变量名,都会先失败在这里
- * (与 `src/editor/editorStyles.test.ts` 同一思路).
- *
- * 应用侧还有一份同族的检查(`src/config/cssPalette.test.ts`):那边管"应用的
- * 样式表不许出现颜色字面量,引用的 token 都能在库里找到,且色板里没有死
- * token".两边合起来才是完整口径 —— 库这边守"默认主题只有一处",应用那边守
- * "消费者不私自加色、也不留没人用的 token".
+ * 这三条靠注释守不住:新写一条硬编码色值,拼错变量名,都会先失败在这里.
  */
 
-/** 库自带的三份样式表. */
+/** 库自带的样式表(颜色字面量只许出现在 tokens.css). */
 const LIB_CSS = ['tokens.css', 'widgets.css', 'desktop.css', 'editor.css'] as const;
 
 function read(name: string): string {

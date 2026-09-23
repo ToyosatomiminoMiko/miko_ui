@@ -1,7 +1,7 @@
 /**
  * 滑杆控件(裸 `<input type="range">`).
  *
- * 这是"拖动取值"的最小件:`Slider`(系数滑块)把它与数值框、重置按钮组合成
+ * 这是"拖动取值"的最小件:`Slider`(系数滑块)把它与数值框,重置按钮组合成
  * 一条完整参数行;需要**只**放一条滑杆时(不想带名称/数值/重置),直接用本件.
  *
  * 它与数字框(`NumberField`)是**同一个 `signal<number>` 的两个显示入口**:
@@ -9,9 +9,8 @@
  * 上,见 `NumberFieldOptions.normalize`),控件之间不互相写,也不各自留一份
  * 缓存 -- 本控件只报"用户拖到多少".
  *
- * 产出的结构与手写 HTML 一致(`<input type="range" min max step>`);类名由
- * 调用方所在的容器决定(见 `styles/widgets.css` 的 `.slider-field-range` /
- * `.control-row input[type="range"]`),本件自己不设类名.
+ * 产出的是裸 `<input type="range" min max step>`;本件不设类名,外观完全由
+ * 调用方的容器样式决定.
  *
  * `value` 可以是普通值或 signal:给 signal 时滑杆由绑定驱动,拖动写回它.
  */
@@ -47,7 +46,7 @@ export interface RangeInputOptions {
 export interface RangeInputHandle {
     /** 根节点,插到容器里用这个.本控件的根就是那个 `<input>`,与 `input` 同节点. */
     readonly element: HTMLInputElement;
-    /** 原生 range:标签关联(`<label for>`)、属性级写入(`min`/`max`)用它. */
+    /** 原生 range:标签关联(`<label for>`),属性级写入(`min`/`max`)用它. */
     readonly input: HTMLInputElement;
     get(): number;
     /** 程序化写值;不触发 `onInput`,也不写回值源. */

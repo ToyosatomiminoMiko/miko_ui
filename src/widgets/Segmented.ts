@@ -1,24 +1,19 @@
 /**
  * 单选控件(分段按钮组):一组按钮里同时只有一个 `.active`.
  *
- * 覆盖右侧"视图"面板里三处同样的东西:
- * - 点的"设定大小 / 按比例缩放"(2 列);
- * - 坐标轴"向上 X/Y/Z"(3 列,且要在行内撑满);
- * - ViewCube 预置视角(4 列).
- *
- * 三者过去各有一个类名(`.point-mode` / `.axis-up-mode` / `.viewcube`),CSS 里
- * 是三份逐字相同的规则;现在统一产出 `.segmented`,差异只剩两处参数:
+ * 布局上的差异只有两处参数:**列数**与是否**行内撑满**;统一产出
+ * `.segmented`:
  *
  * ```html
  * <div class="segmented" role="group" aria-label="..."
  *      style="--segmented-columns: 2">
- *   <button type="button" aria-pressed="true">设定大小</button>
+ *   <button type="button" class="active" aria-pressed="true">设定大小</button>
  *   <button type="button" aria-pressed="false">按比例缩放</button>
  * </div>
  * ```
  *
- * - **列数**走 `--segmented-columns`(与实体行的 `--object-color` 同一手法:
- *   值由 TS 给,CSS 只消费),不在 CSS 里为每个调用点写一条规则;
+ * - **列数**走 `--segmented-columns`(自定义属性由 TS 给值,CSS 只消费,与
+ *   `--object-color` 同一手法),不在 CSS 里为每个调用点写一条规则;
  * - **行内撑满**这类布局差异走 `modifier`(`segmented--inline`),样式仍归 CSS.
  *
  * 为什么是 `role="group"` + `aria-pressed` 而不是 `role="radiogroup"` +
@@ -26,9 +21,8 @@
  * 需要 roving tabindex;这里沿用原生按钮(每个都能 Tab 到),用"切换按钮"
  * 语义描述选中态才与键盘行为一致.
  *
- * 值域由泛型参数 `T` 保证:调用方传的是 TS 联合类型,不再是 HTML 里的
- * `data-*` 字符串,所以 `isPointMode` / `isViewHome` / `isUpAxis` 那类运行时
- * 校验连同它们的失败分支一起消失.
+ * 值域由泛型参数 `T` 保证:调用方传的是 TS 联合类型,不需要在 HTML 里放
+ * `data-*` 字符串,也不需要"这个字符串是不是合法取值"的运行时校验.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
 import { create_element } from './dom';
@@ -86,7 +80,7 @@ export function createSegmented<T extends string>(
     });
     element.style.setProperty('--segmented-columns', String(options.columns));
 
-    /** 唯一的高亮写入点:由 `current` 推导,别处不再各自 toggle `.active`. */
+    /** 唯一的高亮写入点:由 `current` 推导,别处不各自 toggle `.active`. */
     const sync = (): void => {
         for (const button of buttons) {
             const active = button.value === current;

@@ -1,27 +1,26 @@
 /**
- * KeyboardController -- 全应用唯一的键盘事件出口.
+ * KeyboardController -- 库内唯一的键盘事件出口.
  *
- * 整个应用只有这里对 `document` 绑一次 `keydown`:内置快捷键与组件级键盘
- * 激活都表示成一条 KeyboardBinding,由本控制器按注册顺序路由.组件不再各自
+ * 只有这里对 `document` 绑一次 `keydown`:内置快捷键与组件级键盘激活都表示成
+ * 一条 KeyboardBinding,由本控制器按注册顺序路由.组件不各自
  * `addEventListener('keydown')`,所以"哪些键,命中什么目标,命中后做什么"
  * 只需看这一个文件,监听也天然成对(一次 bind / 一次 dispose).
  *
- * 内置绑定:
- * - Home           -> 视角看向原点(0,0,0);焦点在输入控件里时让位给控件
- * - Ctrl/Cmd+Enter -> 运行 DSL(仅当事件目标是编辑器)
+ * 内置绑定(动作由构造时的 `actions` 注入):
+ * - Home           -> `onHome`;焦点在输入控件里时让位给控件
+ * - Ctrl/Cmd+Enter -> `onRun`(仅当事件目标是构造时传入的编辑器)
  *
- * 组件绑定(经 register 注入,见 DslApp):
+ * 组件绑定(经 register 注入):
  * - 公式的 Enter/Space 复制(FormulaCopyController.keyboardBinding())
- * - 示例浮层的 Esc / 上下键(ExampleLoaderController.keyboardBindings())
  *
- * 绑定/解绑严格成对:bind() 之后必须 dispose(),DslApp.dispose() 负责清理.
+ * 绑定/解绑严格成对:bind() 之后必须 dispose(),由调用方负责清理.
  */
 import { rootDocument, type DomRoot } from '../dom/root';
 
 export interface KeyboardActions {
-    /** [键盘事件]按下`home`键视角看向原点(0,0,0) */
+    /** [键盘事件]按下`home`键(焦点不在输入控件里时) */
     onHome: () => void;
-    /** [键盘事件]按下`ctrl`+`enter`键运行DSL */
+    /** [键盘事件]按下`ctrl`+`enter`键,且事件目标就是编辑器 */
     onRun: () => void;
 }
 
@@ -44,7 +43,7 @@ export interface KeyboardBinding {
  *
  * `Home` 在 textarea/输入框里是"光标回行首",在 range 上是"跳到最小值",
  * 在 contenteditable 里是"移到行首";这些都必须原样留给控件,不能被全局
- * 快捷键连坐(旧实现只看 `event.key === 'Home'`,在编辑器里会同时重置视角).
+ * 快捷键连坐.
  *
  * 导出给组件级绑定复用:"什么算输入目标"只需要一份判断.
  */
@@ -66,7 +65,7 @@ export class KeyboardController {
     private readonly editor: HTMLElement | null;
     private readonly actions: KeyboardActions;
     /**
-     * keydown 挂载的 document(D7):从 `editor.ownerDocument` 反查,或由调用方
+     * keydown 挂载的 document:从 `editor.ownerDocument` 反查,或由调用方
      * 显式给 root.挂 document 而不是某个容器,是因为键盘事件要"在冒泡末端"
      * 按注册顺序路由(见文件头);Shadow DOM 里的 keydown 是 composed 的,
      * 同样会到达所属 document.
@@ -86,7 +85,7 @@ export class KeyboardController {
         this.bindings = [
             {
                 keys: ['Home'],
-                // 焦点在输入控件里时让位,既不重置视角也不吞掉控件自己的 Home 行为.
+                // 焦点在输入控件里时让位,既不触发 Home 动作也不吞掉控件自己的 Home 行为.
                 resolve: (event) => isTypingTarget(event.target)
                     ? null
                     : () => this.actions.onHome(),
@@ -110,9 +109,9 @@ export class KeyboardController {
     /**
      * 全局唯一的 keydown 监听.
      *
-     * 命中即停:一条绑定处理过的事件不再向下传,避免"复制公式顺手切了视角"
-     * 这类叠加;命中且由本控制器执行时统一 preventDefault(需要保留默认行为
-     * 的绑定不应注册到这里,而应自己判断后返回 null).
+     * 命中即停:一条绑定处理过的事件不再向下传,避免"复制公式顺手触发了别的
+     * 动作"这类叠加;命中且由本控制器执行时统一 preventDefault(需要保留默认
+     * 行为的绑定不应注册到这里,而应自己判断后返回 null).
      */
     private readonly onKeyDown = (event: KeyboardEvent): void => {
         for (const binding of this.bindings) {

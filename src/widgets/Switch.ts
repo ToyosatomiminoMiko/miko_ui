@@ -1,8 +1,7 @@
 /**
- * 开关控件(右侧"视图"面板里所有复选框的统一件).
+ * 开关控件(`<input type="checkbox">` 的统一件).
  *
- * 产出的 DOM 与原来的手写 HTML 逐字同构,直接复用 `styles/widgets.css` 的
- * `.switch` / `.slider`:
+ * 产出的 DOM 直接复用 `styles/widgets.css` 的 `.switch` / `.slider`:
  *
  * ```html
  * <label class="switch">
@@ -13,12 +12,11 @@
  *
  * 状态归属:控件自己持有勾选态(`input.checked` 就是状态),`get()` 读它,
  * `set()` 程序化写它,`onChange` 通知外部.外部(控制器)**不反向持有**一份
- * 布尔值再同步回来 -- 那正是"两个状态源"的老问题;控制器只在需要按配置
- * 打初值时 `set()` 一次.
+ * 布尔值再同步回来 -- 两个状态源会互相覆盖;控制器只在需要按配置打初值时
+ * `set()` 一次.
  *
- * `value` 也可以直接给一个 **signal**(P3):那时控件由绑定驱动 -- 值变了
- * 自己更新 DOM,用户切换写回 signal,调用方不再需要 `onChange` + `set()` 的
- * 手工回路.普通值路径的行为一个字没变.
+ * `value` 也可以直接给一个 **signal**:那时控件由绑定驱动 -- 值变了自己更新
+ * DOM,用户切换写回 signal,调用方不必再写 `onChange` + `set()` 的手工回路.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
 import { create_element, nextWidgetId } from './dom';
@@ -36,7 +34,7 @@ export interface SwitchOptions {
     ariaLabel?: string;
 }
 
-/** 开关句柄:外部只认它,不再按 id 去 document 里找节点. */
+/** 开关句柄:外部只认它,不按 id 去 document 里找节点. */
 export interface SwitchHandle {
     /** 根节点(`<label class="switch">`),插到行里用这个. */
     readonly element: HTMLLabelElement;

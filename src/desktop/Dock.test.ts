@@ -1,5 +1,5 @@
 /**
- * Dock 的装配契约:按钮由窗口清单生成(不是手写),点击只上报 id,
+ * Dock 的装配契约:按钮由窗口清单生成,点击只上报 id,
  * 激活态与隐藏态由 `setActive` / `setState` 写入.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -49,7 +49,7 @@ describe('createDock', () => {
             const button = buttonOf(container, spec.id);
             expect(button.title).toBe(spec.title);
             expect(button.textContent).toBe(spec.dock.label);
-            // 按钮统一走 createButton:带基线类,外观不再由 Dock 自己声明.
+            // 按钮统一走 createButton:基线类由它给,外观不在这里声明.
             expect(button.classList.contains('ui-button')).toBe(true);
             expect(button.getAttribute('aria-pressed')).toBe('false');
         }
@@ -77,7 +77,7 @@ describe('createDock', () => {
 
         dock.buttons.get('objects')!.setState('minimized');
         expect(buttonOf(container, 'objects').getAttribute('data-state')).toBe('minimized');
-        // 状态只有 `data-state` 一份(CSS 按它淡化按钮):按钮里不再有第二个装饰元素.
+        // 状态只有 `data-state` 一份(CSS 按它淡化按钮):按钮里没有第二个装饰元素.
         expect(buttonOf(container, 'objects').querySelector<StubElement>('.dock-btn-state')).toBeNull();
     });
 
@@ -94,7 +94,7 @@ describe('createDock', () => {
     it('内容是 .dock 的两个直接子节点:按钮组在左,桌面动作区在右(没有中间层)', () => {
         const { container } = setup();
 
-        // 顶部通栏任务栏不再需要"内容宽度"那层包装:盒子就是 .dock 自己.
+        // 顶部通栏任务栏不需要"内容宽度"那层包装:盒子就是 .dock 自己.
         expect(container.querySelector<StubElement>('.dock-inner')).toBeNull();
         expect(container.children).toHaveLength(2);
         const [first, second] = container.children as StubElement[];

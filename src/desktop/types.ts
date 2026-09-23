@@ -3,11 +3,11 @@
  *
  * 这里定义的是"库认识什么"(锚点怎么写,槽位有哪几个,动作有哪几个),不是
  * "这个应用有哪些窗口".哪些窗口,标题叫什么,正文装什么内容,属于应用配置,
- * 由消费者以构造参数传进来(docs/ui-library-extraction-plan.md D4/U2).
+ * 由消费者以构造参数传进来.
  *
  * 为什么 `WindowId` 是不透明的 `string`:库只拿它当 Map 的键与 `data-*` 的值,
  * 不解释它.把它写成 'source' | 'view' | ... 就等于把某个应用的窗口清单焊进
- * 库的公开面(§10"明确不做的事").
+ * 库的公开面.
  */
 
 /** 窗口 id:库不解释的字符串;应用侧用自己的字面量联合收窄. */
@@ -27,13 +27,13 @@ export type WindowSlot = 'title' | 'actions' | 'overlays';
  *
  * 只有"最小化 / 最大化"两个:没有真正的进程可关,`close` 与 `minimize` 在观感上
  * 就是同一件事(都是把窗口藏起来),留着只会多一个语义重复的按钮;`fullscreen`
- * 与 `maximize` 的差别也只剩"遮不遮任务栏",而任务栏不该被遮--所以这两个
- * 动作连同它们的状态一起删掉了(见 `WindowManager` 的 `WindowState`).
+ * 与 `maximize` 的差别也只剩"遮不遮任务栏",而任务栏不该被遮,所以这两个动作
+ * 连同它们的状态都不提供(窗口状态见 `WindowManager` 的 `WindowState`).
  */
 export type WindowActionId = 'minimize' | 'maximize';
 
 /**
- * 窗口几何:一个轴上的定位方式(见 docs/windowing-plan.md §4.1).
+ * 窗口几何:一个轴上的定位方式.
  *
  * Dock 是顶部一条任务栏,它把桌面切成"任务栏带 + 工作区":**y 轴的默认坐标
  * 原点在工作区上沿**(`at` / `center` / `fraction` 都从这里量),所以消费者写
@@ -97,7 +97,7 @@ export interface AdoptedNodeSpec<Node extends string = string> {
     readonly slot: WindowSlot;
 }
 
-/** 一个窗口的声明式描述;正文内容不在其中(见 D1 的 `mountDesktop`). */
+/** 一个窗口的声明式描述;正文内容不在其中,由 `mountDesktop` 的 `content` 提供. */
 export interface WindowConfigEntry {
     readonly id: WindowId;
     /** 标题栏文案,同时是 Dock 按钮的 `title` 与无障碍名. */

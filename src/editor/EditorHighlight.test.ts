@@ -6,7 +6,7 @@
  * 否则靠近底部时会被夹住而错位);`refresh()` 覆盖程序化改值;缺结构时构造即报错.
  * 另外锁"开关类名"跟着生命周期走:dispose 后文字必须回到可见状态.
  *
- * 这里不断言浏览器排版(项目没有 jsdom/浏览器,见 src/testing/domStub.ts):
+ * 这里不断言浏览器排版(测试环境是 node,用的是 `test/domStub.ts` 的 DOM 桩):
  * 对齐靠 CSS 常量与同源字体变量保证,像素级验证留给真机.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -16,9 +16,8 @@ import { EditorHighlight, HIGHLIGHT_ENABLED_CLASS } from './EditorHighlight';
 /**
  * 桩高亮器.
  *
- * 库不再认识 DSL 语法(D6):组件测试只验"注入的函数被调用、产物被 innerHTML
- * 渲染、帧合并与滚动同步成立".DSL 分词本身的正确性由应用侧
- * `src/editor/dslHighlight.test.ts` 覆盖,两边各测一半.
+ * 库不认识任何具体语言的词法:组件测试只验"注入的函数被调用,产物被 innerHTML
+ * 渲染,帧合并与滚动同步成立".注入函数的正确性由消费者自己的测试覆盖.
  */
 const fakeHighlight = (source: string): string => `<span class="hl">${source}</span>`;
 

@@ -1,9 +1,8 @@
 /**
- * 窗口几何纯函数的边界穷举(阶段 0 的验收).
+ * 窗口几何纯函数的边界穷举.
  *
  * 这里不碰 DOM:夹取,移动,吸附判定,以及五个窗口在两组目标视口下的
- * 默认几何都能在单测里钉死.真机上"CSS 有没有让窗口填满"是另一回事(见
- * docs/windowing-plan.md §8.1).
+ * 默认几何都能在单测里钉死.真机上"CSS 有没有让窗口填满"是另一回事.
  */
 import { describe, expect, it } from 'vitest';
 import { TEST_DESKTOP_CONFIG } from '../../test/desktopFixture';
@@ -80,6 +79,7 @@ describe('resolveDefaultGeometry:五个窗口的默认几何', () => {
             for (const [id, geometry] of Object.entries(expected)) {
                 expect(resolved.get(id), id).toEqual(geometry);
             }
+            // 这五个 id 是夹具清单的全部;换桌面尺寸不改变窗口个数.
             expect(resolved.size).toBe(5);
         });
 
@@ -112,6 +112,8 @@ describe('resolveDefaultGeometry:五个窗口的默认几何', () => {
 
         it(`${label}:不越界,且两列与中列不重叠`, () => {
             const resolved = resolveAll(desktop);
+            // 中列宽度只由一条 clamp 公式定,夹到下限后可以压到左右两列上;
+            // 这里只保证谁都不越出桌面.
             for (const [id, geometry] of resolved) {
                 expect(geometry.x, `${id}.x`).toBeGreaterThanOrEqual(0);
                 expect(geometry.y, `${id}.y`).toBeGreaterThanOrEqual(desktop.dockReserve);
@@ -137,6 +139,7 @@ describe('resolveDefaultGeometry:五个窗口的默认几何', () => {
             const params = resolved.get('params')!;
             const process = resolved.get('process')!;
 
+            // 两条缝都来自各自 `after.gap`;夹取过的 `view` 仍落在 `source` 的正下方.
             expect(view.y - (source.y + source.h)).toBe(12);
             expect(process.y - (params.y + params.h)).toBe(12);
         });
@@ -166,7 +169,7 @@ describe('resolveDefaultGeometry:五个窗口的默认几何', () => {
     it('窄视口不再夹取中列宽度(允许重叠),但宽度仍不小于下限', () => {
         const desktop = desktopOf(900, 700);
         const resolved = resolveAll(desktop);
-        // dW - 904 = -4 -> 夹到下限 360.
+        // dW - 904 = -4 -> 夹到下限 360;这里只断言宽度下限,重叠与否不在断言内.
         expect(resolved.get('objects')!.w).toBe(360);
     });
 
@@ -278,7 +281,7 @@ describe('resolveEdgeSnap', () => {
         const left = resolveEdgeSnap({ x: snap.edge, y: 300 }, desktop, snap);
         const right = resolveEdgeSnap({ x: 1280 - snap.edge, y: 300 }, desktop, snap);
 
-        // 与最大化同几何:都铺满工作区(§4.2:"三者观感统一").
+        // 与最大化同几何:都铺满工作区,这样"怎么放都是同一个观感".
         expect(left).toEqual({
             target: { x: 0, y: WINDOW.dockReserve, w: 640, h: 760 },
             kind: 'left',
@@ -313,6 +316,7 @@ describe('magnetize', () => {
     });
 
     it('y 贴着其它窗口的上下边', () => {
+        // x 距离远在阈值外,只有 y 被修正:另一个轴不受影响.
         expect(magnetize({ x: 0, y: 296, w: 200, h: 100 }, [other], magnet).y).toBe(300);
         expect(magnetize({ x: 0, y: 496, w: 200, h: 100 }, [other], magnet).y).toBe(500);
     });

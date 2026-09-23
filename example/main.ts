@@ -12,14 +12,13 @@
  *    - `cyclic: true` 只管**外观**:名字后显示 `cyclic`,根节点加 `is-cyclic`
  *      高亮 -- 让"这个量在圆周上"看得见,不改变取值;
  *    - `normalize` 管**口径**:越界输入按区间长度回绕到 `[min, max)`.
- *      控件本身不认识圆周,回绕是消费者给的一条纯函数(应用侧那个口径与编译期
- *      共用,所以滑块位置与求值结果永远一致).这里输入 7 会看到 `7 - 2π`.
+ *      控件本身不认识圆周,回绕是消费者给的一条纯函数.这里输入 7 会看到 `7 - 2π`.
  * 3. **重置按钮是系数滑块自带的**:`resetValue` 默认取建控件时的值,已经停在
  *    该值上(值与数值框文本都比)时按钮置灰.
  * 4. **跨窗口不需要同步代码**:计数按钮只写 `count.value`,读数窗口订阅同一个
  *    signal;按到 255 之后再按一下回到 0.
  *
- * 页面不 import 本目录以外的任何应用代码:窗口层 / 吸附预览 / Dock / 每个
+ * 页面只依赖 `miko_ui` 与本目录的文件:窗口层 / 吸附预览 / Dock / 每个
  * 窗口的外壳都由 `mountDesktop()` 按配置建出来.
  */
 import {
@@ -34,11 +33,11 @@ import {
     type Signal,
     type WindowConfigEntry,
 } from 'miko_ui';
-// 库自带的样式:token + 控件 + 桌面窗口系统.示例只补页面级规则.
+// 库自带的样式:token + 控件 + 桌面窗口系统 + 编辑器外壳.示例只补页面级规则.
 import 'miko_ui/styles.css';
 import './example.css';
 
-// 获取目标html唯一挂载点,后面的ui全部基于此
+// 唯一的挂载点:后面所有 UI 都基于它
 const root = document.getElementById('app');
 if (!root) throw new Error('example/index.html 缺少 #app');
 

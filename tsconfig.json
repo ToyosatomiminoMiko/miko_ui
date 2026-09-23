@@ -2,12 +2,10 @@
   /**
    * `miko_ui` 自己的类型检查配置,自包含:不 `extends` 仓库外的任何文件.
    *
-   * 为什么写全而不是继承:这份仓库是从 `miko_graphcalc` 里搬出来的,搬之前它
-   * 写的是 `"extends": "../../tsconfig.json"`.那个相对路径在 workspace 里恰好
-   * 指回原仓库的根配置,所以一直看不出问题;一旦独立 clone,它指向的是**仓库
-   * 外面**的路径,`tsc` 直接报 TS5083,而且 `strict` / `lib` / `types` 全部
-   * 丢失,连带炸出一串"找不到 node:fs""参数隐式 any"的假错误 —— 看起来像
-   * 代码有问题,实际是配置没读到.所以这里把用到的选项写全.
+   * 为什么写全而不是继承:指向**仓库外面**的配置在独立 clone 后读不到,`tsc`
+   * 直接报 TS5083,而且 `strict` / `lib` / `types` 全部丢失,连带炸出一串
+   * "找不到 node:fs""参数隐式 any"的假错误 -- 看起来像代码有问题,实际是配置
+   * 没读到.所以这里把用到的选项写全.
    *
    * 没有 `paths`:库内一律用包内相对路径,别名只属于消费者那一侧.这不是图省事,
    * 是"库不假设消费者怎么解析模块"的一半(另一半是不引 `vite/client` 的类型,
@@ -28,7 +26,7 @@
     "checkJs": false,
     /**
      * 测试里用 `node:fs` / `node:url` 读夹具与样式表(见
-     * `src/theme/cssPalette.test.ts`、`src/reactive/reactive.test.ts`),
+     * `src/theme/cssPalette.test.ts`,`src/reactive/reactive.test.ts`),
      * 所以类型检查需要 Node 的类型.库**发布**出去的那部分不碰 Node.
      */
     "types": ["node"]
@@ -36,7 +34,7 @@
   /**
    * `example/**` 也进类型检查:示例是"公开面够不够用"唯一的实测点.代价是
    * example 通过**包名自引用** `miko_ui`,类型只能来自 `dist/index.d.ts`
-   * (exports 指向产物),所以 `npm run typecheck` 要求 `dist/` 已经构建好 ——
+   * (exports 指向产物),所以 `npm run typecheck` 要求 `dist/` 已经构建好 --
    * 这正是 `package.json` 里 `prepare: npm run build` 必须留着的原因(那条规则
    * 的执行点与失败症状写在 `.github/workflows/ci.yml` 顶部第 2 条).
    */

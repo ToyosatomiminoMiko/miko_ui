@@ -1,28 +1,26 @@
 name: Release
 
 # ============================================================================
-# 库侧的"发布"契约(这段注释是真身;消费者那半在两个应用仓库的
-# `scripts/fetch_ui.sh` 顶部)
+# 库侧的"发布"契约(这段注释是真身;消费者那半由消费侧脚本自己维护)
 # ----------------------------------------------------------------------------
 # 发布 = **一个滚动 GitHub Release 资产**,不是 npm 包:
 #
-#   release tag : ui-latest            (滚动;不是版本承诺 —— 库不写版本号)
+#   release tag : ui-latest            (滚动;不是版本承诺 -- 库不写版本号)
 #   资产文件名  : miko_ui_dist.tar.gz  (内容:包根 = dist/ + styles/ + LICENSE
 #                                       + 运行期清单 package.json)
 #
 #   下载地址    : https://github.com/<owner>/<repo>/releases/download/ui-latest/miko_ui_dist.tar.gz
 #
-# 两个消费者(`miko_graphcalc`、`ToyosatomiminoMiko.github.io`)只认这一份资产:
-# 各自的 `scripts/fetch_ui.sh` 下载 -> 校验 -> 解开 -> 原子替换缓存,再用根
-# `package.json` 的 `"@miko/ui": "file:.cache/miko_ui/current"` 链接进来.于是
-# **这个 job 绿了、资产挂上了,库里改的东西才算交付出去**:main 上的源码本身
-# 不再是交付形态(消费者机器上没有 TypeScript,也不构建库).
+# 两个消费者只认这一份资产:各自的取件脚本下载 -> 校验 -> 解开 -> 原子替换缓存,
+# 再用根 `package.json` 的 `"@miko/ui": "file:.cache/miko_ui/current"` 链接进来.
+# 于是**这个 job 绿了,资产挂上了,库里改的东西才算交付出去**:交付形态是这份资产,
+# 不是 main 上的源码(消费者机器上没有 TypeScript,也不构建库).
 #
 # 五条不变量,违反哪条这里都会红:
 #   1. 资产由 `scripts/pack_release.mjs` 生成,清单是**运行期清单**,不带
 #      `scripts`.原因:npm 装 `file:` 链接的包时会先跑目标的 `prepare`(实测
 #      npm 10.9.8),而资产里没有 `scripts/` 也没有 devDependencies,那一步必然
-#      `MODULE_NOT_FOUND`.消费侧的 `fetch_ui.sh` 会独立再校验一次.
+#      `MODULE_NOT_FOUND`.消费侧的取件脚本会独立再校验一次.
 #   2. 资产必须产自**跑过完整闸门**的树,而且生产构建**只跑一次**:安装用
 #      `npm ci --ignore-scripts`(不让 `prepare` 顺手再构建一遍),闸门就是那一条
 #      显式的 `npm run build`(build:dist -> typecheck -> 边界守卫 -> vitest).
@@ -30,17 +28,17 @@ name: Release
 #      没有副作用;`prepare` 本身仍由 ci.yml 的 `npm ci` 守着,不会悄悄消失.
 #   3. 资产**原地覆盖同一个文件名**:消费者拿到的 URL 永远不变.所以更新走
 #      `gh release upload --clobber`(资产先就位,再把 tag 挪过去),不用
-#      "删掉 release 再建" —— 那中间有一段 404 窗口,消费者的 preinstall 会失败.
+#      "删掉 release 再建" -- 那中间有一段 404 窗口,消费者的 preinstall 会失败.
 #   4. 发布只在 `main` 上跑;打包这件事本身在每个 PR/推送上由 `ci.yml` 的
 #      dry-run 步骤先验一遍,坏掉的清单不该等到发布才发现.
 #   5. 资产**自证 commit**:清单里的 `gitHead` 必须等于本次构建的 `GITHUB_SHA`
-#      (由 `pack_release.mjs` 写入).消费侧的 `fetch_ui.sh` 每次构建拿它比
-#      `ui-latest` tag 指向的 commit,落后就自动重取 —— 所以 tag 必须指向
+#      (由 `pack_release.mjs` 写入).消费侧的取件脚本每次构建拿它比
+#      `ui-latest` tag 指向的 commit,落后就自动重取 -- 所以 tag 必须指向
 #      "资产里的那个 commit",下面的交付验收会从公开 URL 下回来的那份里核一次.
 #
-# 回滚怎么办:现在是滚动 tag,没有历史版本可挑.真要固定/回滚时,给某次 commit
-# 补一个版本 tag 并把资产也挂上去,消费侧把 `MIKO_UI_RELEASE` 指过去即可 ——
-# 消费侧脚本已经支持(见 RELEASING.md §5).
+# 回滚怎么办:滚动 tag 没有历史版本可挑.真要固定/回滚时,给某次 commit 补一个
+# 版本 tag 并把资产也挂上去,消费侧把 release 指定成那个 tag 即可(消费侧脚本已
+# 经支持,见 RELEASING.md 第 5 节).
 # ============================================================================
 on:
   push:
@@ -71,8 +69,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # release 构建刻意**不复用依赖缓存**:这一份是要挂到 release 上、被消费者
-      # 直接吃下去的产物,少一条供应链面(旧 npm 发布流水线留下的规矩,别丢).
+      # release 构建刻意**不复用依赖缓存**:这一份是要挂到 release 上,被消费者
+      # 直接吃下去的产物,少一条供应链面.
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -80,7 +78,7 @@ jobs:
           package-manager-cache: false
 
       # `--ignore-scripts`:库的 `prepare` 就是 `npm run build`,不跳过的话这一步会
-      # 顺手把生产构建跑一遍,下面的显式闸门又跑一遍 —— 一次发布构建两次,而且
+      # 顺手把生产构建跑一遍,下面的显式闸门又跑一遍 -- 一次发布构建两次,而且
       # 第一次失败会挂在 "Install" 名下,看不出是构建挂了.
       # 依赖树里唯一的安装脚本是 darwin 专用的 `fsevents`(可选依赖),跳过无副作用.
       - name: Install pinned dependencies
@@ -107,8 +105,8 @@ jobs:
 
           {
             printf '## miko_ui rolling release (`ui-latest`)\n\n'
-            printf '这是**滚动资产**,不是版本发布:tag 永远指向最新一次 main 构建,文件名与 URL 不变,内容被覆盖。\n'
-            printf '库不发 npm、不写版本号;交付形态就是下面这一个文件。\n\n'
+            printf '这是**滚动资产**,不是版本发布:tag 永远指向最新一次 main 构建,文件名与 URL 不变,内容被覆盖.\n'
+            printf '库不发 npm,不写版本号;交付形态就是下面这一个文件.\n\n'
             printf '| 项 | 值 |\n| --- | --- |\n'
             printf '| commit | `%s` |\n' "$GITHUB_SHA"
             printf '| 资产 | `%s` |\n' "$ASSET_NAME"
@@ -135,7 +133,7 @@ jobs:
           fi
 
           # 交付验收:从**消费者用的那个公开 URL** 重新下一次,比对 sha256.
-          # 只验"资产挂上了"不够 —— 资产挂错 release / 传到别处 / 下到的是旧的,
+          # 只验"资产挂上了"不够 -- 资产挂错 release / 传到别处 / 下到的是旧的,
           # 都在这里现形.刚覆盖完可能有一小段传播延迟,所以给它几次机会;
           # 始终对不上就红(宁可红在这里,也不要消费者拿到一份说不清的产物).
           ok=0

@@ -1,10 +1,9 @@
 /**
  * 八向缩放的**几何解释**(纯函数)与手柄绑定.
  *
- * 机制原样保留:拖动仍然只有 `shared/dragGesture.ts` 一份,光标仍然只由
- * CSS 给(起手时读 `getComputedStyle(handle).cursor`),`is-dragging` 仍然由
- * 共用件负责,解绑仍然走 `{ signal }`.本模块只多一件事:把
- * `(方向, dx, dy)` 翻译成 `x/y/w/h` 的改变.
+ * 拖动只有 `shared/dragGesture.ts` 一份,光标只由 CSS 给(起手时读
+ * `getComputedStyle(handle).cursor`),`is-dragging` 由共用件负责,解绑走
+ * `{ signal }`.本模块只做一件事:把 `(方向, dx, dy)` 翻译成 `x/y/w/h` 的改变.
  *
  * 三条必守的细节(否则会出现"拖不动""窗口跳""拖到自己身上"):
  * 1. `west`/`north` 必须**同时**动 `x/y` 与 `w/h`:只改尺寸会让窗口"看着不动,
@@ -12,7 +11,7 @@
  * 2. `applyResize` **不夹取**:`w -= dx` 与 `x += dx` 之间插夹取会把窗口整体
  *    往右推,夹取必须由调用方在累加后统一做一次(`WindowManager` 的
  *    `setGeometry` 过 `clampGeometry`);
- * 3. 至少 `EDGE_KEEP` 宽留在桌内,这条同样由调用方那次夹取保证.
+ * 3. 至少 `edgeKeep` 宽留在桌内,这条同样由调用方那次夹取保证.
  */
 import { bindDragGesture } from '../shared/dragGesture';
 import type { Geometry } from './WindowGeometry';

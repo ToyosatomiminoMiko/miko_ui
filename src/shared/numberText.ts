@@ -1,12 +1,12 @@
 /**
- * 列表里的数值/向量纯文本格式化.
+ * 数值/向量的纯文本格式化.
  *
- * 与 `math/latexNumber.ts` 分工:那边产出 KaTeX 数字(科学计数法排版),
- * 这里产出**纯文本**回退(实体摘要,积分式排不出来时的数值落点).
- * 两处口径刻意不同:LaTeX 走 `\times10^{n}`,纯文本走 `e+n`.
+ * 产出的是**纯文本**:能直接展示,也能拼进别的字符串,不依赖排版渲染器.
+ * 因此科学计数法刻意写成 `e+n`(`1.000000e+6`),而不是 `\times10^{n}` 这类
+ * 需要 LaTeX/KaTeX 才能排出来的写法.
  */
 
-/** 数值 -> 紧凑纯文本(定点优先,超出量级回退科学计数法). */
+/** 数值 -> 紧凑纯文本:非有限值原样返回,其余定点优先(去尾零),超出量级回退科学计数法. */
 export function formatNumber(value: number): string {
     if (!Number.isFinite(value)) return String(value);
     const magnitude = Math.abs(value);

@@ -1,12 +1,12 @@
 /**
  * KeyboardController 单测.
  *
- * 这个控制器是全应用唯一的 keydown 出口,所以覆盖三块:
+ * 这个控制器是库内唯一的 keydown 出口,所以覆盖三块:
  * - 内置绑定:`Home`(含输入焦点让位),编辑器 `Ctrl/Cmd+Enter`;
  * - 路由契约:注册的组件绑定按顺序命中即停,返回 null 放行,命中统一
  *   preventDefault;
  * - 端到端:把 FormulaCopyController 的 binding 注册进来,验证"聚焦公式 +
- *   Enter"能复制并阻止默认滚动.
+ *   Enter"能复制并阻止默认行为.
  *
  * 键盘监听只绑在 document 上(编辑器快捷键靠冒泡),所以触发一律走
  * `stub.document.dispatch`,事件 target 显式带上"当前聚焦元素".

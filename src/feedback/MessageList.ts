@@ -1,16 +1,15 @@
 /**
  * 消息列表:只保留错误与警告的紧凑提示件.
  *
- * 这是库里最干净的一件:`src/ui` 时期它就没有任何领域 import,只吃一个容器与
- * `MessageEntry[]`(见 docs/ui-library-extraction-plan.md §2.2/§6.1).搬进来之后
- * 它仍不认识"编译错误""降采样"是什么 -- 那些是应用侧的 `level`/文案.
+ * 它不依赖任何领域概念,只吃一个容器与 `MessageEntry[]`:不认识"编译错误"
+ * "降采样"是什么 -- 那些是消费者传入的 `level`/文案.
  *
  * 容器通常带 `aria-live="polite"`:任何 DOM 变动都会被读屏播报,所以渲染层走
- * `render(list)`(整体替换,内容一致时**一次 DOM 操作都不做**),而不是每帧
- * `clear()` + 逐条 `add()` -- 后者在拖参数时会每帧重放同一批警告(UI-P3.7).
- * `add`/`clear` 保留给"一次性提示"场景(如 DslApp.run 的编译错误).
+ * `render(next)`(整体替换,内容一致时**一次 DOM 操作都不做**),而不是每帧
+ * `clear()` + 逐条 `add()` -- 后者在拖参数时会每帧重放同一批警告.
+ * `add`/`clear` 保留给"一次性提示"场景.
  *
- * D7:节点建在**容器所属**的 document 上,库不读全局 `document`.
+ * 节点建在**容器所属**的 document 上,库不读全局 `document`.
  */
 import { create_element } from '../widgets/dom';
 
@@ -53,7 +52,8 @@ export class MessageList {
      * 用一批消息整体替换当前内容.
      *
      * 键序列与当前一致时直接返回:内容没变就不碰 DOM,live region 不会重复播报.
-     * 变了则尽量复用同键节点,只移动/替换确实变化的部分.
+     * 变了才重建:按 key 复用旧节点,只新建真正新增的条目,再用一次
+     * `replaceChildren` 落位.
      */
     render(next: readonly MessageEntry[]): void {
         const nextKeys = next.map((entry) => messageKey(entry.level, entry.message));
@@ -82,7 +82,7 @@ export class MessageList {
     }
 
     private _createNode(level: MessageLevel, message: string): HTMLElement {
-        // 类名与文案口径不变:应用侧 CSS(`css/diagnostics.css`)按 `diagnostic-<level>` 着色.
+        // 类名与文案是固定契约:消费者的 CSS 按 `diagnostic-<level>` 着色.
         return create_element('div', {
             class: `diagnostic diagnostic-${level}`,
             root: this.container.ownerDocument,

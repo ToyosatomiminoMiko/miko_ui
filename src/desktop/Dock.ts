@@ -5,14 +5,15 @@
  * 内边距都在它身上),窗口按钮组与桌面动作区是它的直接子节点.它的高度就是
  * 配置里的 `dockReserve`,同时是窗口工作区的上沿(见 `WindowGeometry`).
  *
- * 按钮**由窗口清单生成**(构造参数 `windows`),不在 HTML 里手写;点击
- * 语义(提升/最小化/还原/复位)由 `WindowManager` 按状态分派,本模块只负责:
- * - 装配按钮(每枚都走 `createButton`,标题即 `dock.label`),顺序与清单一致;
+ * 按钮**由窗口清单生成**(构造参数 `windows`),点击语义(提升/最小化/还原/
+ * 复位)由 `WindowManager` 按状态分派,本模块只负责:
+ * - 装配按钮(每枚都走 `createButton`,文案取 `dock.label`,`title` 取窗口
+ *   `title`),顺序与清单一致;
  * - 上报点击(`handlers.onSelect`);
  * - 写入激活态(`.is-active` 与 `aria-pressed`)与隐藏态(`data-state`,CSS 按它淡化).
  *
- * 为什么按钮不放在 `index.html`:加一个窗口要改两处(标记与清单)就会漂移,
- * 而"清单是唯一真相源"是本方案的硬约束(见 docs/windowing-plan.md §5.3).
+ * 为什么不把按钮写死在标记里:加一个窗口要改两处(标记与清单)就会漂移,而
+ * "清单是唯一真相源"是硬约束.
  */
 import { type WindowConfigEntry, type WindowId } from './types';
 import { createButton } from '../widgets/Button';
@@ -23,14 +24,14 @@ import type { WindowState } from './WindowManager';
 export interface DockHandlers {
     /** 点击某个窗口的 Dock 按钮;按状态分派由 `WindowManager` 做. */
     onSelect(id: WindowId): void;
-    /** 把五个窗口复位到默认几何. */
+    /** 把所有窗口复位到默认几何. */
     onRestoreAll(): void;
 }
 
 export interface DockButtonHandle {
     setActive(active: boolean): void;
     /**
-     * 写 `data-state`:CSS 只按它淡化"最小化/关闭"的按钮(`opacity`).
+     * 写 `data-state`:CSS 只按它淡化最小化的按钮(`opacity`).
      * 状态只由按钮自身表达:
      * 隐藏态看本方法的 `data-state`, 聚焦态看 `setActive`.
      */

@@ -3,8 +3,7 @@
    * 构建 `dist/` 用的配置:在 `tsconfig.json` 之上只改"要不要产出文件"这件事.
    *
    * 产物**不是给 npm 发布的**(库不发 npm,见 RELEASING.md),而是要进 GitHub
-   * Release 资产(`ui-latest` 上的 `miko_ui_dist.tar.gz`)的:两个消费者
-   * (`miko_graphcalc`、`ToyosatomiminoMiko.github.io`)下载 -> 解开到
+   * Release 资产(`ui-latest` 上的 `miko_ui_dist.tar.gz`)的:消费者下载 -> 解开到
    * `.cache/miko_ui/current` -> 用 `"@miko/ui": "file:.cache/miko_ui/current"`
    * 链接,再经 `exports` 解析到 `dist/index.js` / `dist/index.d.ts`.所以"产物
    * 干不干净"的判据是**那些消费者认不认**,不是"发布出去别人能不能用".
@@ -29,10 +28,8 @@
      * 万一将来有人在库里误引 `node:*`,这一步会直接编译失败,而不是悄悄把
      * "这个库需要 Node 环境"带进产物.
      *
-     * 注意这里**不**再补 ESM 说明符:库内写的是无扩展名相对导入,`tsc` 原样输出,
-     * 由消费者的打包器解析 -- 唯一消费者用 Vite,它自带解析器.这一点以前由一个
-     * 构建后处理脚本(`fix_esm_specifiers.mjs`)负责,那是为"发 npm 给 Node 原生
-     * ESM / `node16` 解析用"准备的,npm 那条路作废之后它就没有对象了.
+     * 注意这里**不**补 ESM 说明符:库内写的是无扩展名相对导入,`tsc` 原样输出,
+     * 由消费者的打包器解析(消费侧用 Vite,自带解析器),不需要构建后处理脚本.
      */
     "types": []
   },

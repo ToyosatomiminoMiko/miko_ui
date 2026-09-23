@@ -5,11 +5,11 @@
  *
  * ```text
  * <div class="slider-field [is-cyclic]">       <- 根,样式由 .slider-field 一处控制
- *   <input class="slider-field-range" type="range">   <- 粗调(RangeInput)
+ *   <input type="range">                       <- 粗调(RangeInput,自身不设类名)
  *   <div class="slider-field-meta">
  *     <label class="slider-field-label" for=滑杆>名称 <small>提示</small> <span class="slider-field-tag">cyclic</span></label>
- *     <input class="slider-field-value" type="number">  <- 精调(NumberField)
- *     <button class="slider-field-reset">reset</button>  <- 重置(Button)
+ *     <input type="number">                    <- 精调(NumberField,自身不设类名)
+ *     <button class="ui-button slider-field-reset">reset</button>  <- 重置(Button)
  *   </div>
  * </div>
  * ```
@@ -26,22 +26,23 @@
  * ## 值与文本的分工
  *
  * - `normalize`(可选)收在数值框上:滑杆本身不会越界,不必再过一遍;
- * - `parse` / `format`(可选)决定"文本 <-> 值"的口径,并同时用于重置按钮的
- *   `title` / `aria-label`(点之前就能看到会回到多少);
- * - 数值框沿用 `NumberField` 的**保守策略**:`input` 阶段不覆盖用户正在编辑
- *   的文本(空串 / `1.` / `1e` 一律不写回),归一化后的文本只在 `change`
+ * - `parse` / `format`(可选)决定"文本 <-> 值"的口径;`format` 同时用于重置
+ *   按钮的 `title` / `aria-label`(点之前就能看到会回到多少);
+ * - 数值框沿用 `NumberField` 的**保守策略**:`input` 阶段不改写用户正在编辑
+ *   的文本(空串 / `1.` / `1e` 都不动输入框),归一化后的文本只在 `change`
  *   (失焦 / 回车)时落回输入框.
  *
  * ## 重置按钮
  *
- * 目标值是 `resetValue`(默认取建控件时的初值,也就是"声明值");它与拖动、
+ * 目标值是 `resetValue`(默认取建控件时的初值,也就是"声明值");它与拖动,
  * 输入走同一条"写值源"链路,所以外部订阅者会照常收到通知.按钮在下列两种
  * 情况下置灰:
  * 1. 值已经等于目标值;且
  * 2. 数值框文本已经是目标值的文本.
  *
- * 第 2 条不能省:用户把输入框清空或写成 `1.` 时值没变,但正需要用重置把文本
- * 恢复回去 -- 只比值的实现会让按钮在那一刻点不动.
+ * 第 2 条不能省:清空输入框时解析失败,值源根本没变,写成 `1.` 这类文本时值
+ * 也可能没变,但文本已经与目标值不同 -- 正需要用重置把它恢复回去,只比值的
+ * 实现会让按钮在那一刻点不动.
  */
 import {
     isSignal,
@@ -76,15 +77,15 @@ export interface SliderOptions extends Omit<RangeInputOptions, 'ariaLabel'> {
     format?(value: number): string;
     /** 文本 -> 值;默认 trim 后 `Number.isFinite` 校验.返回 null 表示不可解析. */
     parse?(text: string): number | null;
-    /** 写回值源前的归一化(夹取 / 圆周回绕 / 取整…);默认原样.只挂在数值框上. */
+    /** 写回值源前的归一化(夹取 / 圆周回绕 / 取整...);默认原样.只挂在数值框上. */
     normalize?(value: number): number;
 }
 
 /** 系数滑块句柄:外部只认它,不按 id 去 document 里找节点. */
 export interface SliderHandle {
-    /** 根节点(`<div class="slider-field">`),插进面板用这个. */
+    /** 根节点(`<div class="slider-field">`),插进容器用这个. */
     readonly element: HTMLDivElement;
-    /** 名称标签:需要改文案(如"大小"/"缩放"随模式换)时改它,不必再按 id 查. */
+    /** 名称标签:需要改文案时改它,不必再按 id 查. */
     readonly label: HTMLLabelElement;
     /** 原生 range:标签关联与细粒度写入用它. */
     readonly input: HTMLInputElement;
@@ -112,7 +113,7 @@ export function createSlider(options: SliderOptions): SliderHandle {
     /**
      * 唯一值源:调用方给的是 signal 就直接用它(它的订阅者照常收到改动);
      * 给普通值时控件自己建一个同值 signal -- 滑杆与数值框总得有个共同的值
-     * 才能互相同步,否则又回到"两个 input 各存一份"的老问题.
+     * 才能互相同步:两条入口各存一份就会分叉.
      */
     const external = options.value;
     const value: Signal<number> = isSignal<number>(external)
@@ -145,8 +146,8 @@ export function createSlider(options: SliderOptions): SliderHandle {
         ariaLabel: `重置 ${options.label} 为 ${format(resetValue)}`,
     });
 
-    // 循环参数在名字后挂一枚 `cyclic` 徽章(与应用里"类型"标签同一种观感):
-    // 让"这个量在圆周上"看得见,但**不**给名字本身换颜色.
+    // 循环参数在名字后挂一枚 `cyclic` 徽章:让"这个量在圆周上"看得见,
+    // 但**不**给名字本身换颜色.
     // 名字与徽章之间那个空格只进可访问名(`<label for>` 的文本);flex 布局里
     // 纯空白文本节点不渲染,视觉间距仍由 CSS 的 gap 给.
     const tag = options.cyclic

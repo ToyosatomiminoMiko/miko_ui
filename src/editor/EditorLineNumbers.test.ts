@@ -1,14 +1,14 @@
 /**
- * 编辑器行号栏单测(UI-P3.10).
+ * 编辑器行号栏单测.
  *
  * 锁四条:按 `\n` 重绘行号,按 scrollTop 反向平移,`refresh()` 覆盖程序化改值,
- * 缺结构时构造即报错(依赖不再藏在"父节点里按 id 查"的实现里).
+ * 缺结构时构造即报错(依赖不藏在"父节点里按 id 查"的实现里).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type DomStub, type StubElement } from '../../test/domStub';
 import { EditorLineNumbers } from './EditorLineNumbers';
 
-/** 槽宽下限:应用侧来自 `UI_CONFIG.editor.gutterMinWidth`,库测试自带一个值(D6). */
+/** 槽宽下限:测试自带一个值(实际由消费者传入). */
 const GUTTER_MIN_WIDTH = 32;
 
 interface Harness {

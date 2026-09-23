@@ -2,21 +2,22 @@
  * 浮层控件(按钮 + 面板的开合).
  *
  * 负责四件事,全是"任何浮层都要有,写第二遍必错"的部分:
- * - **开合态唯一**:`.is-open` 类与 `aria-expanded` 由同一个 `_apply` 写入,
- *   构造 / 点击 / Esc / 外部点击 / dispose 都走这一条路径;
- * - **aria 关系**:面板带 id 时自动把 `aria-controls` 指过去,id 改了不会留下
- *   指向空气的关系(HTML 里那份只是首帧占位);
+ * - **开合态唯一**:`.is-open` 类与 `aria-expanded` 由同一个 `apply` 写入,
+ *   构造 / 触发按钮点击 / `open` / `close` / `toggle` / 外部点击 / dispose
+ *   都走这一条路径;
+ * - **aria 关系**:面板带 id 时把 `aria-controls` 指过去(构造时设定,HTML 里
+ *   那份只是首帧占位);
  * - **点外部关闭**:绑定在 `bind(root)` 的根节点上;按钮与面板内部的点击都要
  *   显式排除 -- 按钮自己的 click 会冒泡到根,不排除就会"刚打开又被关掉";
- * - **焦点归还**:`close({ focusTrigger: true })` 只给键盘路径(Esc)用;鼠标点
- *   外部关闭不该把焦点抢回按钮.
+ * - **焦点归还**:`close({ focusTrigger: true })` 交给键盘路径(如 Esc)用;
+ *   鼠标点外部关闭不该把焦点抢回按钮.
  *
- * 不负责的:键盘路由(本项目的约定是 document 级 keydown 只由
- * `KeyboardController` 绑一次,浮层把规则注册进去),面板内容怎么渲染,选中后
+ * 不负责的:键盘路由(document 级 keydown 只由 `shared/KeyboardController.ts`
+ * 绑一次,浮层把规则 `register` 进去),面板内容怎么渲染,选中后
  * 干什么 -- 那些留在各自的控制器里.
  *
- * 样式不在这里:浮层的外观由调用方给类名与 CSS(`.example-menu` 等),本控件
- * 只维护 `.is-open` 这一个约定俗成的开合类.
+ * 样式不在这里:浮层的外观由调用方给类名与 CSS,本控件只维护 `.is-open` 这
+ * 一个约定俗成的开合类.
  */
 export interface PopoverOptions {
     /** 触发按钮. */

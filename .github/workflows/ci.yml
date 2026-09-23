@@ -11,29 +11,26 @@ permissions:
 
 jobs:
   # 库自己的 CI. 这个 job 只需要 Node -- "能独立跑绿"就是"UI 与计算真的解耦了"
-  # 最直接的证据.这条 job 是从 `miko_graphcalc` 的 deploy.yml 里搬过来的:
-  # 库分出去之后,那边不再有库的源码,检查必须跟着库走.
+  # 最直接的证据:检查跟着库走,不依赖任何消费者仓库.
   #
   # ==========================================================================
-  # 库侧的依赖/交付契约(这段注释是真身;应用侧那半在 miko_graphcalc 的
-  # scripts/fetch_ui.sh 顶部)
+  # 库侧的依赖/交付契约(这段注释是真身;消费者那半由消费侧脚本自己维护)
   # --------------------------------------------------------------------------
   # 为什么写在这里而不是写进 package.json:package.json 是严格 JSON,放不了注释;
   # 而这个 workflow 正是下面每一条的**执行点** -- 违反哪条,红的就是这个 job.
   #
   # 1. 不发 npm registry;不写版本号."发布" = `release.yml` 把包根打成
-  #    `miko_ui_dist.tar.gz` 挂到滚动 release `ui-latest` 上,两个消费者
-  #    (miko_graphcalc,ToyosatomiminoMiko.github.io)只从那里取**产物**,
-  #    不 clone 源码,不本地构建.版本号依然只是负债 -- 每改一次都要决定升哪
-  #    一位,而没有任何人依赖这个决定(取舍与归档见 RELEASING.md).
+  #    `miko_ui_dist.tar.gz` 挂到滚动 release `ui-latest` 上,两个消费者只从
+  #    那里取**产物**,不 clone 源码,不本地构建.版本号依然只是负债 -- 每改一次
+  #    都要决定升哪一位,而没有任何人依赖这个决定(取舍与归档见 RELEASING.md).
   # 1.1 发布 job 的"执行点"在 `release.yml` 顶部;那个文件只管 main 上的发布,
   #    所以打包本身在这里也 dry-run 一遍(下面的 "Pack release asset"):让
   #    "清单漏进 scripts"/"资产打不出来"在合入前就红,而不是等发布时才发现.
   # 1.2 资产必须**自证 commit**:清单里的 `gitHead` = 构建它的那个 commit(打包
-  #    脚本写入;本地工作树脏时是 `<sha>-dirty`).消费侧的 `fetch_ui.sh` 每次
-  #    构建拿它比 `ui-latest` tag 指向的 commit,判断缓存是不是最新,落后就自动
-  #    重取.下面的 dry-run 断言它等于本次构建的 commit,`release.yml` 的交付
-  #    验收还会从公开 URL 下回来的那份里再核一次.
+  #    脚本写入;本地工作树脏时是 `<sha>-dirty`).消费侧的取件脚本每次构建拿它
+  #    比 `ui-latest` tag 指向的 commit,判断缓存是不是最新,落后就自动重取.下面
+  #    的 dry-run 断言它等于本次构建的 commit,`release.yml` 的交付验收还会从公开
+  #    URL 下回来的那份里再核一次.
   # 2. `scripts.prepare` 必须以 `npm run build` 开头,不能删.这个 job 的顺序是
   #    `npm ci`(prepare -> `npm run build`)-> `npm run build` -> 产物检查,
   #    而 `tsconfig.json` 把 `example/**` 也收进类型检查,example 又通过
@@ -45,14 +42,15 @@ jobs:
   # 2.1 `prepare` 末尾跟的 `&& git config --local core.hooksPath .githooks` 只服务
   #    本机开发体验:提交前自动转换全角标点(见 `scripts/autorun.py` 顶部).它要求
   #    当前目录是 git 仓库 -- 开发 clone 与这里的 checkout 都满足;发布资产里没有
-  #    `scripts` 字段(见 1.1),消费侧根本跑不到 `prepare`,所以这条不会外溢.
+  #    `scripts` 字段(见 `scripts/pack_release.mjs`),消费侧根本跑不到 `prepare`,
+  #    所以这条不会外溢.
   # 3. `package-lock.json` 只允许用**完整** `npm install` 重建.
   #    `npm install --package-lock-only` 只按**当前平台**算理想树,会把跨平台可选
-  #    依赖(`lightningcss-*`,`@rolldown/binding-*` 等 22 条)从锁里丢掉.后果有
-  #    两个,而且总是一起发生:这个 job 的 `npm ci` 直接 EUSAGE(`Missing: ... from
-  #    lock file`),以及 miko_graphcalc 的 CI 连带失败(它的 preinstall 会在库目录
-  #    里跑同一个 `npm ci`).依赖没变,只是要重写元数据时,别重新解析,从历史里取
-  #    回完整的那份即可.
+  #    依赖(`lightningcss-*`,`@rolldown/binding-*` 等一批平台专用包)从锁里丢掉.
+  #    后果有两个,而且总是一起发生:这个 job 的 `npm ci` 直接 EUSAGE(`Missing: ...
+  #    from lock file`),以及消费者 CI 连带失败(它的 preinstall 会在库目录里跑同
+  #    一个 `npm ci`).依赖没变,只是要重写元数据时,别重新解析,从历史里取回完整的
+  #    那份即可.
   # 4. 本地与 CI 的 npm 不是同一个版本(本地 Node 22 带 npm 10,CI Node 24 带
   #    npm 11),对锁的校验严格程度不同:第 3 条只有 npm 11 会拒,本地 npm 10 一路
   #    绿.所以动过锁或依赖之后,交付前跑一次:
@@ -83,9 +81,8 @@ jobs:
       # 一条命令 = package.json 里 `build` 的全部内容:
       #   build:dist(clean -> tsc 产出 dist/) -> typecheck(src + test + example)
       #   -> 边界守卫八条断言 -> vitest.
-      # 本地,消费者(`fetch_ui.sh`),CI 跑的是同一条,不会再出现"CI 绿了,但
-      # 本地 build 不带检查".typecheck 过了同时说明:库内没有任何路径别名,搬去
-      # 任何消费者都不用改 import.
+      # 本地,消费者,CI 跑的是同一条,不会出现"CI 绿了,但本地 build 不带检查".
+      # typecheck 过了同时说明:库内没有任何路径别名,换任何消费者都不用改 import.
       - name: Build, typecheck and test
         run: npm run build
 

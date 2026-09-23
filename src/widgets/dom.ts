@@ -67,8 +67,8 @@ export interface ElementOptions {
  *
  * ```ts
  * const label = create_element('label', {}, '半径');
- * label.htmlFor = 'ui-slider-1';
- * // -> <label for="ui-slider-1">半径</label>
+ * label.htmlFor = 'ui-number-1';
+ * // -> <label for="ui-number-1">半径</label>
  * ```
  *
  * HTML 上看不出来的有两件:
@@ -89,7 +89,7 @@ export function create_element<K extends keyof HTMLElementTagNameMap>(
     options: ElementOptions = {},
     ...children: Child[]
 ): HTMLElementTagNameMap[K] {
-    // 1. 建节点:root 从 options 里摘出来,不读全局 document(见 `dom/root.ts`).
+    // 1. 建节点:root 从 options 里摘出来,交给 rootDocument 决定建在哪个 document 上.
     const { root, ...attributes } = options;
     const doc = rootDocument(root);
     const element = doc.createElement(tag);
@@ -117,8 +117,8 @@ export function create_element<K extends keyof HTMLElementTagNameMap>(
 /**
  * 把 `Child[]` 落成真节点(字符串 -> 文本节点,假值跳过).
  *
- * `create_element()` 内部走同一套规则;"先建容器、稍后再搬节点"的场景
- * (`mountDesktop` 的背景节点、`WindowManager` 的窗口正文)也要用它,所以单独
+ * `create_element()` 内部走同一套规则;"先建容器,稍后再搬节点"的场景
+ * (`mountDesktop` 的背景节点,`WindowManager` 的窗口正文)也要用它,所以单独
  * 导出,避免各写一份过滤逻辑而漏掉字符串/假值中的一种.
  */
 export function childNodes(children: readonly Child[], root?: DomRoot): Node[] {
@@ -137,9 +137,8 @@ let widgetSeq = 0;
 /**
  * 生成本次会话内唯一的控件 id.
  *
- * 老写法把 id 当全局注册表用(`getElementById('pointValue')`),撞名或漏写
- * 都只在运行时静默出错.现在 id 只服务"标签关联"这一件事,由控件自己发,
- * 外部一律拿 handle 引用节点,不再按 id 查.
+ * id 只服务"标签关联"这一件事,由控件自己发:按 id 去 document 里查节点会在
+ * 撞名或漏写时静默出错,所以外部一律拿 handle 引用节点.
  */
 export function nextWidgetId(kind: string): string {
     widgetSeq += 1;

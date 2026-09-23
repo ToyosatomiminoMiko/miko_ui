@@ -1,5 +1,5 @@
 /**
- * 公式复制控制器单测(UI-P3.6).
+ * 公式复制控制器单测.
  *
  * 复制必须有键盘入口:可复制公式由 FormulaView 加了 `tabindex`/`role`,
  * 本控制器提供 `keyboardBinding()` 供 KeyboardController 分发,自己只绑 click.

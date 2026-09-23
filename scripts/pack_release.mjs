@@ -1,11 +1,10 @@
 /**
  * 把"包根"打成一个 release 资产:`release/miko_ui_dist.tar.gz`.
  *
- * 这**不是** `npm pack`,也不再和 npm registry 有任何关系:资产是给两个应用仓库
- * (`miko_graphcalc`、`ToyosatomiminoMiko.github.io`)的 `scripts/fetch_ui.sh`
- * 直接下载、解开、按 `"@miko/ui": "file:.cache/miko_ui/current"` 链接的.所以他们
- * 会读到的东西在这里定死,任何一处漂移都在这个脚本里报错,而不是在他们的构建里
- * 以奇怪的方式炸.
+ * 这**不是** `npm pack`,与 npm registry 无关:资产是给消费者的取件脚本直接
+ * 下载,解开,按 `"@miko/ui": "file:.cache/miko_ui/current"` 链接的.所以消费者会
+ * 读到的东西在这里定死,任何一处漂移都在这个脚本里报错,而不是在他们的构建里以
+ * 奇怪的方式炸.
  *
  * 资产的形状(解到最后,**包根**就直接是这四样,没有多一层目录):
  *
@@ -15,11 +14,11 @@
  *     LICENSE        <- AGPL-3.0-or-later,跟着产物一起分发
  *
  * 其中清单里的 `gitHead` 是**本脚本写进去的**:这一份资产是哪个 commit 构建的.
- * 库不写版本号,消费侧的 `fetch_ui.sh` 每次构建都要回答"我缓存的这份是不是最新
+ * 库不写版本号,消费侧的取件脚本每次构建都要回答"我缓存的这份是不是最新
  * 发布的":它拿 `ui-latest` tag 指向的 commit 当"最新",可这个 tag 是在资产
  * **上传之后**才被强推过去的(见 `release.yml`),所以"下载的那一瞬 tag 指哪"并
  * 不等于"资产是哪个 commit 建的".把 commit 写进资产,这件事就只剩两串 sha 的
- * 相等比较.取不到 commit 时本脚本**直接失败** —— 一份说不清自己是什么的资产,
+ * 相等比较.取不到 commit 时本脚本**直接失败** -- 一份说不清自己是什么的资产,
  * 比没有资产更坏(消费侧会把它当"不是最新",每次构建重下一遍).
  *
  * 为什么清单必须**重新生成**而不是照抄 `package.json`:
@@ -27,7 +26,7 @@
  *   - `scripts` 绝不能带.`npm install` 装 `file:` 链接的包时会先跑它的
  *     `prepare`;资产里没有 `scripts/` 也没有 devDependencies,那一步必然
  *     `MODULE_NOT_FOUND`.实测(npm 10.9.8):目标清单里只要有 `scripts.prepare`,
- *     `file:` 依赖安装就会执行它.消费侧的 `fetch_ui.sh` 也会独立校验一次
+ *     `file:` 依赖安装就会执行它.消费侧的取件脚本也会独立校验一次
  *     "清单里没有 scripts",两边互为对方的保险.
  *   - `private` / `devDependencies` / `files` 这些构建期字段对消费者没有意义,
  *     带过去只会制造"这份产物的依赖树到底该长什么样"的歧义.
@@ -41,10 +40,10 @@
  *     npm run build          # 先产出 dist/(本脚本不编译,只打包)
  *     npm run release:pack   # -> release/miko_ui_dist.tar.gz
  *
- * 退出码:0 = 资产已就绪(并打印清单、tar 内容、sha256);非 0 = 明确失败.
+ * 退出码:0 = 资产已就绪(并打印清单,tar 内容,sha256);非 0 = 明确失败.
  * 打出的 tar 是**可复现**的(排序 + 归零 mtime/uid/gid),所以内容不变则 sha256
- * 不变 —— 同一个 commit 打两次,`gitHead` 也一样,消费者缓存的"这一份对应哪个
- * commit"因此可以被人核对(`.miko-ui-source` 那张纸条 + 清单里的 `gitHead`).
+ * 不变 -- 同一个 commit 打两次,`gitHead` 也一样,消费者缓存的"这一份对应哪个
+ * commit"因此可以被人核对(缓存的来源标记 + 清单里的 `gitHead`).
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -58,14 +57,14 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const OUT_DIR = join(ROOT, 'release');
 const STAGE_DIR = join(OUT_DIR, 'stage');
 
-/** 资产文件名.两个消费侧的 `fetch_ui.sh` 与 `release.yml` 都写死这一个名字. */
+/** 资产文件名.消费侧的取件脚本与 `release.yml` 都写死这一个名字. */
 const ASSET_NAME = 'miko_ui_dist.tar.gz';
 const ASSET_PATH = join(OUT_DIR, ASSET_NAME);
 
 /**
  * 进资产的字段(消费者侧包管理器 / 打包器真的会读的).
  *
- * `version` 在表里但库里现在没有版本号(库不打 tag、不写版本号,理由见
+ * `version` 在表里但库里现在没有版本号(库不打 tag,不写版本号,理由见
  * `RELEASING.md`):将来真写进去时会自动带上,不需要改这里.
  */
 const RUNTIME_FIELDS = [
@@ -111,7 +110,7 @@ const BUILD_ONLY_FIELDS = new Set([
     'files', // 资产内容由本脚本决定,不由 npm 打包规则决定
     'packageManager', // 只约束本仓库的开发环境
     'engines', // 只约束本仓库;消费者用的是它自己的 Node
-    'publishConfig', // npm registry 专用,这条路已作废
+    'publishConfig', // npm registry 专用,本仓库不发 npm
     'workspaces', // 单包仓库,没有 workspace
 ]);
 
@@ -122,14 +121,14 @@ const fail = (msg) => {
 };
 
 /**
- * 这一份资产是哪个 commit 构建的 —— 写进清单的 `gitHead`(npm 的既有字段,语义
+ * 这一份资产是哪个 commit 构建的 -- 写进清单的 `gitHead`(npm 的既有字段,语义
  * 就是"打这个包时所在的 commit").消费侧靠它判断"缓存是不是最新",见文件头.
  *
  *   - CI 里用 `GITHUB_SHA`:它就是本次构建的 commit,工作树脏不脏与它无关
  *     (构建产物本来就在工作树里生成,而且构建产物全是 gitignore 的);
  *   - 本地用 `git rev-parse HEAD`;有**未提交改动**时(只看已跟踪文件)标成
  *     `<sha>-dirty`:本地打出来的包不对应任何 commit,这个值永远不等于 tag 指向
- *     的 sha,消费侧会把它当"不是最新"重取发布产物 —— 正是想要的;
+ *     的 sha,消费侧会把它当"不是最新"重取发布产物 -- 正是想要的;
  *   - 两种都拿不到就失败:一份说不清自己是什么的资产比没有资产更坏.
  */
 function resolveGitHead() {
@@ -150,7 +149,7 @@ function resolveGitHead() {
     if (!/^[0-9a-f]{40}$/.test(sha)) {
         fail(
             '取不到构建 commit(`GITHUB_SHA` 不是 40 位 sha,`git rev-parse HEAD` 也没结果);' +
-                'gitHead 是消费侧判断"缓存是不是最新"的唯一依据,不能缺 —— ' +
+                'gitHead 是消费侧判断"缓存是不是最新"的唯一依据,不能缺 -- ' +
                 '请在 GitHub Actions 里跑,或在一个 git 工作树里跑',
         );
     }

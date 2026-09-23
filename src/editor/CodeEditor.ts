@@ -1,7 +1,7 @@
 /**
- * `CodeEditor` —— 源码编辑器外壳(结构 + 两个装饰件的装配).
+ * `CodeEditor` -- 源码编辑器外壳(结构 + 两个装饰件的装配).
  *
- * 它把原来散在消费者里的那段结构收进库:
+ * 它负责把输入框与两个装饰件装配成下面这段结构:
  *
  * ```text
  * .code-editor
@@ -13,15 +13,16 @@
  *       .code-editor-highlight-code  ← 高亮 HTML 的载体,偏移写在它的 transform 上
  * ```
  *
- * 两条会"静默失效"的结构约束(所以它们在这里由代码保证,而不是写在文档里):
+ * 两条会"静默失效"的结构约束,由这里的装配代码保证:
  * 1. **高亮层紧跟 textarea**:`.code-editor-textarea.is-highlighted + .code-editor-
  *    highlight` 是相邻兄弟选择器,中间插一个节点整层就不显示(不是错位,更
  *    容易被误判成"功能没了");
- * 2. **三者同字体同内边距**:由库的 `styles/editor.css` 保证(与这两个装饰件的
- *    度量口径配套).
+ * 2. **字体与起点对齐**:textarea,高亮内容与行号三者同字体/字号/行高;高亮内容
+ *    与 textarea 内边距逐项相同,行号槽靠 `padding-top: 11px`(外框 1px 边框 +
+ *    textarea 的 10px)对齐首行起点 -- 由库的 `styles/editor.css` 保证.
  *
- * 分词与槽宽下限由消费者注入(D6):库不认识 DSL 的语法,也不认识"字号 16 /
- * 槽宽 32"这套应用取值.节点建在 `options.root` 上(D7).
+ * 分词与槽宽下限由消费者注入:库不认识任何具体语言的词法,也不认识消费者的
+ * 字号/槽宽取值.节点建在 `options.root` 上.
  */
 import type { DomRoot } from '../dom/root';
 import { create_element } from '../widgets/dom';
@@ -33,15 +34,15 @@ export interface CodeEditorOptions {
     readonly value?: string;
     /** 浏览器拼写检查;默认关(源码里全是标识符,标红只添乱). */
     readonly spellcheck?: boolean;
-    /** 源码全文 -> 高亮 HTML(应用侧是 `highlightDsl`). */
+    /** 源码全文 -> 高亮 HTML(由消费者注入). */
     readonly highlight: (source: string) => string;
-    /** 行号槽宽下限(px);应用侧来自 `UI_CONFIG.editor.gutterMinWidth`. */
+    /** 行号槽宽下限(px);由消费者给出. */
     readonly gutterMinWidth: number;
     /** 建节点的根上下文;不传则用全局 `document`(见 `dom/root.ts`). */
     readonly root?: DomRoot;
 }
 
-/** 编辑器句柄:消费者拿它取输入框、刷新装饰、以及拆卸. */
+/** 编辑器句柄:消费者拿它取输入框,刷新装饰,以及拆卸. */
 export interface CodeEditorHandle {
     /** 外框(`.code-editor`),插进窗口正文用这个. */
     readonly element: HTMLElement;

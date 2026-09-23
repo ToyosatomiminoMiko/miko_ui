@@ -1,10 +1,10 @@
 /**
- * 窗口外壳的 **DOM 契约**测试(`docs/windowing-plan.md` §5.4/§8).
+ * 窗口外壳的 **DOM 契约**测试.
  *
- * 窗外壳从 `index.html` 搬进 TS 之后,"标记长什么样"就没有 HTML 可以对照了,
- * 这张断言就是新的真相源:结构,类名,八根手柄,按钮的无障碍名,以及"既有节点是
- * 搬进来的而不是重建的"(后者最容易被 `innerHTML` 或重新 createElement 破坏,
- * 表现为按钮点不动,而且不报错).
+ * 窗外壳由 TS 声明式建出,"标记长什么样"没有 HTML 可以对照,这张断言就是
+ * 真相源:结构,类名,八根手柄,按钮的无障碍名,以及"既有节点是搬进来的而不是
+ * 重建的"(后者最容易被 `innerHTML` 或重新 createElement 破坏,表现为按钮点
+ * 不动,而且不报错).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TEST_DESKTOP_CONFIG } from '../../test/desktopFixture';
@@ -34,7 +34,7 @@ interface Fixture {
     readonly clicked: string[];
 }
 
-/** 照 `windowChrome.ts` 的样子先放好现成节点(id 只服务 aria 配对,见该文件). */
+/** 先放好现成节点(消费者侧自带 id 与监听,这里只验证它们被原样搬进去). */
 function installExistingNodes(): Fixture {
     const runButton = document.createElement('button') as unknown as StubElement;
     runButton.id = 'run-btn';

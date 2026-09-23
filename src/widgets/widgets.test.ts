@@ -1,5 +1,5 @@
 /**
- * 控件词表的单测(最小 DOM 桩,见 `testing/domStub.ts`,不引入 jsdom).
+ * 控件词表的单测(最小 DOM 桩,见 `test/domStub.ts`,不引入 jsdom).
  *
  * 锁三件事:
  * 1. **DOM 与手写 HTML 同构** -- 类名/结构是 CSS 的公开契约,控件一旦改了
@@ -97,7 +97,7 @@ describe('createSegmented', () => {
         });
 
         expect(handle.element.className).toBe('segmented');
-        // 列数由控件给,CSS 消费:三个调用点过去各有一条 CSS 规则,现在只剩这一份
+        // 列数由控件给,CSS 通过 --segmented-columns 消费
         expect(handle.element.style.getPropertyValue('--segmented-columns')).toBe('2');
         expect(handle.element.getAttribute('aria-label')).toBe('点的显示方式');
         const buttons = stub(handle.element).children as StubElement[];
