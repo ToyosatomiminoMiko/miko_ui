@@ -102,8 +102,8 @@ export const TEST_DESKTOP_CONFIG: FixtureDesktopConfig = {
         },
     ],
     actions: [
-        { id: 'minimize', label: '最小化', glyph: 'min' },
-        { id: 'maximize', label: '最大化', glyph: 'max' },
+        { id: 'minimize', text: 'min' },
+        { id: 'maximize', text: 'max' },
     ],
     edgeKeep: 80,
     edgeGap: 16,

@@ -22,8 +22,7 @@ function headerOf(frame: WindowFrameHandle): StubElement {
 function controls(onClick: () => void = () => {}): WindowActionButton[] {
     return TEST_DESKTOP_CONFIG.actions.map((action) => ({
         id: action.id,
-        label: action.label,
-        glyph: action.glyph,
+        text: action.text,
         onClick,
     }));
 }
@@ -96,7 +95,7 @@ describe('createWindowFrame 的结构契约', () => {
         }
     });
 
-    it('窗口按钮的无障碍名与字形来自 TEST_DESKTOP_CONFIG.actions', () => {
+    it('窗口按钮的文案来自 TEST_DESKTOP_CONFIG.actions,可访问名就是这段文案', () => {
         installExistingNodes();
         const frame = createWindowFrame({
             id: 'source',
@@ -111,9 +110,10 @@ describe('createWindowFrame 的结构契约', () => {
         );
         for (const action of TEST_DESKTOP_CONFIG.actions) {
             const button = frame.controls.get(action.id)!;
-            expect(button.element.textContent).toBe(action.glyph);
-            expect(button.element.getAttribute('aria-label')).toBe(action.label);
-            expect(button.element.title).toBe(action.label);
+            expect(button.element.textContent).toBe(action.text);
+            // 没有第二份"读屏名":可访问名由可见文案提供,title 也不重复一遍.
+            expect(button.element.getAttribute('aria-label')).toBeNull();
+            expect(button.element.title).toBe('');
             expect(button.element.type).toBe('button');
         }
     });
@@ -127,8 +127,7 @@ describe('createWindowFrame 的结构契约', () => {
             slots: {},
             controls: TEST_DESKTOP_CONFIG.actions.map((action) => ({
                 id: action.id,
-                label: action.label,
-                glyph: action.glyph,
+                text: action.text,
                 onClick: () => clicked.push(action.id),
             })),
             geometry: GEOMETRY,
@@ -164,8 +163,7 @@ describe('createWindowFrame 的结构契约', () => {
             slots: {},
             controls: TEST_DESKTOP_CONFIG.actions.map((action) => ({
                 id: action.id,
-                label: action.label,
-                glyph: action.glyph,
+                text: action.text,
                 onClick: () => clicked.push(action.id),
             })),
             geometry: GEOMETRY,

@@ -471,8 +471,7 @@ export class WindowManager {
     private _actionButtons(id: WindowId): WindowActionButton[] {
         return this.config.actions.map((action) => ({
             id: action.id,
-            label: action.label,
-            glyph: action.glyph,
+            text: action.text,
             onClick: () => this._runWindowAction(id, action.id),
         }));
     }

@@ -305,7 +305,7 @@ describe('createSlider(系数滑块)', () => {
         // 普通参数没有 cyclic 徽章
         expect(handle.label.querySelector('.slider-field-tag')).toBeNull();
         expect(numberInput.type).toBe('number');
-        expect(reset.className).toBe('slider-field-reset');
+        expect(reset.className).toBe('ui-button slider-field-reset');
         expect(reset.tagName).toBe('button');
         expect(reset.textContent).toBe('reset');
         // 开局就在目标值上,重置按钮置灰
@@ -451,11 +451,16 @@ describe('createButton', () => {
 
         expect(handle.element.tagName).toBe('button');
         expect(handle.element.type).toBe('button');
-        expect(handle.element.className).toBe('slider-field-reset');
+        // 基线类在前,变体类在后:两条都带,变体才能盖住基线(样式见 widgets.css)
+        expect(handle.element.className).toBe('ui-button slider-field-reset');
         expect(handle.element.textContent).toBe('reset');
         expect(handle.element.getAttribute('aria-label')).toBe('重置 a 为 1');
         expect(handle.element.title).toBe('重置为 1');
         expect(handle.element.disabled).toBe(true);
+    });
+
+    it('不给变体类时也带基线类,按钮不会掉回浏览器默认外观', () => {
+        expect(createButton({ text: '计数 +1' }).element.className).toBe('ui-button');
     });
 
     it('点击触发回调;setText/setDisabled 就地更新;dispose 后不再响应', () => {

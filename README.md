@@ -105,7 +105,7 @@ npm 的生命周期 —— 原因见下面"边界契约").
 
 ```ts
 import {
-    DEFAULT_DESKTOP_CONFIG,   // 库自带的桌面默认值(换成你自己的即可)
+    DEFAULT_DESKTOP_CONFIG,   // 只给"每个桌面都成立"的量:动作 / 余量 / z / 吸附
     createControlGroup,
     createNumberField,
     createNumberRow,
@@ -113,14 +113,33 @@ import {
     createSwitchRow,
     mountDesktop,
     signal,
+    type WindowConfigEntry,
 } from 'miko_ui';
 import 'miko_ui/styles.css'; // token + 控件 + 桌面样式;或按分组单独引
 
 const radius = signal(0.2);
 const visible = signal(true);
 
+// 窗口是应用特有的(标题 / dock 文案 / 几何锚点);库的默认配置里没有窗口,
+// 这份清单由消费者给,库不替任何应用预设 main / side 之类的窗口.
+const windows: readonly WindowConfigEntry[] = [
+    {
+        id: 'main',
+        title: '参数',
+        dock: { label: '参数' },
+        defaultGeometry: {
+            x: { at: 16 },
+            y: { at: 16 },
+            w: { at: 420 },
+            h: { fraction: 0.68, of: 'usableHeight' },
+        },
+        minSize: { w: 280, h: 200 },
+    },
+];
+
 mountDesktop(document.getElementById('app')!, {
     ...DEFAULT_DESKTOP_CONFIG,
+    windows,
     content: (id) => (id === 'main'
         ? {
             body: [createControlGroup(

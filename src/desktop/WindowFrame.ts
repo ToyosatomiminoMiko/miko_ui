@@ -10,7 +10,7 @@
  * `#run-btn` 的监听,`#example-menu` 的浮层状态,`#formula-copy-hint` 的回显都
  * 不能丢,所以只 `append` 现成节点,不按 innerHTML 重做一份(见 §4.4).
  */
-import { type WindowSlot } from './types';
+import { type WindowActionId, type WindowSlot } from './types';
 import { createButton, type ButtonHandle } from '../widgets/Button';
 import { create_element, type Child } from '../widgets/dom';
 import {
@@ -21,9 +21,9 @@ import { RESIZE_DIRECTIONS, type ResizeDirection } from './WindowResize';
 
 /** 标题栏上的一枚窗口按钮;`onClick` 由 `WindowManager` 给(它持有状态). */
 export interface WindowActionButton {
-    readonly id: 'minimize' | 'maximize';
-    readonly label: string;
-    readonly glyph: string;
+    readonly id: WindowActionId;
+    /** 按钮文案;同时是它的可访问名(不再单设读屏名,见 `types.ts`). */
+    readonly text: string;
     readonly onClick: () => void;
 }
 
@@ -112,9 +112,7 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     for (const control of spec.controls) {
         const button = createButton({
             class: 'window-control-btn',
-            text: control.glyph,
-            ariaLabel: control.label,
-            title: control.label,
+            text: control.text,
         });
         button.onClick(control.onClick);
         controlHandles.set(control.id, button);

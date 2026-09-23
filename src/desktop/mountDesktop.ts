@@ -10,9 +10,9 @@
  * `content()` 现建或事先建好交给库,库负责建容器并把节点搬进去.于是
  * `index.html` 缩到 `<div id="app">`.
  *
- * 库**不猜**"消费者有哪些窗口":窗口清单、标题、动作按钮、吸附参数全部是
- * 构造参数(见 `desktop/types.ts`);库默认值 `DEFAULT_DESKTOP_CONFIG` 只够
- * 立起一个能拖能缩的空桌面,给最小示例页用.
+ * 库**不猜**"消费者有哪些窗口":窗口清单、标题全部是构造参数(见
+ * `desktop/types.ts`).库默认值 `DEFAULT_DESKTOP_CONFIG` 里**没有窗口**,
+ * 只 Default 每个桌面都成立的量(动作 / 余量 / z / 吸附).
  */
 import { childNodes, create_element, type Child } from '../widgets/dom';
 import { WindowManager, type WindowContentProvider } from './WindowManager';

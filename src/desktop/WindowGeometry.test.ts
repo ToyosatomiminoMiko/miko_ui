@@ -372,8 +372,7 @@ describe('窗口配置自洽', () => {
     it('标题栏按钮的 id 与顺序固定,标题栏至少可见高度不超过标题栏高度', () => {
         expect(WINDOW.actions.map((action) => action.id)).toEqual(['minimize', 'maximize']);
         for (const action of WINDOW.actions) {
-            expect(action.glyph.length, action.id).toBeGreaterThan(0);
-            expect(action.label.length, action.id).toBeGreaterThan(0);
+            expect(action.text.length, action.id).toBeGreaterThan(0);
         }
         expect(WINDOW.headerMinVisible).toBeLessThanOrEqual(WINDOW.headerHeight);
     });

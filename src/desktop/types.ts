@@ -72,16 +72,17 @@ export interface WindowGeometrySpec {
 /**
  * 标题栏上的一枚窗口按钮:顺序即显示顺序,文案进配置不散在 TS 里.
  *
- * `glyph` 是按钮**唯一**的可见文案,单字符图标或短词都行(库默认给的是
- * `min` / `max`),不随窗口状态改写;`label` 才是读屏名与悬浮标题(如"最大化").
- * "已最大化"由窗口尺寸与 `.is-maximized` 类表达,不靠换按钮字.
+ * `text` 是按钮**唯一**的文案 -- 既是可见文字,也是它的可访问名(读屏读到的
+ * 就是 `min` / `max`).不另设"读屏名"字段:`minimize` / `maximize` 这两个动作
+ * 的名字不提供任何额外信息,留着只是同一句话写两遍.
+ *
+ * 文案不随窗口状态改写(`min` / `max` 一直这么写):"已最大化"由窗口尺寸与
+ * `.is-maximized` 类表达,不靠换按钮字.
  */
-export interface WindowActionSpec {
+export interface WindowAction {
     readonly id: WindowActionId;
-    /** 读屏名与悬浮标题(如"最大化") */
-    readonly label: string;
-    /** 按钮的可见文案(不随状态变). */
-    readonly glyph: string;
+    /** 按钮文案;不随状态变(`min` / `max`). */
+    readonly text: string;
 }
 
 /**
@@ -112,7 +113,7 @@ export interface WindowConfigEntry {
  */
 export interface DesktopConfig {
     readonly windows: readonly WindowConfigEntry[];
-    readonly actions: readonly WindowActionSpec[];
+    readonly actions: readonly WindowAction[];
     /** 移动/缩放时窗口至少留在桌内的宽度(px). */
     readonly edgeKeep: number;
     /** 窗口与桌面边缘的间隙(px). */
@@ -138,40 +139,18 @@ export interface DesktopConfig {
 /**
  * 库自带的桌面默认值.
  *
- * 它不是"这个应用的窗口清单"(那份在应用侧):这里只给两个通用窗口,够
- * `mountDesktop()` 在没有任何应用配置时立起来一个能拖能缩的桌面 -- 库的最小
- * 示例页就靠它(见 docs/ui-library-extraction-plan.md §8 P1 的验收).
+ * **不含窗口**.窗口清单(标题、dock 文案、几何锚点)天然是应用特有的,把它当
+ * "默认"塞进来就是**在标准配置里写示例**:一旦某个应用的 `main` / `side` 住进
+ * 库,别的消费者要么被迫接受这两个窗口,要么逐字段覆盖.库这边只默认那些
+ * 每个桌面都成立的量 -- 边缘余量、dock 预留、标题栏高度、z 序号、吸附阈值,
+ * 以及 `min` / `max` 这类所有窗口都有的动作;`windows` 留空,由消费者给
+ * (docs/ui-library-extraction-plan.md D4/U2).
  */
 export const DEFAULT_DESKTOP_CONFIG: DesktopConfig = {
-    windows: [
-        {
-            id: 'main',
-            title: 'main',
-            dock: { label: 'main' },
-            defaultGeometry: {
-                x: { at: 16 },
-                y: { at: 16 },
-                w: { at: 420 },
-                h: { fraction: 0.68, of: 'usableHeight' },
-            },
-            minSize: { w: 240, h: 160 },
-        },
-        {
-            id: 'side',
-            title: 'side',
-            dock: { label: 'side' },
-            defaultGeometry: {
-                x: { from: 'right', inset: 16 },
-                y: { at: 16 },
-                w: { at: 360 },
-                h: { from: 'bottom', inset: 16 },
-            },
-            minSize: { w: 220, h: 140 },
-        },
-    ],
+    windows: [],
     actions: [
-        { id: 'minimize', label: '最小化', glyph: 'min' },
-        { id: 'maximize', label: '最大化', glyph: 'max' },
+        { id: 'minimize', text: 'min' },
+        { id: 'maximize', text: 'max' },
     ],
     edgeKeep: 80,
     edgeGap: 16,

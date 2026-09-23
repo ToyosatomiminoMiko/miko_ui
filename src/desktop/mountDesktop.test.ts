@@ -10,10 +10,34 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type DomStub, type StubElement } from '../../test/domStub';
-import { DEFAULT_DESKTOP_CONFIG } from './types';
+import { DEFAULT_DESKTOP_CONFIG, type WindowConfigEntry } from './types';
 import { mountDesktop } from './mountDesktop';
 
 let stub: DomStub;
+
+/**
+ * 这一层测的是"库怎么装配",窗口清单是输入的一部分,所以由测试自己给.
+ *
+ * 不借用 `DEFAULT_DESKTOP_CONFIG.windows`:库的默认配置**不带任何应用窗口**
+ * (窗口标题 / dock 文案 / 几何锚点都是应用特有的,见 `types.ts`),那份空清单
+ * 在这里什么也测不出来.
+ */
+const WINDOWS: readonly WindowConfigEntry[] = [
+    {
+        id: 'source',
+        title: '源码',
+        dock: { label: '源码' },
+        defaultGeometry: { x: { at: 16 }, y: { at: 16 }, w: { at: 420 }, h: { at: 260 } },
+        minSize: { w: 240, h: 160 },
+    },
+    {
+        id: 'view',
+        title: '视图',
+        dock: { label: '视图' },
+        defaultGeometry: { x: { at: 16 }, y: { at: 16 }, w: { at: 420 }, h: { at: 260 } },
+        minSize: { w: 240, h: 160 },
+    },
+];
 
 beforeEach(() => {
     stub = installDomStub();
@@ -27,12 +51,13 @@ function mount(options: { background?: HTMLElement[] } = {}) {
     stub.document.body.append(root);
 
     const content: Record<string, HTMLElement> = {};
-    for (const spec of DEFAULT_DESKTOP_CONFIG.windows) {
+    for (const spec of WINDOWS) {
         content[spec.id] = stub.document.createElement('div') as unknown as HTMLElement;
     }
 
     const desktop = mountDesktop(root as unknown as HTMLElement, {
         ...DEFAULT_DESKTOP_CONFIG,
+        windows: WINDOWS,
         background: options.background,
         content: (id) => ({ body: [content[id] ?? ''] }),
     });
@@ -64,8 +89,8 @@ describe('mountDesktop', () => {
         const { desktop } = mount();
         const layer = desktop.windowLayer as unknown as StubElement;
 
-        expect(layer.querySelectorAll('.window')).toHaveLength(DEFAULT_DESKTOP_CONFIG.windows.length);
-        for (const spec of DEFAULT_DESKTOP_CONFIG.windows) {
+        expect(layer.querySelectorAll('.window')).toHaveLength(WINDOWS.length);
+        for (const spec of WINDOWS) {
             expect(windowOf(layer, spec.id).querySelector('.window-body')).not.toBeNull();
         }
     });
@@ -74,7 +99,7 @@ describe('mountDesktop', () => {
         const { desktop, content } = mount();
         const layer = desktop.windowLayer as unknown as StubElement;
 
-        for (const spec of DEFAULT_DESKTOP_CONFIG.windows) {
+        for (const spec of WINDOWS) {
             const body = windowOf(layer, spec.id).querySelector('.window-body') as unknown as StubElement;
             expect(body.children).toContain(content[spec.id] as unknown as StubElement);
         }
@@ -90,7 +115,7 @@ describe('mountDesktop', () => {
 
     it('dispose 把正文节点还回 root,并删掉三层容器', () => {
         const { root, desktop, content } = mount();
-        const source = content[DEFAULT_DESKTOP_CONFIG.windows[0].id];
+        const source = content[WINDOWS[0].id];
 
         desktop.dispose();
 

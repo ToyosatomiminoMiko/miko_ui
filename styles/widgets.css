@@ -9,10 +9,13 @@
  *   .segmented             分段按钮组(单选);列数由 --segmented-columns 给
  *   .switch / .slider      开关(圆钮那个 span 沿用 .slider 这个历史类名)
  *   .slider-field          系数滑块(名称 + 滑杆 + 数值框 + 重置按钮)
+ *   .ui-button             按钮基线(每个 `createButton` 都带,见下)
  *
- * 按钮**不在**这张表里:`createButton` 不设默认类名,它的 class 由调用方给
- * (`.param-reset-btn` / `.row-visibility-btn` …),所以样式跟着消费者走;库这边
- * 只固定 `<button type="button">` 这个结构.
+ * 按钮**有基线**:`createButton` 一律带 `.ui-button`,消费方的类名叠在它后面
+ * (`.slider-field-reset` / `.row-visibility-btn` / `.window-control-btn` …).
+ * 基线写成 `:where(.ui-button)` 的零优先级规则,任何变体类都能盖住它,与样式表
+ * 加载顺序无关 -- 抽取前"按钮长什么样全归应用侧"、库只固定 `<button type="button">`
+ * 结构的那条约定到此收口(见下"按钮基线"一节).
  *
  * 只写**结构与交互**,不写主题:颜色/圆角/间距一律 var(--...),默认值在
  * `tokens.css`,消费者可以整份覆盖(U6).
@@ -22,6 +25,61 @@
  * 库的样式表里不出现任何 id 选择器(docs/ui-library-extraction-plan.md D8:
  * 否则消费者的 id 就成了库的公开 API).
  * ========================================================================== */
+
+
+/* ==========================================================================
+ * 按钮基线
+ * --------------------------------------------------------------------------
+ * `createButton` 建的每个按钮都带 `.ui-button`(见 `widgets/Button.ts`).它只给
+ * 一份**默认外观**:透明底 + 1px 描边 + 方角 + 次要文字色,外加悬停 / 焦点 /
+ * 禁用三态,每一条都与抽取前应用侧那份 `.row-process-btn` 逐字相同.
+ *
+ * 选择器写成 `:where(.ui-button)`:优先级为 0,变体类(`.slider-field-reset` /
+ * `.row-visibility-btn` / `.window-control-btn`)与消费者自己的类**永远**盖得住
+ * 它,不必关心样式表谁先谁后(应用侧是按 tokens -> base -> desktop -> panels ->
+ * widgets 的次序引的,与库自带入口的次序不同).
+ *
+ * `appearance: none` 是这里唯一一条"防 UA"的声明:不写它,浏览器会给按钮画
+ * 自己的圆角 / 底色 / 字体,而 token 里四个 `--radius-*` 都是 0,肉眼看就是
+ * "按钮从某处继承了圆角".
+ * ========================================================================== */
+
+:where(.ui-button) {
+    appearance: none;
+    padding: 3px 7px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+:where(.ui-button):hover:not(:disabled) {
+    color: var(--color-text-strong);
+    border-color: var(--color-accent-border);
+}
+
+:where(.ui-button):disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+:where(.ui-button):focus-visible {
+    outline: 2px solid var(--color-accent-focus);
+    outline-offset: 1px;
+}
+
+/* 行末显隐按钮:`shared/rowDom.ts` 生成,基线之上只加"实心底"与行内定位
+   (动作区竖排,按钮按内容宽度靠上).这两条拆分前在应用侧 panels.css 里. */
+.row-visibility-btn {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    background: var(--color-fill-control-strong);
+}
 
 
 /* 小节容器:点 / 坐标轴 / 曲面.小节之间用分隔线划开,内部行距与面板一致. */
