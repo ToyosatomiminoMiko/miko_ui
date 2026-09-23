@@ -58,10 +58,18 @@ export interface WindowGeometrySpec {
     readonly after?: { readonly id: string; readonly gap: number };
 }
 
-/** 标题栏上的一枚窗口按钮:顺序即显示顺序,glyph 进配置不散在 TS 里. */
+/**
+ * 标题栏上的一枚窗口按钮:顺序即显示顺序,文案进配置不散在 TS 里.
+ *
+ * `glyph` 是按钮**唯一**的可见文案,单字符图标或短词都行(库默认给的是
+ * `min` / `max` / `full` / `X`),不随窗口状态改写;`label` 才是读屏名与悬浮
+ * 标题(如"最大化")."已最大化 / 已全屏"由窗口尺寸与状态类表达,不靠换按钮字.
+ */
 export interface WindowActionSpec {
     readonly id: WindowActionId;
+    /** 读屏名与悬浮标题(如"最大化") */
     readonly label: string;
+    /** 按钮的可见文案(不随状态变). */
     readonly glyph: string;
 }
 
@@ -148,10 +156,10 @@ export const DEFAULT_DESKTOP_CONFIG: DesktopConfig = {
         },
     ],
     actions: [
-        { id: 'minimize', label: '最小化', glyph: '─' },
-        { id: 'maximize', label: '最大化', glyph: '▣' },
-        { id: 'fullscreen', label: '全屏', glyph: '⤢' },
-        { id: 'close', label: '关闭', glyph: '✕' },
+        { id: 'minimize', label: '最小化', glyph: 'min' },
+        { id: 'maximize', label: '最大化', glyph: 'max' },
+        { id: 'fullscreen', label: '全屏', glyph: 'full' },
+        { id: 'close', label: '关闭', glyph: 'X' },
     ],
     edgeKeep: 80,
     edgeGap: 16,

@@ -414,19 +414,19 @@ describe('状态机', () => {
         expect(manager.hasFullscreen()).toBe(false);
     });
 
-    it('最大化/全屏时窗口按钮文案变成"退出"', () => {
+    it('最大化/全屏不换按钮文案:actions 是静态配置', () => {
         const { layer, manager } = setup();
         const element = windowOf(layer, 'source');
-        const maximize = element.querySelector('.window-control-btn') as unknown as StubElement;
+        const texts = (): string[] =>
+            element.querySelectorAll<StubElement>('.window-control-btn').map((button) => button.textContent);
+
+        expect(texts()).toContain('max');
+        expect(texts()).toContain('full');
 
         manager.setMaximized('source', true);
-        const glyphs = element.querySelectorAll<StubElement>('.window-control-btn').map((button) => button.textContent);
-        expect(glyphs).toContain('❐');
-        expect(maximize).not.toBeNull();
-
         manager.setFullscreen('source', true);
-        expect(element.querySelectorAll<StubElement>('.window-control-btn').map((button) => button.textContent))
-            .toContain('⤡');
+        expect(texts()).toContain('max');
+        expect(texts()).toContain('full');
     });
 
     it('setGeometry 过夹取:小于最小尺寸会被顶到下限', () => {

@@ -704,9 +704,9 @@ export class WindowManager {
         element.toggleAttribute('inert', hidden);
         element.setAttribute('aria-hidden', String(hidden));
 
-        // 最大化/全屏时按钮文案变成"退出"(双击/按钮两条入口共用这里).
-        entry.frame.controls.get('maximize')?.setText(entry.state === 'maximized' ? '❐' : '▣');
-        entry.frame.controls.get('fullscreen')?.setText(entry.state === 'fullscreen' ? '⤡' : '⤢');
+        // 窗口按钮的文案不做状态切换:actions 是**静态**配置,按钮一直显示自己
+        // 那一个词(`min` / `max` / `full` / `X`);"已最大化 / 已全屏"由窗口本身
+        // 的尺寸、`.is-maximized` / `.is-fullscreen` 类与按钮的 `label` 表达.
 
         const button = this.dock?.buttons.get(id);
         button?.setState(entry.state);
