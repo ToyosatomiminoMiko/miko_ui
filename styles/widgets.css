@@ -2,7 +2,7 @@
  * miko_ui 控件样式
  * --------------------------------------------------------------------------
  * 词汇表(与 widgets / Row 一一对应,CSS 与 TS 之间的契约):
- *   .control-group         小节(点 / 坐标轴 / 曲面…)
+ *   .control-group         小节(点 / 坐标轴 / 曲面...)
  *   .control-title         小节标题
  *   .control-row           "文字 + 控件"的行
  *   .control-toggle-group  行内小开关组(X/Y/Z 标签,网格 XZ/XY/YZ)
@@ -12,15 +12,16 @@
  *   .ui-button             按钮基线(每个 `createButton` 都带,见下)
  *
  * 按钮**有基线**:`createButton` 一律带 `.ui-button`,消费方的类名叠在它后面
- * (`.slider-field-reset` / `.row-visibility-btn` / `.window-control-btn` …).
+ * (`.slider-field-reset` / `.window-control-btn` 这类只是定位钩子;真要加外观
+ * 增量的目前只有 `.row-visibility-btn`).
  * 基线写成 `:where(.ui-button)` 的零优先级规则,任何变体类都能盖住它,与样式表
- * 加载顺序无关 -- 抽取前"按钮长什么样全归应用侧"、库只固定 `<button type="button">`
+ * 加载顺序无关 -- 抽取前"按钮长什么样全归应用侧",库只固定 `<button type="button">`
  * 结构的那条约定到此收口(见下"按钮基线"一节).
  *
  * 只写**结构与交互**,不写主题:颜色/圆角/间距一律 var(--...),默认值在
  * `tokens.css`,消费者可以整份覆盖(U6).
  *
- * 面板宿主自己的布局(滚动、内边距、最小高度)不在这里:那是消费者的容器
+ * 面板宿主自己的布局(滚动,内边距,最小高度)不在这里:那是消费者的容器
  * (本仓库应用侧是那两块面板容器),由消费者样式表负责 --
  * 库的样式表里不出现任何 id 选择器(docs/ui-library-extraction-plan.md D8:
  * 否则消费者的 id 就成了库的公开 API).
@@ -34,10 +35,11 @@
  * 一份**默认外观**:透明底 + 1px 描边 + 方角 + 次要文字色,外加悬停 / 焦点 /
  * 禁用三态,每一条都与抽取前应用侧那份 `.row-process-btn` 逐字相同.
  *
- * 选择器写成 `:where(.ui-button)`:优先级为 0,变体类(`.slider-field-reset` /
- * `.row-visibility-btn` / `.window-control-btn`)与消费者自己的类**永远**盖得住
- * 它,不必关心样式表谁先谁后(应用侧是按 tokens -> base -> desktop -> panels ->
- * widgets 的次序引的,与库自带入口的次序不同).
+ * 选择器一律写成 `:where(...)` -- **连悬停 / 禁用 / 焦点这三条状态也是**:四条
+ * 规则的优先级都是 0,变体类(如 `.row-visibility-btn`),状态类(如
+ * `.dock-btn.is-active`)与消费者自己的类**永远**盖得住它,不必关心样式表谁先谁后
+ * (应用侧是按 tokens -> base -> desktop -> panels -> widgets 的次序引的,与库
+ * 自带入口的次序不同).
  *
  * `appearance: none` 是这里唯一一条"防 UA"的声明:不写它,浏览器会给按钮画
  * 自己的圆角 / 底色 / 字体,而 token 里四个 `--radius-*` 都是 0,肉眼看就是
@@ -58,17 +60,17 @@
     cursor: pointer;
 }
 
-:where(.ui-button):hover:not(:disabled) {
+:where(.ui-button:hover:not(:disabled)) {
     color: var(--color-text-strong);
     border-color: var(--color-accent-border);
 }
 
-:where(.ui-button):disabled {
+:where(.ui-button:disabled) {
     opacity: 0.4;
     cursor: default;
 }
 
-:where(.ui-button):focus-visible {
+:where(.ui-button:focus-visible) {
     outline: 2px solid var(--color-accent-focus);
     outline-offset: 1px;
 }
@@ -271,39 +273,6 @@
 .slider-field-value:focus {
     border-color: var(--color-accent-border);
     outline: none;
-}
-
-/* 重置按钮:文字就是 reset,宽度按内容给(滑块独占一行,不必为 22px 的图标
-   省地方);占位一直保留(不做悬停才出现),否则鼠标扫过时行内控件会跳动;
-   已经停在目标值上时置灰,表示点了也没有变化. */
-.slider-field-reset {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 22px;
-    padding: 0 10px;
-    background: transparent;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-sm);
-    color: var(--color-text-muted);
-    font-size: 12px;
-    line-height: 1;
-    cursor: pointer;
-}
-
-.slider-field-reset:hover:not(:disabled) {
-    color: var(--color-text-strong);
-    border-color: var(--color-accent-border);
-}
-
-.slider-field-reset:disabled {
-    opacity: 0.35;
-    cursor: default;
-}
-
-.slider-field-reset:focus-visible {
-    outline: 2px solid var(--color-accent-focus);
-    outline-offset: 1px;
 }
 
 /* ==========================================================================

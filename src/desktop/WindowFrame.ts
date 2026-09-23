@@ -110,6 +110,7 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     const controls = create_element('div', { class: 'window-controls' });
     const controlHandles = new Map<string, ButtonHandle>();
     for (const control of spec.controls) {
+        // `window-control-btn` 只是定位钩子:外观与任何 `createButton(...)` 一样
         const button = createButton({
             class: 'window-control-btn',
             text: control.text,

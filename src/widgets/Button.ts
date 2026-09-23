@@ -16,12 +16,15 @@
  * 定义的闭包(如参数行里互相依赖的写值函数).
  *
  * **每个按钮都带基线类 `.ui-button`**,`options.class` 再叠在它后面.这不是装饰:
- * 不写基线,浏览器就按 UA 的那套画按钮 -- 自带圆角、底色、边框与字体.本项目的
+ * 不写基线,浏览器就按 UA 的那套画按钮 -- 自带圆角,底色,边框与字体.本项目的
  * token 里四个 `--radius-*` 都是 0,于是那圈 UA 圆角看起来就像"按钮从别处继承了
  * 圆角".基线只给盒模型 / 描边 / 悬停 / 焦点 / 禁用态,写成 `:where(.ui-button)`
- * 的零优先级规则,所以任何变体类(`slider-field-reset` / `window-control-btn` /
- * `row-visibility-btn`)都能盖住它,与样式表加载顺序无关(见 `styles/widgets.css`
- * 的"按钮基线").
+ * 的零优先级规则,所以任何变体类(如 `row-visibility-btn`)或消费者自己的类都能
+ * 盖住它,与样式表加载顺序无关(见 `styles/widgets.css` 的"按钮基线").
+ *
+ * 另有一类类名只是**定位钩子**,不带任何声明:`slider-field-reset` /
+ * `window-control-btn`.按钮之间真正的差别是行为(点下去写哪份状态)和位置,
+ * 不是长相,所以能同款就同款.
  */
 import { create_element } from './dom';
 
@@ -30,7 +33,7 @@ const BASE_CLASS = 'ui-button';
 
 export interface ButtonOptions {
     text: string;
-    /** 变体类名,叠在基线 `.ui-button` 之后. */
+    /** 追加类名,叠在基线 `.ui-button` 之后(多为定位钩子,见文件头). */
     class?: string;
     ariaLabel?: string;
     title?: string;

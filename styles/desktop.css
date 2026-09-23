@@ -64,7 +64,7 @@
     box-shadow: 0 8px 24px var(--color-shadow-panel);
 }
 
-/* 最大化:填满工作区(Dock 这条顶部任务栏之下)、左右与下沿贴边.只靠一个类,
+/* 最大化:填满工作区(Dock 这条顶部任务栏之下),左右与下沿贴边.只靠一个类,
    不碰行内几何(进入这个态时 WindowManager 会先清掉 left/top/width/height,
    否则行内属性会压过这里的 inset). */
 .window.is-maximized {
@@ -151,45 +151,25 @@
     border-color: var(--color-accent-border);
 }
 
-.window-actions button:focus-visible,
-.window-control-btn:focus-visible,
-.dock-btn:focus-visible,
-.dock-action:focus-visible {
+/* 标题栏动作槽里的按钮由消费者建(下游是裸 `create_element('button')`,没有
+   `.ui-button`),所以这一条仍是它们唯一的外观来源;库自己建的按钮(窗口控制 /
+   Dock)不在这里,它们吃 `.ui-button` 基线. */
+.window-actions button:focus-visible {
     outline: 2px solid var(--color-accent-focus);
     outline-offset: 1px;
 }
 
-/* 窗口按钮:最小化 / 最大化. */
+/* 窗口控制按钮(`min` / `max`).
+   容器只管排布;按钮本身**不另设外观** -- 它就是 `.ui-button` 基线,与示例里
+   `createButton({ text: '计数 +1' })` 建出来的按钮长得一模一样.位置(在标题栏
+   里)已经说明这两枚是什么,按钮之间真正的差别是行为(点下去改哪份状态),不是
+   长相.`.window-control-btn` 仍留在 DOM 上,只作为定位钩子(库自己不给它任何
+   声明,消费者要另眼相看再自己盖). */
 .window-controls {
     display: flex;
     align-items: center;
     gap: 2px;
     flex: 0 0 auto;
-}
-
-.window-control-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* 文案可能是单字符图标,也可能是 `min` / `max` 这类短词:宽度按内容给,
-       只留 22px 下限(单字符时仍是个方钮). */
-    min-width: 22px;
-    height: 22px;
-    padding: 0 6px;
-    white-space: nowrap;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    color: var(--color-text-muted);
-    font-size: 12px;
-    line-height: 1;
-    cursor: pointer;
-}
-
-.window-control-btn:hover {
-    color: var(--color-text-strong);
-    border-color: var(--color-accent-border);
-    background: var(--color-fill-control);
 }
 
 /* 窗口正文:确定高度 + 裁切都归它;里面的宿主由 `.window-body > *` 拉满.
@@ -302,7 +282,7 @@
  * 工作区上沿:最大化与边缘吸附都从这条带下面开始,见 `.window.is-maximized`
  * 与 `resolveEdgeSnap`).
  *
- * 普通任务栏:铺满整宽、左右与桌面边缘齐平、只有下沿一条分隔线,没有内缩 /
+ * 普通任务栏:铺满整宽,左右与桌面边缘齐平,只有下沿一条分隔线,没有内缩 /
  * 圆角 / 投影.窗口按钮组与桌面动作区是 `.dock` 的直接子节点,中间没有"只占
  * 内容宽度"的包装层.
  *
@@ -330,24 +310,10 @@
     gap: 4px;
 }
 
-.dock-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 9px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    color: var(--color-text-muted);
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.dock-btn:hover {
-    color: var(--color-text-strong);
-    border-color: var(--color-accent-border);
-}
-
+/* Dock 里的按钮(`dock-btn` = 每个窗口一枚,`dock-action` = 桌面动作)**不另设
+   外观**:它们都是 `createButton` 建的,吃 `.ui-button` 基线,与示例里任何一个
+   按钮同款.下面只写"这个按钮代表的东西"的状态 -- 当前聚焦的窗口亮起,最小化的
+   窗口淡化;两个类名本身只是定位 / 状态钩子. */
 .dock-btn.is-active {
     color: var(--color-text-active);
     border-color: var(--color-accent-border);
@@ -369,19 +335,4 @@
     margin-left: auto;
     padding-left: 8px;
     border-left: 1px solid var(--color-border-divider);
-}
-
-.dock-action {
-    padding: 5px 9px;
-    background: transparent;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    color: var(--color-text-muted);
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.dock-action:hover {
-    color: var(--color-text-strong);
-    border-color: var(--color-accent-border);
 }

@@ -48,8 +48,9 @@ describe('createDock', () => {
         for (const spec of TEST_DESKTOP_CONFIG.windows) {
             const button = buttonOf(container, spec.id);
             expect(button.title).toBe(spec.title);
-            expect(button.querySelector<StubElement>('.dock-btn-label')?.textContent)
-                .toBe(spec.dock.label);
+            expect(button.textContent).toBe(spec.dock.label);
+            // 按钮统一走 createButton:带基线类,外观不再由 Dock 自己声明.
+            expect(button.classList.contains('ui-button')).toBe(true);
             expect(button.getAttribute('aria-pressed')).toBe('false');
         }
     });

@@ -1,13 +1,13 @@
 /**
  * Dock(顶部任务栏):每个窗口一枚按钮 + 一个桌面动作区.
  *
- * 普通任务栏:`.dock` 本身就是紧贴桌面上沿的那条通栏带(背景、下沿分隔线与
+ * 普通任务栏:`.dock` 本身就是紧贴桌面上沿的那条通栏带(背景,下沿分隔线与
  * 内边距都在它身上),窗口按钮组与桌面动作区是它的直接子节点.它的高度就是
  * 配置里的 `dockReserve`,同时是窗口工作区的上沿(见 `WindowGeometry`).
  *
  * 按钮**由窗口清单生成**(构造参数 `windows`),不在 HTML 里手写;点击
  * 语义(提升/最小化/还原/复位)由 `WindowManager` 按状态分派,本模块只负责:
- * - 装配按钮(标题),顺序与清单一致;
+ * - 装配按钮(每枚都走 `createButton`,标题即 `dock.label`),顺序与清单一致;
  * - 上报点击(`handlers.onSelect`);
  * - 写入激活态(`.is-active` 与 `aria-pressed`)与隐藏态(`data-state`,CSS 按它淡化).
  *
@@ -15,6 +15,7 @@
  * 而"清单是唯一真相源"是本方案的硬约束(见 docs/windowing-plan.md §5.3).
  */
 import { type WindowConfigEntry, type WindowId } from './types';
+import { createButton } from '../widgets/Button';
 import { create_element } from '../widgets/dom';
 import type { WindowState } from './WindowManager';
 
@@ -58,38 +59,35 @@ export function createDock(
 
     const group = create_element('div', { class: 'dock-group' });
     for (const spec of windows) {
-        const label = create_element('span', { class: 'dock-btn-label' }, spec.dock.label);
-        const button = create_element('button', {
+        // 按钮统一走 `createButton`:`type="button"` 与 `.ui-button` 基线都归它,
+        // `dock-btn` 只是定位 / 状态钩子(见 styles/desktop.css).
+        const button = createButton({
             class: 'dock-btn',
-            type: 'button',
-            'data-window': spec.id,
-            'aria-pressed': 'false',
+            text: spec.dock.label,
             title: spec.title,
         });
-        button.append(label);
-
-        button.addEventListener('click', () => handlers.onSelect(spec.id));
+        button.element.setAttribute('data-window', spec.id);
+        button.element.setAttribute('aria-pressed', 'false');
+        button.onClick(() => handlers.onSelect(spec.id));
 
         buttons.set(spec.id, {
             setActive: (active: boolean) => {
-                button.classList.toggle('is-active', active);
-                button.setAttribute('aria-pressed', String(active));
+                button.element.classList.toggle('is-active', active);
+                button.element.setAttribute('aria-pressed', String(active));
             },
             setState: (state: WindowState) => {
-                button.setAttribute('data-state', state);
+                button.element.setAttribute('data-state', state);
             },
         });
-        group.append(button);
+        group.append(button.element);
     }
 
-    const restoreAll = create_element('button', {
-        class: 'dock-action',
-        type: 'button',
-        'data-dock-action': 'restore-all',
-    }, '全部还原');
-    restoreAll.addEventListener('click', () => handlers.onRestoreAll());
+    // 创建靠右的还原按钮
+    const restoreAll = createButton({ class: 'dock-action', text: '全部还原' });
+    restoreAll.element.setAttribute('data-dock-action', 'restore-all');
+    restoreAll.onClick(() => handlers.onRestoreAll());
 
-    const actions = create_element('div', { class: 'dock-actions' }, restoreAll);
+    const actions = create_element('div', { class: 'dock-actions' }, restoreAll.element);
     container.replaceChildren(group, actions);
 
     // 初始状态走与运行期同一条路径(`setState`),不在这里另写一份 `data-state`:
