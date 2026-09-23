@@ -4,83 +4,113 @@
 仓库 `miko_graphcalc` 的 `docs/ui-library-extraction-plan.md`。
 
 > 旧版本这份文件是"怎么发到 npm"的操作手册(账号、2FA、Cloudflare、token...)。
-> 那些内容跟着 `npm publish` 一起作废了,但仍在 git 历史里,不必再维护。
+> 那些内容跟着 `npm publish` 一起作废了,但仍留在 git 历史里,不必再维护。
 
-## 0. 结论:不发布,交付 = GitHub 上的 `main`
+## 0. 结论:交付 = 滚动 release 资产 `ui-latest`
 
-- **不发 npm**:没有 registry 包、没有 `npm publish`、没有 tarball、没有
-  `publishConfig`、没有 NPM_TOKEN secret。`package.json` 里 `private: true`
-  把这条路直接焊死。
-- **不打 tag、不写版本号**:`package.json` 里没有 `version`,仓库里没有 release
-  workflow,也没有 registry 同步检查。库只服务**一个**消费者
-  (`miko_graphcalc`),本身还在 demo 阶段、没有正式立项,不存在"对外承诺一个稳定
-  版本"这件事 —— 那版本号就只是负债:每改一次都要决定升哪一位,而没有任何人依赖
-  这个决定。
-- **交付形态就是 `main` 分支本身**:消费者 clone 下来,在本地构建。
+- **不发 npm**:没有 registry 包、没有 `npm publish`、没有 `publishConfig`、没有
+  `NPM_TOKEN` secret。`package.json` 里 `private: true` 把这条路直接焊死。
+- **不写版本号、不打版本 tag**:库里没有 `version`,发布也不是"版本发布"。每一次
+  main 的构建都覆盖同一个资产:
+  - release tag:`ui-latest`(**滚动**,只是"最新一份产物"的稳定下载地址);
+  - 资产:`miko_ui_dist.tar.gz`;
+  - URL:`https://github.com/ToyosatomiminoMiko/miko_ui/releases/download/ui-latest/miko_ui_dist.tar.gz`。
+- **交付形态是那个资产,不是 main 上的源码**:消费者机器上没有 TypeScript,也不
+  构建库里任何一个字节;它们只下载产物、解开、按 `file:` 链接进来。
 
-为什么不"按 tag 固定":那是"多消费者 + 需要可复现 + 需要回滚"才有价值的机制。
-现在唯一的消费者在同一个工作区里,固定 tag 只会制造"本地明明改好了、应用却还在用
-旧 tag"的假故障。等真出现第二个消费者(或真的需要回滚到某个已知状态)再把 tag 加
-回来:打一个 tag + 消费者把 `MIKO_UI_REF` 指过去,成本极低。
+为什么仍然不写版本号:版本号只在"要对外承诺一个稳定接口 / 要在多个版本间回滚"
+时才有价值。库服务于两个自己的应用仓库,两边都在同一个工作区里天天一起改;此时
+每次提交都决定升哪一位,只是仪式。真需要固定/回滚时,成本也很低 —— 见 §5。
 
-## 1. 消费者怎么取库
+## 1. 资产长什么样
 
-唯一入口是 `miko_graphcalc/scripts/fetch_ui.sh`。应用侧的 `preinstall` 会自动调用
-它,所以在应用仓库里 `npm ci` / `npm install` 就顺带把库备好了。
+`npm run release:pack`(= `scripts/pack_release.mjs`)把**包根**打成 tar.gz,解开后
+根目录直接是这四样(没有多套一层目录):
 
-| 情况 | 行为 |
+| 条目 | 内容 |
 | --- | --- |
-| `packages/miko_ui` 不存在 | `git clone --depth 1 --branch main` |
-| 已存在,但不是 git 工作副本 | 告警,跳过更新,直接构建目录里的内容 |
-| 已存在,默认(不加参数) | **原样复用**,一个字节都不碰 git |
-| 已存在,`--update`,工作区脏 | 告警,跳过更新 |
-| 已存在,`--update`,干净且能快进 | `git fetch --depth 1 origin main` + `merge --ff-only` |
-| 已存在,`--update`,本地领先或历史分叉 | 告警,跳过更新 |
-| `--rebuild` | 忽略"产物已是最新"的短路,强制重新安装与构建 |
+| `package.json` | **运行期清单**,由打包脚本从仓库的 `package.json` 生成 |
+| `dist/` | `tsc` 产物:`index.js` + `index.d.ts`(exports 的根入口) |
+| `styles/` | 五份 CSS(exports 的 `./styles*`) |
+| `LICENSE` | AGPL-3.0-or-later,跟着产物一起分发 |
 
-取到之后在库目录里跑 `npm ci`(无 lock 时 `npm install`)+ `npm run build`,产出
-`dist/`;若 `dist/index.js`、`dist/index.d.ts` 都在、`node_modules` 也在,且
-`src/`、`styles/`、`scripts/`、几个 tsconfig 与 `package.json` 都不比它新,则整体
-跳过 —— 所以 `preinstall` 反复执行是廉价的。
+### 1.1 清单为什么必须是"生成"的
 
-**刻意不做的事**:脚本绝不 `git reset --hard`,也绝不覆盖本地改动。库的本地副本
-就是开发工作区(demo 阶段改动通常直接在那里做),取库脚本没有权力丢弃它。
+**`scripts` 绝不能进资产**。`npm install` 装 `file:` 链接的包时,会先跑目标清单里
+的 `prepare`(实测 npm 10.9.8);而资产里既没有 `scripts/` 也没有 devDependencies,
+那一步必然 `MODULE_NOT_FOUND: scripts/clean.mjs`。所以清单由
+`scripts/pack_release.mjs` 用白名单重建,并顺手砍掉 `private`、`devDependencies`
+这类构建期字段。
 
-可覆盖的环境变量:
+这份清单字段是**白名单 + 显式黑名单**:`package.json` 里出现一个两边都没分类的
+顶层字段时,打包**直接失败**,逼人当场决定它该不该进资产(静默丢掉 `browser` 这类
+字段的症状是"消费者行为悄悄分叉",太晚)。要加字段就去改那个脚本里的两张表。
 
-| 变量 | 默认值 |
-| --- | --- |
-| `MIKO_UI_REPO` | `https://github.com/ToyosatomiminoMiko/miko_ui.git` |
-| `MIKO_UI_REF` | `main`(clone 时必须是分支或 tag,不能是裸 SHA) |
-| `MIKO_UI_DIR` | `<应用仓库根>/packages/miko_ui` |
-| `MIKO_UI_UPDATE=1` | 等同 `--update` |
+消费侧的 `scripts/fetch_ui.sh` 会**独立再校验一次**"清单里没有 `scripts`":库侧
+生成、消费侧验收,两边互为保险(这条链路的完整规则在两个应用仓库的脚本顶部)。
+`ci.yml` 还会在每个 PR 上把资产 dry-run 打一遍。
 
-## 2. 改了库怎么交付
+## 2. 怎么发一次
+
+推到 `main` 就够了:
 
 ```sh
 cd packages/miko_ui
-npm run typecheck && npm test     # 边界守卫 + vitest
-npm run build                     # 可选:消费者取库时会自己构建
+npm run build          # 本地先跑同一条闸门(build:dist -> typecheck -> 边界守卫 -> vitest)
+npm run release:pack   # 可选:本地把资产打出来看一眼
 git commit ... && git push origin main
 ```
 
-没有更长的流程:没有 `npm version`、没有 tag、没有 release secret、没有 CI 发布
-job。库自己的 CI(`.github/workflows/ci.yml`)只验一件事:推到 `main` 上的东西
-**装得上、查得过、测得过、构建得出来**。
+`.github/workflows/release.yml` 随后在 main 上:
 
-### 2.1 依赖/交付规则的真身不在本文档里
+1. `npm ci --ignore-scripts` + `npm run build` —— 安装时**不跑 `prepare`**,让生产
+   构建只跑一次;闸门就是那条显式的 `npm run build`(与 `ci.yml` 同一条);
+2. `npm run release:pack` —— 产出 `release/miko_ui_dist.tar.gz`;
+3. `gh release create`(首次)或 `gh release upload --clobber`(之后)把它挂到
+   `ui-latest`;资产先就位、再把 tag 挪到本次 commit(这样 `git ls-remote --tags`
+   能对上"资产是哪一版");
+4. **验收**:从消费者用的那个公开 URL 重新下载一次,比对 sha256,并打印 release
+   页面与资产大小。
 
-这些规则以前抄在这里,但抄一遍就会漂移一次(这次 CI 双红就是这么来的):规则写在
-各自的**执行点**旁边,本文档只当索引。
+为什么是"覆盖"而不是"删掉 release 再建":消费者取的是固定 URL,中间那段 404 窗口
+会让他们的 `preinstall` 直接失败。
+
+- 只改 `*.md` 不会触发发布(`paths-ignore`);要**强制重出**一次,在 Actions 里
+  `workflow_dispatch` 跑一次 Release。
+- `release:pack` 打出的 tar 是**可复现**的(排序 + mtime/uid/gid 归零),所以内容
+  没变则 sha256 不变 —— 消费者缓存里记的"来源"可以被人核对。
+
+## 3. 消费者怎么取
+
+两个应用仓库(`miko_graphcalc`、`ToyosatomiminoMiko.github.io`)用的是同一套:
+
+1. 根 `package.json` 里 `"@miko/ui": "file:.cache/miko_ui/current"`,并**自己声明**
+   库的运行时依赖 `@preact/signals-core`(把这条关系变成应用侧的显式契约,同时
+   保证只有一份实例);
+2. `preinstall` -> `scripts/fetch_ui.sh`:下载 -> 校验 -> 解开 -> 原子替换
+   `.cache/miko_ui/current`(gitignore)。已有健康产物时直接复用,所以
+   `npm ci` 反复跑是廉价的;
+3. **没有"clone 源码并本地构建"的回退**:拿不到资产就明确失败,并打印 release
+   页面、期望 URL、手动下载与放置步骤。要靠本地源码构建排查库的问题时,去库仓库
+   (或相邻工作副本 `miko_graphcalc/packages/miko_ui`)跑 `npm run build:dist`。
+
+消费侧脚本里可覆盖的变量(`MIKO_UI_REPO` / `MIKO_UI_RELEASE` / `MIKO_UI_ASSET` /
+`MIKO_UI_ASSET_URL` / `MIKO_UI_ASSET_FILE` / `MIKO_UI_DIR`)在两个仓库的
+`fetch_ui.sh` 顶部有完整表格。
+
+## 4. 规则的真身不在本文档里
+
+这些规则以前抄在这里,但抄一遍就会漂移一次。规则写在各自的**执行点**旁边,本文档
+只当索引:
 
 | 规则 | 真身在哪 |
 | --- | --- |
-| 不发布 npm / 不写版本号 / 不打 tag / `private: true` | `.github/workflows/ci.yml` 顶部第 1 条 |
-| `scripts.prepare` 必须留着(以及删了会报什么) | `.github/workflows/ci.yml` 顶部第 2 条 |
-| 锁只能用**完整** `npm install` 重建;npm 10 与 11 的差别 | `.github/workflows/ci.yml` 顶部第 3、4 条 |
+| 滚动 release / 资产名 / 覆盖上传 / 发布只在 main / 验收下载 | `.github/workflows/release.yml` 顶部 |
+| 运行期清单:白名单、剔除 `scripts`、未知字段报错、可复现 tar | `scripts/pack_release.mjs` 顶部 |
+| 不发 npm / 不写版本号 / `prepare` 必须留 / 锁只能用完整 `npm install` 重建 | `.github/workflows/ci.yml` 顶部 |
 | 为什么 `prepare` 能救 typecheck(example 自引用包名,类型只在 `dist/`) | `tsconfig.json` 的 `include` 旁 |
-| 应用侧怎么取库:`file:` 链接、为什么否掉 npm / 归档 tarball / npm git 依赖 / submodule | `miko_graphcalc/scripts/fetch_ui.sh` 顶部 |
-| 为什么必须去重(`vi.mock` 拦不住、signal/effect 双注册表) | `miko_graphcalc/vite.config.ts` 的 `resolve.dedupe` |
+| 应用侧怎么取产物(`file:` 链接、缓存目录、校验、手动兜底) | 两个应用仓库的 `scripts/fetch_ui.sh` 顶部 |
+| 为什么必须去重(唯一实例、signal/effect 双注册表) | 两个应用仓库的 `vite.config.ts` 的 `resolve.dedupe` |
 
 动过锁或依赖之后,交付前跑一次 CI 同款校验:
 
@@ -88,35 +118,19 @@ job。库自己的 CI(`.github/workflows/ci.yml`)只验一件事:推到 `main` �
 npx --yes npm@11 ci --no-audit --no-fund     # EUSAGE 就是锁缺跨平台条目
 ```
 
-> `prepare` 的代价顺带记一句:应用侧的 `scripts/fetch_ui.sh` 会在库的 `npm ci`
-> 之后**再**跑一次 `npm run build`,于是构建两遍。这是刻意留的冗余 —— 那一遍保证
-> "即使 `prepare` 被跳过(`--ignore-scripts`)、或 `node_modules` 早就在,`dist/`
-> 也一定是最新的"。
+## 5. 固定、回滚与将来的版本号
 
-## 3. 应用侧怎么接
+现在只有一个滚动 tag,所以**没有**"装回上周那一版"的现成开关。要固定或回滚时:
 
-```json
-"@miko/ui": "file:packages/miko_ui"
-```
+1. 给想固定/回滚的那个 commit 补一个 tag(例如 `ui-2026-09-23`),把它当
+   `ui-latest` 那样挂一份 `miko_ui_dist.tar.gz` 上去(`gh release create <tag> ...`);
+2. 消费侧把 `MIKO_UI_RELEASE` 指成那个 tag(`MIKO_UI_RELEASE=ui-2026-09-23 npm run ui:update`),
+   CI 里则以仓库变量/环境变量固定。
 
-`@miko/ui` 是应用侧给这条 `file:` 依赖起的名字;库目录里的包名是 `miko_ui`,
-`file:` 链接不要求两者一致。应用里 `import '@miko/ui'` 解析到的是构建产物
-`dist/index.js` + `dist/index.d.ts`,`import '@miko/ui/styles.css'` 走 `exports`
-里的样式入口。
+消费侧脚本从一开始就是按这个形状写的,所以补 tag 不需要改脚本。真要开始按语义
+版本发布(多个消费者、对外承诺兼容性、发布节奏)时,再回来重写本文档,而不是打补丁。
 
-两个容易踩的点:
-
-1. **库的运行时依赖 `@preact/signals-core` 会出现两份**:库自己的 `node_modules`
-   (构建库时 `npm ci` 装的那份)一份,npm 为 `file:` 链接在应用根目录提升的一份。
-   库产物里的 `import` 会就近解析到库自己那份,所以"取库 + 构建"这一步必须真的
-   执行(脚本会做),只把目录拷过来而没有 `node_modules` 的库会让应用构建报模块
-   找不到;应用的 `vite.config.ts` 再靠 `resolve.dedupe` 把
-   `@preact/signals-core` 与 `katex` 钉成一份,免得两个实例让 signal/effect 各记
-   一套订阅者。
-2. **`dist/` 必须在应用 typecheck / vite build 之前存在**。这就是取库脚本放在
-   `preinstall` 的原因:它的执行时机早于 npm 解析 `file:` 依赖。
-
-## 4. 归档:为什么放弃 npm
+## 6. 归档:为什么放弃 npm
 
 留个结论,免得以后重走:
 
@@ -128,16 +142,24 @@ npx --yes npm@11 ci --no-audit --no-fund     # EUSAGE 就是锁缺跨平台条�
 - **包名也没得选**:scoped 的 `@miko/ui` 需要 org,建 org 只有网页一条路,而 `miko`
   这个用户名已被别人占用 —— 用户(user)与组织(org)是两套名字空间,拿不到。
 - 于是包名一度退成无 scope 的 `miko_ui`,发布路径靠 GitHub Actions + 长期 token
-  硬撑。这条路每一步都在跟账号体系搏斗,而它换来的收益(一个消费者从 registry 拉
-  一个小库)完全可以用一次 `git clone` 代替。
+  硬撑。这条路每一步都在跟账号体系搏斗,而它换来的收益(消费者从 registry 拉一个
+  小库)完全可以用一个 GitHub Release 资产代替 —— 后者还不需要任何凭据。
 
-## 5. 什么时候要重新规划
+## 7. CI/CD 的上线顺序(改库之后先看这里)
+
+两个消费者的 CI 会在 `npm ci` 的 `preinstall` 里去下**已经挂好的**资产。所以:
+
+1. 先推库(`miko_ui`),等 Release workflow 绿、资产挂上(它自己会重新下载验一遍);
+2. 再推消费侧的改动。在这之前,消费侧的 CI 会因为下载不到资产而**明确失败** ——
+   这是刻意设计(见 §3 第 3 条),不是"配错了"。
+3. 本地开发不受影响:本机的 `.cache/miko_ui/current` 在第一次取到之后就一直复用,
+   `npm run ui:update` 才会重新下载。
+
+## 8. 什么时候要重新规划
 
 出现下面任一条时,这份文件就该重写,而不是打补丁:
 
-- 出现**第二个消费者**(别的仓库也要用这个库);
-- 需要**对外发布**(别人要能 `npm install`/CDN 引);
-- 需要**可复现的固定版本**或回滚到某个已知状态;
-- 库**正式立项**(有版本语义、有兼容性承诺、有发布节奏)。
-
-在那之前,加 tag、加版本号、加发布流水线都是纯粹的仪式。
+- 需要**对外发布**(别人要能 `npm install` / CDN 引);
+- 需要**可复现的固定版本**成为常态,而不只是偶尔回滚一次(§5 的临时办法不够用);
+- 库**正式立项**(有版本语义、有兼容性承诺、有发布节奏);
+- 出现**不再共享工作区**的第三方消费者(现在的两个消费者都在同一台机器上一起改)。

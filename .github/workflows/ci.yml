@@ -10,10 +10,9 @@ permissions:
   contents: read
 
 jobs:
-  # 库自己的 CI.它**不装 Rust/wasm 工具链**:库的测试一个字节都不碰 wasm,
-  # 所以这个 job 只需要 Node —— "能独立跑绿"就是"UI 与计算真的解耦了"最直接
-  # 的证据.这条 job 是从 `miko_graphcalc` 的 deploy.yml 里搬过来的:库分出去
-  # 之后,那边不再有库的源码,检查必须跟着库走.
+  # 库自己的 CI. 这个 job 只需要 Node —— "能独立跑绿"就是"UI 与计算真的解耦了"
+  # 最直接的证据.这条 job 是从 `miko_graphcalc` 的 deploy.yml 里搬过来的:
+  # 库分出去之后,那边不再有库的源码,检查必须跟着库走.
   #
   # ==========================================================================
   # 库侧的依赖/交付契约(这段注释是真身;应用侧那半在 miko_graphcalc 的
@@ -22,10 +21,14 @@ jobs:
   # 为什么写在这里而不是写进 package.json:package.json 是严格 JSON,放不了注释;
   # 而这个 workflow 正是下面每一条的**执行点** —— 违反哪条,红的就是这个 job.
   #
-  # 1. 不发布 npm、不写版本号、不打 tag.没有 registry 包、没有 `publishConfig`、
-  #    没有 release workflow,`package.json` 里 `private: true`.库只服务一个消费
-  #    者(miko_graphcalc),还在 demo 期:版本号只是负债 —— 每改一次都要决定升哪
+  # 1. 不发 npm registry;不写版本号."发布" = `release.yml` 把包根打成
+  #    `miko_ui_dist.tar.gz` 挂到滚动 release `ui-latest` 上,两个消费者
+  #    (miko_graphcalc、ToyosatomiminoMiko.github.io)只从那里取**产物**,
+  #    不 clone 源码、不本地构建.版本号依然只是负债 —— 每改一次都要决定升哪
   #    一位,而没有任何人依赖这个决定(取舍与归档见 RELEASING.md).
+  # 1.1 发布 job 的"执行点"在 `release.yml` 顶部;那个文件只管 main 上的发布,
+  #    所以打包本身在这里也 dry-run 一遍(下面的 "Pack release asset"):让
+  #    "清单漏进 scripts"/"资产打不出来"在合入前就红,而不是等发布时才发现.
   # 2. `scripts.prepare` 必须是 `npm run build`,不能删.这个 job 的顺序是
   #    `npm ci`(prepare -> `npm run build`)-> `npm run build` -> 产物检查,
   #    而 `tsconfig.json` 把 `example/**` 也收进类型检查,example 又通过
@@ -47,9 +50,8 @@ jobs:
   #        npx --yes npm@11 ci --no-audit --no-fund
   # ==========================================================================
   #
-  # 这里没有任何"发布"步骤:交付方式就是消费者
-  # (`miko_graphcalc/scripts/fetch_ui.sh`)直接 clone 本仓库的 main 分支并构建.
-  # 于是 CI 的职责只剩一条:保证 main 上永远是"能装、能查、能测、能构建"的形态.
+  # 这里没有"发布"步骤:发布只在 `release.yml`(main)里做.这个 job 的职责是
+  # 保证 main 上永远是"能装、能查、能测、能构建、能把资产打出来"的形态.
   test:
     runs-on: ubuntu-latest
 
@@ -84,3 +86,28 @@ jobs:
         run: |
           test -f dist/index.js
           test -f dist/index.d.ts
+
+      # 交付形态是 release 资产(`miko_ui_dist.tar.gz`),不是 `dist/` 目录本身.
+      # 这里在**每个 PR/推送**上先打一遍(不发布,发布只在 main 的 release.yml),
+      # 把两类只在消费者那边才炸的问题挡在合入前:
+      #   1. 资产打不出来(缺 dist/styles/LICENSE、tar 挂了);
+      #   2. 清单漏进 `scripts` —— npm 装 `file:` 依赖时会跑它的 `prepare`,必炸.
+      # `scripts/pack_release.mjs` 自己会为第 2 条断言一次,这里再从**打出来的
+      # tar** 里验一次包根形状(防"脚本绿了但 tar 多套了一层目录").
+      - name: Pack release asset (dry run)
+        run: |
+          npm run release:pack
+          tar -tzf release/miko_ui_dist.tar.gz > release/asset.list
+          for entry in ./package.json ./dist/index.js ./dist/index.d.ts ./styles/styles.css ./LICENSE; do
+            grep -qx "$entry" release/asset.list
+          done
+          ! grep -qE '^\./scripts/' release/asset.list
+          tar -xzOf release/miko_ui_dist.tar.gz ./package.json > release/asset.package.json
+          node -e '
+            const manifest = require("./release/asset.package.json");
+            if (manifest.scripts) throw new Error("资产清单里带了 scripts: npm 装 file: 依赖时会跑 prepare");
+            if (manifest.private) throw new Error("资产清单里带了 private");
+            if (manifest.devDependencies) throw new Error("资产清单里带了 devDependencies");
+            if (manifest.name !== "miko_ui") throw new Error("资产清单 name 不是 miko_ui");
+            if (!manifest.exports?.["."]) throw new Error("资产清单缺 exports[\".\"]");
+          '

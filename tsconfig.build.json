@@ -2,11 +2,12 @@
   /**
    * 构建 `dist/` 用的配置:在 `tsconfig.json` 之上只改"要不要产出文件"这件事.
    *
-   * 产物**不是给 npm 发布的**(库不发 npm,见 RELEASING.md),而是给唯一消费者
-   * `miko_graphcalc` 用的:`fetch_ui.sh` 在本地 clone 之后构建它,应用通过
-   * `"@miko/ui": "file:packages/miko_ui"` + `exports` 解析到 `dist/index.js` /
-   * `dist/index.d.ts`.所以"产物干不干净"的判据是**那个消费者认不认**,不是
-   * "发布出去别人能不能用".
+   * 产物**不是给 npm 发布的**(库不发 npm,见 RELEASING.md),而是要进 GitHub
+   * Release 资产(`ui-latest` 上的 `miko_ui_dist.tar.gz`)的:两个消费者
+   * (`miko_graphcalc`、`ToyosatomiminoMiko.github.io`)下载 -> 解开到
+   * `.cache/miko_ui/current` -> 用 `"@miko/ui": "file:.cache/miko_ui/current"`
+   * 链接,再经 `exports` 解析到 `dist/index.js` / `dist/index.d.ts`.所以"产物
+   * 干不干净"的判据是**那些消费者认不认**,不是"发布出去别人能不能用".
    *
    * 为什么不复用同一份配置:开发配置里 `noEmit: true`(类型检查专用,不落盘),
    * 而且 `include` 把 `test/**` `example/**` 都收进来了.产物里既不该有测试,

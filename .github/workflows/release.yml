@@ -1,0 +1,155 @@
+name: Release
+
+# ============================================================================
+# 库侧的"发布"契约(这段注释是真身;消费者那半在两个应用仓库的
+# `scripts/fetch_ui.sh` 顶部)
+# ----------------------------------------------------------------------------
+# 发布 = **一个滚动 GitHub Release 资产**,不是 npm 包:
+#
+#   release tag : ui-latest            (滚动;不是版本承诺 —— 库不写版本号)
+#   资产文件名  : miko_ui_dist.tar.gz  (内容:包根 = dist/ + styles/ + LICENSE
+#                                       + 运行期清单 package.json)
+#
+#   下载地址    : https://github.com/<owner>/<repo>/releases/download/ui-latest/miko_ui_dist.tar.gz
+#
+# 两个消费者(`miko_graphcalc`、`ToyosatomiminoMiko.github.io`)只认这一份资产:
+# 各自的 `scripts/fetch_ui.sh` 下载 -> 校验 -> 解开 -> 原子替换缓存,再用根
+# `package.json` 的 `"@miko/ui": "file:.cache/miko_ui/current"` 链接进来.于是
+# **这个 job 绿了、资产挂上了,库里改的东西才算交付出去**:main 上的源码本身
+# 不再是交付形态(消费者机器上没有 TypeScript,也不构建库).
+#
+# 四条不变量,违反哪条这里都会红:
+#   1. 资产由 `scripts/pack_release.mjs` 生成,清单是**运行期清单**,不带
+#      `scripts`.原因:npm 装 `file:` 链接的包时会先跑目标的 `prepare`(实测
+#      npm 10.9.8),而资产里没有 `scripts/` 也没有 devDependencies,那一步必然
+#      `MODULE_NOT_FOUND`.消费侧的 `fetch_ui.sh` 会独立再校验一次.
+#   2. 资产必须产自**跑过完整闸门**的树,而且生产构建**只跑一次**:安装用
+#      `npm ci --ignore-scripts`(不让 `prepare` 顺手再构建一遍),闸门就是那一条
+#      显式的 `npm run build`(build:dist -> typecheck -> 边界守卫 -> vitest).
+#      库的依赖树里唯一的安装脚本是 darwin 专用的 `fsevents`(可选依赖),跳过它
+#      没有副作用;`prepare` 本身仍由 ci.yml 的 `npm ci` 守着,不会悄悄消失.
+#   3. 资产**原地覆盖同一个文件名**:消费者拿到的 URL 永远不变.所以更新走
+#      `gh release upload --clobber`(资产先就位,再把 tag 挪过去),不用
+#      "删掉 release 再建" —— 那中间有一段 404 窗口,消费者的 preinstall 会失败.
+#   4. 发布只在 `main` 上跑;打包这件事本身在每个 PR/推送上由 `ci.yml` 的
+#      dry-run 步骤先验一遍,坏掉的清单不该等到发布才发现.
+#
+# 回滚怎么办:现在是滚动 tag,没有历史版本可挑.真要固定/回滚时,给某次 commit
+# 补一个版本 tag 并把资产也挂上去,消费侧把 `MIKO_UI_RELEASE` 指过去即可 ——
+# 消费侧脚本已经支持(见 RELEASING.md §5).
+# ============================================================================
+on:
+  push:
+    branches: [main]
+    # 纯文档改动不重出资产(资产里没有 README;LICENSE 变了要重出,所以只忽略
+    # markdown).要强制重出一次:workflow_dispatch.
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+
+# 同一时间只跑一个发布.两个推送各跑一次时,后完成的那次覆盖资产 => 资产永远
+# 对应最新一次成功构建.cancel-in-progress 关掉:不要腰斩正在上传的那次.
+concurrency:
+  group: release-ui-latest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # `gh release create/upload` 与 PATCH tag ref 都要写仓库
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # release 构建刻意**不复用依赖缓存**:这一份是要挂到 release 上、被消费者
+      # 直接吃下去的产物,少一条供应链面(旧 npm 发布流水线留下的规矩,别丢).
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      # `--ignore-scripts`:库的 `prepare` 就是 `npm run build`,不跳过的话这一步会
+      # 顺手把生产构建跑一遍,下面的显式闸门又跑一遍 —— 一次发布构建两次,而且
+      # 第一次失败会挂在 "Install" 名下,看不出是构建挂了.
+      # 依赖树里唯一的安装脚本是 darwin 专用的 `fsevents`(可选依赖),跳过无副作用.
+      - name: Install pinned dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      # 生产构建**唯一**的入口,也是这次发布唯一的闸门:
+      # build:dist -> typecheck(src + test + example)-> 边界守卫 -> vitest.
+      - name: Build, typecheck and test
+        run: npm run build
+
+      - name: Pack release asset
+        run: npm run release:pack
+
+      - name: Publish rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ui-latest
+          ASSET: release/miko_ui_dist.tar.gz
+          ASSET_NAME: miko_ui_dist.tar.gz
+        run: |
+          set -Eeuo pipefail
+          test -f "$ASSET"
+          SHA256="$(sha256sum "$ASSET" | cut -d' ' -f1)"
+
+          {
+            printf '## miko_ui rolling release (`ui-latest`)\n\n'
+            printf '这是**滚动资产**,不是版本发布:tag 永远指向最新一次 main 构建,文件名与 URL 不变,内容被覆盖。\n'
+            printf '库不发 npm、不写版本号;交付形态就是下面这一个文件。\n\n'
+            printf '| 项 | 值 |\n| --- | --- |\n'
+            printf '| commit | `%s` |\n' "$GITHUB_SHA"
+            printf '| 资产 | `%s` |\n' "$ASSET_NAME"
+            printf '| sha256 | `%s` |\n' "$SHA256"
+            printf '| 内容 | `dist/` + `styles/` + `LICENSE` + 运行期清单 `package.json` |\n\n'
+            printf '消费者由 `scripts/fetch_ui.sh` 自动取;手动下载:\n\n'
+            printf '```sh\ncurl -fL -o %s \\\n  %s/%s/releases/download/%s/%s\n```\n' \
+              "$ASSET_NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$TAG" "$ASSET_NAME"
+          } > notes.md
+          cat notes.md
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # 资产先就位(URL 全程可用),再把 tag 挪到本次 commit:这个指针只是
+            # 给人看的(`git ls-remote --tags` 能对上"资产是哪一版"),消费者用
+            # 的是固定 URL,不读 tag 的指向.
+            gh release upload "$TAG" "$ASSET" --clobber
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" \
+              -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          else
+            gh release create "$TAG" "$ASSET" \
+              --target "$GITHUB_SHA" \
+              --title "miko_ui rolling (ui-latest)" \
+              --notes-file notes.md
+          fi
+
+          # 交付验收:从**消费者用的那个公开 URL** 重新下一次,比对 sha256.
+          # 只验"资产挂上了"不够 —— 资产挂错 release / 传到别处 / 下到的是旧的,
+          # 都在这里现形.刚覆盖完可能有一小段传播延迟,所以给它几次机会;
+          # 始终对不上就红(宁可红在这里,也不要消费者拿到一份说不清的产物).
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            if curl -fsSL --retry 2 -o verify.tar.gz \
+              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET_NAME" \
+              && echo "$SHA256  verify.tar.gz" | sha256sum -c - >/dev/null 2>&1; then
+              echo "验收通过(第 ${attempt} 次下载):公开 URL 下到的 sha256 与本地一致"
+              ok=1
+              break
+            fi
+            echo "第 ${attempt} 次验收没对上,3 秒后重试..."
+            sleep 3
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::验收失败:公开 URL 下到的 ${ASSET_NAME} 与本地 sha256 不一致"
+            exit 1
+          fi
+
+          gh release view "$TAG" --json url,assets \
+            --jq '.url, (.assets[] | "  \(.name)  \(.size) 字节")'

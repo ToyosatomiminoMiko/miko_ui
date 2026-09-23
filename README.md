@@ -1,28 +1,40 @@
 # `miko_ui`
 
-GraphCalc 的网页 UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 + 桌面窗口系统 +
-编辑器外壳 + 主题**.它从应用里抽出来,只保留"结构与交互",不认识任何领域模型
-(场景 IR、编译器、数学内核).
+未正式立项
+阶段: demo
+
+GraphCalc 的 Web UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 + 桌面窗口系统 +
+编辑器外壳 + 主题**.它从应用里抽出来,只保留"结构与交互".
 
 > 抽取过程、每个决策的理由与全部去耦合项见原仓库 `miko_graphcalc` 里的
 > `docs/ui-library-extraction-plan.md`(本文件的每一节都能在那份计划里找到
 > 出处).这份仓库是那个计划 P4 结束后的产物.
 
-## 取用:消费者 clone + 构建,不走 npm
+## 取用:消费者下载 release 产物,不走 npm
 
-本库**不发 npm**:没有 registry 包、没有 tarball、没有 tag、没有版本号.它目前
-完全为 [miko_graphcalc](https://github.com/ToyosatomiminoMiko/miko_graphcalc)
-服务,还没正式立项,所以也谈不上"发布".
+本库**不发 npm**:没有 registry 包、没有 `npm publish`、没有版本号.它同时服务
+[miko_graphcalc](https://github.com/ToyosatomiminoMiko/miko_graphcalc) 与
+[ToyosatomiminoMiko.github.io](https://github.com/ToyosatomiminoMiko/ToyosatomiminoMiko.github.io)
+两个应用仓库,两边拿的是同一份产物.
 
-消费者那边的唯一入口是 `miko_graphcalc/scripts/fetch_ui.sh`:
+交付形态是**一个滚动 release 资产**:
 
-1. `packages/miko_ui` 不存在就 `git clone` 本仓库的 `main`(存在就复用,`--update`
-   才快进);
-2. 在库目录里 `npm ci` + `npm run build`,产出 `dist/`;
-3. 应用侧用一条本地依赖接进来 —— `"@miko/ui": "file:packages/miko_ui"`.
+```text
+https://github.com/ToyosatomiminoMiko/miko_ui/releases/download/ui-latest/miko_ui_dist.tar.gz
+```
+
+main 每次推送后,`.github/workflows/release.yml` 把包根(`dist/` + `styles/` +
+`LICENSE` + **运行期清单** `package.json`)打成 `miko_ui_dist.tar.gz` 挂到 tag
+`ui-latest`;消费者的 `scripts/fetch_ui.sh` 下载 -> 校验 -> 解开到
+`.cache/miko_ui/current`,再用一条本地依赖接进来:
+
+```json
+"@miko/ui": "file:.cache/miko_ui/current"
+```
 
 于是应用里的 `import '@miko/ui'` 解析到的是**构建产物** `dist/index.js` +
-`dist/index.d.ts`(纯 ESM + 自带类型声明),消费者不需要再编译 `node_modules`:
+`dist/index.d.ts`(纯 ESM + 自带类型声明),消费者机器上**没有 TypeScript,也没有
+本库的源码**:
 
 ```ts
 import { mountDesktop, signal } from '@miko/ui';
@@ -33,9 +45,12 @@ import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
 > `@miko/ui` 只是应用侧给这条 `file:` 依赖起的名字,目录里的包名仍是 `miko_ui`.
 > 公开面由 `package.json` 的 `exports` 定义,与包名无关.
 
-运行时依赖只有 `@preact/signals-core` 一个(装在库自己的 `node_modules` 里,由
-上面的构建步骤负责);`katex` 是可选 peer,只有引公式件时才需要(它同时会在运行时
-引自己的 `katex/dist/katex.min.css`,所以用公式件时 KaTeX 的样式不用你手动引).
+运行时依赖只有 `@preact/signals-core` 一个;`katex` 是可选 peer,只有引公式件时才
+需要(它同时会在运行时引自己的 `katex/dist/katex.min.css`,所以用公式件时 KaTeX
+的样式不用你手动引).**应用侧自己声明这两个依赖**:资产里没有 `node_modules`,
+而且"`file:` 链接的传递依赖装不装"取决于目标目录在不在应用根内(npm 实测:根内会
+装、根外不装).把它写成应用自己的依赖,行为才不依赖这个细节,也才能保证全程只有
+一份实例 —— 两个应用仓库都是这么写的.
 
 > **只面向打包器/浏览器**,两条原因(都与"不发 npm"有关,见 `RELEASING.md`):
 >
@@ -71,8 +86,8 @@ npm run build:dist    # 只 clean + tsc 产出 dist/(给 dev 用的裸构建)
 通过包名自引用 `miko_ui`,类型只来自 `dist/index.d.ts`(exports 指向产物).先
 `clean` 再查类型,只会查出一串"找不到模块"的假错误.
 
-代价是 `prepare` = `npm run build`,所以 `npm ci` 会顺带跑一遍检查;`fetch_ui.sh`
-在产物已最新时根本不进这一步,只有真的要构建时才付这份时间.
+代价是 `prepare` = `npm run build`,所以 `npm ci` 会顺带跑一遍检查(本仓库自己、
+以及出 release 资产的 CI 都会付这份时间;消费侧不构建库,所以不受影响).
 
 每一条只做命令里写出来的事:没有 `pre*` 隐式钩子(唯一的例外是 `prepare`,它是
 npm 的生命周期 —— 原因见下面"边界契约").
@@ -81,9 +96,9 @@ npm 的生命周期 —— 原因见下面"边界契约").
 "库侧依赖/交付契约":用 `npm install --package-lock-only` 会丢掉跨平台可选依赖,
 而 CI 的 npm 11 会因此直接拒掉 `npm ci`(本地 npm 10 看不出来).
 
-改完推到 `main` 就够了:消费者下次取库时会拿到(那边
-`bash scripts/fetch_ui.sh --update`,CI 则是干净 clone).交付方式与"什么算交付"
-写在 `RELEASING.md`.
+改完推到 `main` 就够了:`.github/workflows/release.yml` 会重新出一次资产,消费者
+下次取产物时拿到(那边 `npm run ui:update`,CI 则是每次干净下载).交付细节,以及
+"发布必须先于消费者改动上线"的顺序,写在 `RELEASING.md`.
 
 ## 用起来是什么样
 
@@ -196,12 +211,18 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 ## 交付
 
-不发 npm、不打 tag、不写版本号.交付 = 把 `main` 推到 GitHub:
+不发 npm、不写版本号.交付 = 把 `main` 推到 GitHub:
 
 ```sh
 git push origin main
 ```
 
-`miko_graphcalc` 的 `scripts/fetch_ui.sh` 会 clone(或 `--update` 快进)这个
-`main` 并在本地构建 `dist/`.为什么这么定、本地副本什么时候会被拒绝更新,见
-`RELEASING.md`.
+`.github/workflows/release.yml` 随后把包根打成 `miko_ui_dist.tar.gz`,挂到滚动
+release `ui-latest`,并从**消费者用的那个公开 URL** 重新下载验一遍 sha256.两个
+应用仓库的 `scripts/fetch_ui.sh` 取的就是这份资产.本地想先看一眼资产:
+
+```sh
+npm run release:pack   # -> release/miko_ui_dist.tar.gz(清单、内容、sha256 都打在日志里)
+```
+
+为什么这么定、怎么强制重出、将来怎么固定/回滚,见 `RELEASING.md`.
