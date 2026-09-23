@@ -520,7 +520,16 @@ export class WindowManager {
         this.dock?.setActive(this.focusedId);
     }
 
-    /** `.window-title` 上的拖动:增量语义,夹取由 `setGeometry` 统一做一次. */
+    /**
+     * `.window-title` 上的拖动:增量语义,夹取由 `setGeometry` 统一做一次.
+     *
+     * 拖动期间另记一份**没有被磁吸修正过**的位置(`unsnapped`),增量只累加在它
+     * 上面.磁吸是"这一次移动"的显示修正,不能成为下一次增量的基准:真机上
+     * 每个 `pointermove` 只有几个像素,拿被吸住的位置当基准,每一次增量都会
+     * 重新落回阈值内、被再吸一次,窗口就**再也离不开**那条共用的边(两个窗口
+     * 都在 `x: { at: 16 }` 的示例里,表现就是"只能上下动").见
+     * docs/windowing-plan.md §3.5:"下一次移动会先清掉修正再判".
+     */
     private _bindWindowMove(entry: Entry): void {
         const id = entry.spec.id;
         /**
@@ -531,6 +540,8 @@ export class WindowManager {
          * 那些按下因此完全无害.
          */
         let pendingRestore = false;
+        /** 本次拖动里未被磁吸修正的位置;`null` = 还没开始累加. */
+        let unsnapped: Geometry | null = null;
         bindDragGesture(entry.frame.title, entry.gesture.signal, {
             canStart: (event) => {
                 if (this._hidden(entry)) return false;
@@ -543,6 +554,7 @@ export class WindowManager {
             },
             onStart: () => {
                 pendingRestore = entry.state === 'maximized';
+                unsnapped = null;
                 entry.frame.element.classList.add('is-dragging');
                 this.focus(id);
             },
@@ -552,9 +564,15 @@ export class WindowManager {
                     pendingRestore = false;
                     this.setMaximized(id, false);
                 }
-                let next = moveGeometry(entry.geometry, dx, dy, this._limits(entry));
-                // 磁吸只是"这一次移动"的修正,不写进 entry.geometry.
-                next = magnetize(next, this._otherGeometries(id), this.config.snap.magnet);
+                const moved = moveGeometry(
+                    unsnapped ?? entry.geometry,
+                    dx,
+                    dy,
+                    this._limits(entry),
+                );
+                unsnapped = moved;
+                // 磁吸只改这一次落地的结果,不参与上面的累加(否则就是死区).
+                const next = magnetize(moved, this._otherGeometries(id), this.config.snap.magnet);
 
                 const snap = resolveEdgeSnap(
                     { x: event.clientX, y: event.clientY },
@@ -568,6 +586,7 @@ export class WindowManager {
                 this.setGeometry(id, next);
             },
             onEnd: () => {
+                unsnapped = null;
                 entry.frame.element.classList.remove('is-dragging');
                 this.snapPreview?.hide();
                 const snap = this.pendingSnap;

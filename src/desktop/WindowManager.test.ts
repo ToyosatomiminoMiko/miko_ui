@@ -479,9 +479,26 @@ describe('拖动 / 吸附', () => {
         title.dispatch('pointermove', { clientX: 600 + 438, clientY: 100, pointerId: 1 });
         expect(manager.getGeometry('source').x).toBe(452);
 
-        // 下一次移动基于夹取后的值继续累计,磁吸只是"这一次"的修正.
+        // 下一次移动基于**没被磁吸修正过**的值(16 + 438 = 454)继续累计:
+        // 修正只在"这一次移动"里生效,不能变成下一段的基准(否则慢速拖动会被
+        // 反复吸回,见下面那条回归).
         title.dispatch('pointermove', { clientX: 600 + 458, clientY: 100, pointerId: 1 });
-        expect(manager.getGeometry('source').x).toBe(472);
+        expect(manager.getGeometry('source').x).toBe(474);
+    });
+
+    it('慢速拖动:每帧几像素也要能离开与另一个窗口共用的边(磁吸不是死区)', () => {
+        const { layer, manager } = setup();
+        const title = titleOf(layer, 'source');
+
+        // source 与 view 都在 x=16:每一帧只走 2px,位移全程落在磁吸阈值(8px)内.
+        title.dispatch('pointerdown', { clientX: 100, clientY: 20, pointerId: 1 });
+        for (let step = 1; step <= 20; step += 1) {
+            title.dispatch('pointermove', { clientX: 100 + step * 2, clientY: 20, pointerId: 1 });
+        }
+        title.dispatch('pointerup', { clientX: 140, clientY: 20, pointerId: 1 });
+
+        // 40px 的指针位移必须真的走完,不能被"每帧都被吸回 16"吃掉.
+        expect(manager.getGeometry('source').x).toBe(56);
     });
 
     it('双击标题栏 = 最大化 / 再双击还原(不起手拖动)', () => {
