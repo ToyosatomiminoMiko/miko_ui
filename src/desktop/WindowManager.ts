@@ -65,14 +65,6 @@ export interface WindowContentSpec {
     readonly body?: readonly Child[];
 }
 
-/**
- * 按窗口 id 取该窗口的内容.
- *
- * 节点的所有者是消费者(--> 应用侧的内容工厂),`WindowManager` 既不按 id 猜
- * 它们的位置,也不管它们从哪来;它只把拿到的节点 `append` 进对应槽位与正文.
- */
-export type WindowContentProvider = (id: WindowId) => WindowContentSpec;
-
 interface Entry {
     readonly spec: WindowConfigEntry;
     readonly frame: WindowFrameHandle;
@@ -118,15 +110,15 @@ export class WindowManager {
      * @param layer        `.window-layer`:窗口的定位参照与 z-order 层
      * @param dockElement  `.dock`:顶部任务栏容器
      * @param snapElement  `.snap-preview`:吸附高亮层
-     * @param content      各窗口的内容提供者(标题栏槽位 + 正文节点);
-     *                     正文容器 `.window-body` 由本类自己建(D1)
+     * @param content      按窗口 id 取内容(标题栏槽位 + 正文节点):节点归消费者
+     *                     所有,本类只负责 `append`;正文容器 `.window-body` 由本类建(D1)
      */
     constructor(
         private readonly config: DesktopConfig,
         private readonly layer: HTMLElement,
         private readonly dockElement: HTMLElement,
         private readonly snapElement: HTMLElement,
-        private readonly content: WindowContentProvider,
+        private readonly content: (id: WindowId) => WindowContentSpec,
     ) {}
 
     /**

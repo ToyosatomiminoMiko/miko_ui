@@ -1,32 +1,33 @@
 /**
- * `mountDesktop` —— 库自己建桌面三层与全部窗口外壳(D1).
+ * `mountDesktop` -- 库自己建桌面三层与全部窗口外壳(D1).
  *
- * 旧写法是**反过来**的:`index.html` 手写二十多个带 id 的宿主(窗口层、Dock、
+ * 旧写法是**反过来**的:`index.html` 手写二十多个带 id 的宿主(窗口层,Dock,
  * 吸附层,以及五个窗口的正文容器),`app/appHosts.ts` 再按 id 逐个取出来交给
  * `WindowManager`.那样库要求消费者先写一份"宿主清单",漏一个就到运行期才炸;
  * 同页两个实例更是直接串味(第二份 id 重复).
  *
- * 现在反过来:消费者只给一个**空容器**与一张声明表 —— 每个窗口装什么内容由
+ * 现在反过来:消费者只给一个**空容器**与一张声明表 -- 每个窗口装什么内容由
  * `content()` 现建或事先建好交给库,库负责建容器并把节点搬进去.于是
  * `index.html` 缩到 `<div id="app">`.
  *
- * 库**不猜**"消费者有哪些窗口":窗口清单、标题全部是构造参数(见
+ * 库**不猜**"消费者有哪些窗口":窗口清单,标题全部是构造参数(见
  * `desktop/types.ts`).库默认值 `DEFAULT_DESKTOP_CONFIG` 里**没有窗口**,
  * 只 Default 每个桌面都成立的量(动作 / 余量 / z / 吸附).
  */
 import { childNodes, create_element, type Child } from '../widgets/dom';
-import { WindowManager, type WindowContentProvider } from './WindowManager';
-import type { DesktopConfig } from './types';
+import { WindowManager, type WindowContentSpec } from './WindowManager';
+import type { DesktopConfig, WindowId } from './types';
 
 /** `mountDesktop()` 的全部输入:桌面配置 + 逐窗口内容 + 桌面背景. */
 export interface DesktopSpec extends DesktopConfig {
     /**
-     * 逐窗口内容:标题栏槽位节点 + 正文节点(见 {@link WindowContentProvider}).
+     * 逐窗口内容:库按 id 现取一次,拿到标题栏槽位节点与正文节点.节点归消费者
+     * 所有,库只负责把它们搬进对应槽位 / 正文.
      *
      * 放在 spec 上而不是塞进每个窗口条目:窗口清单保持纯数据(与 `DesktopConfig`
      * 同一形状,可以直接用应用侧的配置),内容装配是另一件事.
      */
-    readonly content?: WindowContentProvider;
+    readonly content?: (id: WindowId) => WindowContentSpec;
     /**
      * 窗口层**之下**的桌面内容(应用侧是 3D 视口).
      *
@@ -36,7 +37,7 @@ export interface DesktopSpec extends DesktopConfig {
     readonly background?: readonly Child[];
 }
 
-/** `mountDesktop()` 的返回值:三层容器、窗口管理器与一次性的拆卸入口. */
+/** `mountDesktop()` 的返回值:三层容器,窗口管理器与一次性的拆卸入口. */
 export interface DesktopHandle {
     readonly root: HTMLElement;
     readonly windowLayer: HTMLElement;
@@ -54,6 +55,8 @@ export interface DesktopHandle {
  * 三层容器用**类名**(.window-layer / .snap-preview / .dock):库的样式表里没有
  * id 选择器,也就不要求消费者写任何宿主(D8).id 只用于"标签关联",不作为
  * 库与消费者之间的契约.
+ * 
+ * @param root: id挂载点
  */
 export function mountDesktop(root: HTMLElement, spec: DesktopSpec): DesktopHandle {
     const doc = root.ownerDocument;
@@ -77,7 +80,7 @@ export function mountDesktop(root: HTMLElement, spec: DesktopSpec): DesktopHandl
     root.append(windowLayer, snapPreview, dock);
 
     // 内容按窗口 id 现取:窗口清单就是构造参数,不依赖 DOM 里有宿主.
-    const content: WindowContentProvider = spec.content ?? (() => ({}));
+    const content: (id: WindowId) => WindowContentSpec = spec.content ?? (() => ({}));
 
     const windows = new WindowManager(spec, windowLayer, dock, snapPreview, content);
     windows.bind();

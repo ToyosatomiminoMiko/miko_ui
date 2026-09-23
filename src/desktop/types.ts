@@ -1,8 +1,8 @@
 /**
  * 桌面窗口系统的**配置词汇**.
  *
- * 这里定义的是"库认识什么"(锚点怎么写、槽位有哪几个、动作有哪几个),不是
- * "这个应用有哪些窗口".哪些窗口、标题叫什么、正文装什么内容,属于应用配置,
+ * 这里定义的是"库认识什么"(锚点怎么写,槽位有哪几个,动作有哪几个),不是
+ * "这个应用有哪些窗口".哪些窗口,标题叫什么,正文装什么内容,属于应用配置,
  * 由消费者以构造参数传进来(docs/ui-library-extraction-plan.md D4/U2).
  *
  * 为什么 `WindowId` 是不透明的 `string`:库只拿它当 Map 的键与 `data-*` 的值,
@@ -108,7 +108,7 @@ export interface WindowConfigEntry {
 }
 
 /**
- * 桌面窗口系统的全部配置:数组顺序即 z 初始序、Dock 顺序与默认几何的
+ * 桌面窗口系统的全部配置:数组顺序即 z 初始序,Dock 顺序与默认几何的
  * 依赖顺序(`after`),不能随意调.
  */
 export interface DesktopConfig {
@@ -137,14 +137,10 @@ export interface DesktopConfig {
 }
 
 /**
- * 库自带的桌面默认值.
+ * 库提供的默认值占位:消费者 `{ ...DEFAULT_DESKTOP_CONFIG, windows }` 就取到
+ * "每个桌面都成立"的那组数(动作 / 边缘余量 / 标题栏高度 / z / 吸附).
  *
- * **不含窗口**.窗口清单(标题、dock 文案、几何锚点)天然是应用特有的,把它当
- * "默认"塞进来就是**在标准配置里写示例**:一旦某个应用的 `main` / `side` 住进
- * 库,别的消费者要么被迫接受这两个窗口,要么逐字段覆盖.库这边只默认那些
- * 每个桌面都成立的量 -- 边缘余量、dock 预留、标题栏高度、z 序号、吸附阈值,
- * 以及 `min` / `max` 这类所有窗口都有的动作;`windows` 留空,由消费者给
- * (docs/ui-library-extraction-plan.md D4/U2).
+ * `windows` 为空 -- 窗口清单是应用特有的,库不预设任何窗口.
  */
 export const DEFAULT_DESKTOP_CONFIG: DesktopConfig = {
     windows: [],

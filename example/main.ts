@@ -38,6 +38,7 @@ import {
 import 'miko_ui/styles.css';
 import './example.css';
 
+// 获取目标html唯一挂载点,后面的ui全部基于此
 const root = document.getElementById('app');
 if (!root) throw new Error('example/index.html 缺少 #app');
 
