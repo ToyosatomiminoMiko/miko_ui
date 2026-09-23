@@ -169,12 +169,17 @@
     --params-panel-min-height: 120px;
     --view-controls-min-height: 120px;
 
-    /* 窗口外壳的两个样式常量(真相源是 UI_CONFIG.window).
-       窗口几何(left/top/width/height)不进 CSS:窗口由 JS 建,几何由
-       WindowManager 写成行内样式,不存在"CSS 首帧"这回事;这里只有这两个
-       "CSS 必须自己读"的数:
+    /* 窗口外壳的两个样式常量.窗口几何(left/top/width/height)不进 CSS:窗口由
+       JS 建,几何由 WindowManager 写成行内样式,不存在"CSS 首帧"这回事.
+
+       这两个数**同时被 JS 与 CSS 消费**,所以运行期的唯一来源是
+       `DesktopConfig`(`dockReserve` / `headerHeight`):`mountDesktop()` 时由
+       WindowManager 把它们写到桌面根(`#app`)的行内变量上,压过这里的值.
+       这里的 `:root` 值只服务"没有 JS / 纯 CSS"的场景,必须与
+       `DEFAULT_DESKTOP_CONFIG` 保持一致(单测守着).
        - 标题栏高度:.window-header 消费它,与夹取用的 headerMinVisible 同源;
-       - Dock 预留高度:.window.is-maximized 的 bottom 消费它(最大化不盖住 Dock). */
+       - Dock 预留高度:.dock 自己与 .window.is-maximized 的 top 都消费它
+         (它既是任务栏高度,也是工作区上沿:最大化不盖住 Dock). */
     --window-header-height: 36px;
-    --dock-reserve: 100px;
+    --dock-reserve: 40px;
 }

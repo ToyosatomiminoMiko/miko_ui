@@ -22,11 +22,22 @@ export type WindowId = string;
  */
 export type WindowSlot = 'title' | 'actions' | 'overlays';
 
-/** 标题栏上的窗口按钮 id(库自己解释这四个动作,见 `WindowManager`). */
-export type WindowActionId = 'minimize' | 'maximize' | 'fullscreen' | 'close';
+/**
+ * 标题栏上的窗口按钮 id.
+ *
+ * 只有"最小化 / 最大化"两个:没有真正的进程可关,`close` 与 `minimize` 在观感上
+ * 就是同一件事(都是把窗口藏起来),留着只会多一个语义重复的按钮;`fullscreen`
+ * 与 `maximize` 的差别也只剩"遮不遮任务栏",而任务栏不该被遮--所以这两个
+ * 动作连同它们的状态一起删掉了(见 `WindowManager` 的 `WindowState`).
+ */
+export type WindowActionId = 'minimize' | 'maximize';
 
 /**
  * 窗口几何:一个轴上的定位方式(见 docs/windowing-plan.md §4.1).
+ *
+ * Dock 是顶部一条任务栏,它把桌面切成"任务栏带 + 工作区":**y 轴的默认坐标
+ * 原点在工作区上沿**(`at` / `center` / `fraction` 都从这里量),所以消费者写
+ * `y: { at: 16 }` 得到的是"任务栏下沿再往下 16px",不需要自己加任务栏高度.
  *
  * `from: 'bottom'` 的语义**只有一条**:该窗口的这条边落在距桌面该侧 `inset`
  * 处,于是 `x: { from: 'right', inset } -> x = dW - inset - w`,`h: { from:
@@ -62,8 +73,8 @@ export interface WindowGeometrySpec {
  * 标题栏上的一枚窗口按钮:顺序即显示顺序,文案进配置不散在 TS 里.
  *
  * `glyph` 是按钮**唯一**的可见文案,单字符图标或短词都行(库默认给的是
- * `min` / `max` / `full` / `X`),不随窗口状态改写;`label` 才是读屏名与悬浮
- * 标题(如"最大化")."已最大化 / 已全屏"由窗口尺寸与状态类表达,不靠换按钮字.
+ * `min` / `max`),不随窗口状态改写;`label` 才是读屏名与悬浮标题(如"最大化").
+ * "已最大化"由窗口尺寸与 `.is-maximized` 类表达,不靠换按钮字.
  */
 export interface WindowActionSpec {
     readonly id: WindowActionId;
@@ -108,7 +119,10 @@ export interface DesktopConfig {
     readonly edgeGap: number;
     /** 标题栏至少可见高度(px):夹取 `y` 的上界要用它. */
     readonly headerMinVisible: number;
-    /** 底部为 Dock 留出的高度(px). */
+    /**
+     * 顶部 Dock(任务栏)占用的高度(px),也是窗口工作区的上沿:
+     * 窗口的 `y` 从这里量起,夹取与最大化/吸附都不越过它.
+     */
     readonly dockReserve: number;
     /** `.window-header` 高度(px):经 `applyTheme` 写成 CSS 变量. */
     readonly headerHeight: number;
@@ -150,7 +164,7 @@ export const DEFAULT_DESKTOP_CONFIG: DesktopConfig = {
                 x: { from: 'right', inset: 16 },
                 y: { at: 16 },
                 w: { at: 360 },
-                h: { from: 'bottom', inset: 116 },
+                h: { from: 'bottom', inset: 16 },
             },
             minSize: { w: 220, h: 140 },
         },
@@ -158,13 +172,11 @@ export const DEFAULT_DESKTOP_CONFIG: DesktopConfig = {
     actions: [
         { id: 'minimize', label: '最小化', glyph: 'min' },
         { id: 'maximize', label: '最大化', glyph: 'max' },
-        { id: 'fullscreen', label: '全屏', glyph: 'full' },
-        { id: 'close', label: '关闭', glyph: 'X' },
     ],
     edgeKeep: 80,
     edgeGap: 16,
     headerMinVisible: 36,
-    dockReserve: 100,
+    dockReserve: 40,
     headerHeight: 36,
     /**
      * 三层容器的 z-index(由 WindowManager 写成行内样式,是**唯一**来源:

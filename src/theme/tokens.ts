@@ -30,8 +30,13 @@ export const DEFAULT_THEME_TOKENS: ThemeTokens = {
     '--code-gutter-width': '32px',
     '--params-panel-min-height': '120px',
     '--view-controls-min-height': '120px',
+    /**
+     * 桌面外壳的两个尺寸:运行期由 `mountDesktop()` 按 `DesktopConfig`
+     * (`dockReserve` / `headerHeight`)写到桌面根的行内变量上,这里只是
+     * "没有 JS / 纯 CSS"时的兜底值,必须与 `DEFAULT_DESKTOP_CONFIG` 一致.
+     */
     '--window-header-height': '36px',
-    '--dock-reserve': '100px',
+    '--dock-reserve': '40px',
 };
 
 /**

@@ -23,7 +23,7 @@ import {
 
 const WINDOW = TEST_DESKTOP_CONFIG;
 
-/** 桌面尺寸与底部两条余量都来自配置(dockReserve + edgeGap 合起来是 116). */
+/** 桌面尺寸与两条余量都来自配置(顶部任务栏 dockReserve + 底边间隙 edgeGap). */
 function desktopOf(w: number, h: number): Desktop {
     return { w, h, dockReserve: WINDOW.dockReserve, edgeGap: WINDOW.edgeGap };
 }
@@ -53,22 +53,22 @@ const VIEWPORTS = [
         label: '1280x800',
         desktop: desktopOf(1280, 800),
         expected: {
-            source: { x: 16, y: 16, w: 420, h: 465 },
-            view: { x: 16, y: 493, w: 420, h: 191 },
-            params: { x: 844, y: 16, w: 420, h: 376 },
-            process: { x: 844, y: 404, w: 420, h: 280 },
-            objects: { x: 452, y: 424, w: 376, h: 260 },
+            source: { x: 16, y: 56, w: 420, h: 506 },
+            view: { x: 16, y: 574, w: 420, h: 210 },
+            params: { x: 844, y: 56, w: 420, h: 409 },
+            process: { x: 844, y: 477, w: 420, h: 307 },
+            objects: { x: 452, y: 524, w: 376, h: 260 },
         },
     },
     {
         label: '1920x1080',
         desktop: desktopOf(1920, 1080),
         expected: {
-            source: { x: 16, y: 16, w: 420, h: 656 },
-            view: { x: 16, y: 684, w: 420, h: 280 },
-            params: { x: 1484, y: 16, w: 420, h: 530 },
-            process: { x: 1484, y: 558, w: 420, h: 406 },
-            objects: { x: 600, y: 704, w: 720, h: 260 },
+            source: { x: 16, y: 56, w: 420, h: 696 },
+            view: { x: 16, y: 764, w: 420, h: 300 },
+            params: { x: 1484, y: 56, w: 420, h: 563 },
+            process: { x: 1484, y: 631, w: 420, h: 433 },
+            objects: { x: 600, y: 804, w: 720, h: 260 },
         },
     },
 ] as const;
@@ -83,16 +83,28 @@ describe('resolveDefaultGeometry:五个窗口的默认几何', () => {
             expect(resolved.size).toBe(5);
         });
 
-        it(`${label}:下沿共用底边线 dH-116,其余窗口都留在它之上`, () => {
+        it(`${label}:y 从工作区上沿量起,且都在顶部任务栏之下`, () => {
             const resolved = resolveAll(desktop);
-            const bottom = desktop.h - (WINDOW.dockReserve + WINDOW.edgeGap);
+            const top = desktop.dockReserve;
+
+            for (const [id, geometry] of resolved) {
+                expect(geometry.y, `${id}.y`).toBeGreaterThanOrEqual(top);
+            }
+            // `at: 16` 是"任务栏下沿再往下 16px",不是桌顶 16px.
+            expect(resolved.get('source')!.y).toBe(top + 16);
+            expect(resolved.get('params')!.y).toBe(top + 16);
+        });
+
+        it(`${label}:下沿共用底边线 dH-edgeGap,其余窗口都留在它之上`, () => {
+            const resolved = resolveAll(desktop);
+            const bottom = desktop.h - WINDOW.edgeGap;
 
             // view / process / objects 三条边就是这条底线(左列下沿,右列下沿,中下).
             for (const id of ['view', 'process', 'objects'] as const) {
                 expect(resolved.get(id)!.y + resolved.get(id)!.h, id).toBe(bottom);
             }
-            // source / params 用 fraction 取高,底边在这条线之上--但绝不能进 Dock
-            // 的 dockReserve 里(否则南边手柄被 Dock 压住,见 §11.1 B4).
+            // source / params 用 fraction 取高,底边在这条线之上--底边线留出的
+            // edgeGap 不属于任何窗口.
             for (const [id, geometry] of resolved) {
                 expect(geometry.y + geometry.h, id).toBeLessThanOrEqual(bottom);
             }
@@ -102,7 +114,7 @@ describe('resolveDefaultGeometry:五个窗口的默认几何', () => {
             const resolved = resolveAll(desktop);
             for (const [id, geometry] of resolved) {
                 expect(geometry.x, `${id}.x`).toBeGreaterThanOrEqual(0);
-                expect(geometry.y, `${id}.y`).toBeGreaterThanOrEqual(0);
+                expect(geometry.y, `${id}.y`).toBeGreaterThanOrEqual(desktop.dockReserve);
                 expect(geometry.x + geometry.w, `${id} 右边界`).toBeLessThanOrEqual(desktop.w);
                 expect(geometry.y + geometry.h, `${id} 底边`).toBeLessThanOrEqual(desktop.h);
             }
@@ -141,14 +153,14 @@ describe('resolveDefaultGeometry:五个窗口的默认几何', () => {
         });
     }
 
-    it('fraction 取的是可用高(dH-116),不是桌面高', () => {
+    it('fraction 取的是可用高(dH-dockReserve-edgeGap),不是桌面高', () => {
         const desktop = desktopOf(1920, 1080);
-        expect(usableHeight(desktop)).toBe(964);
+        expect(usableHeight(desktop)).toBe(1024);
 
         const resolved = resolveAll(desktop);
-        // 0.68 * 964 = 655.52 -> 656;若误用桌面高会得到 734.
-        expect(resolved.get('source')!.h).toBe(656);
-        expect(resolved.get('params')!.h).toBe(530);
+        // 0.68 * 1024 = 696.32 -> 696;若误用桌面高会得到 734.
+        expect(resolved.get('source')!.h).toBe(696);
+        expect(resolved.get('params')!.h).toBe(563);
     });
 
     it('窄视口不再夹取中列宽度(允许重叠),但宽度仍不小于下限', () => {
@@ -195,8 +207,9 @@ describe('clampGeometry', () => {
         expect(right.x).toBe(desktop.w - WINDOW.edgeKeep);
     });
 
-    it('标题栏绝不被拖出桌顶,也不能被拖出桌底', () => {
-        expect(clampGeometry({ x: 0, y: -50, w: 420, h: 300 }, limits).y).toBe(0);
+    it('标题栏不会被拖进顶部任务栏,也不能被拖出桌底', () => {
+        // 上界不是桌顶 0,而是工作区上沿 dockReserve.
+        expect(clampGeometry({ x: 0, y: -50, w: 420, h: 300 }, limits).y).toBe(WINDOW.dockReserve);
         expect(clampGeometry({ x: 0, y: 10_000, w: 420, h: 300 }, limits).y)
             .toBe(desktop.h - WINDOW.headerMinVisible);
     });
@@ -212,20 +225,21 @@ describe('moveGeometry', () => {
         const moved = moveGeometry(start, 40, 30, limits);
         expect(moved).toEqual({ x: 140, y: 130, w: 420, h: 300 });
 
-        // 一路拖到左上角被夹住,再往右上拖 10px 立刻反应(而不是等"总位移"回正).
+        // 一路拖到左上角被夹住(上边顶到工作任务栏下沿),再往右下拖 10px 立刻
+        // 反应(而不是等"总位移"回正).
         const pinned = moveGeometry(start, -10_000, -10_000, limits);
         expect(pinned.x).toBe(-(420 - WINDOW.edgeKeep));
-        expect(pinned.y).toBe(0);
+        expect(pinned.y).toBe(WINDOW.dockReserve);
         expect(moveGeometry(pinned, 10, 10, limits)).toEqual({
             x: pinned.x + 10,
-            y: 10,
+            y: WINDOW.dockReserve + 10,
             w: 420,
             h: 300,
         });
     });
 });
 
-describe('fitGeometry:resize 时把窗口整体收进桌内', () => {
+describe('fitGeometry:resize 时把窗口整体收进工作区', () => {
     const desktop = desktopOf(1000, 700);
     const limits = limitsFor('source', desktop);
 
@@ -234,12 +248,13 @@ describe('fitGeometry:resize 时把窗口整体收进桌内', () => {
             .toEqual({ x: 580, y: 100, w: 420, h: 300 });
     });
 
-    it('比桌面还大的窗口收到左上角(标题栏仍抓得到)', () => {
+    it('比工作区还大的窗口收到工作区左上角(标题栏仍抓得到)', () => {
         const tiny = desktopOf(200, 100);
         const fitted = fitGeometry({ x: 500, y: 500, w: 420, h: 300 }, limitsFor('source', tiny));
 
         expect(fitted.x).toBe(0);
-        expect(fitted.y).toBe(0);
+        // 上边收到工作区上沿,不是桌顶 0:否则标题栏会被顶部任务栏盖住.
+        expect(fitted.y).toBe(WINDOW.dockReserve);
     });
 
     it('已经完整在桌内的窗口不动', () => {
@@ -252,26 +267,35 @@ describe('resolveEdgeSnap', () => {
     const desktop = desktopOf(1280, 800);
     const snap = WINDOW.snap;
 
-    it('上边缘 -> 最大化(优先于左右)', () => {
+    it('拖到顶部任务栏 -> 最大化(优先于左右)', () => {
         const result = resolveEdgeSnap({ x: 4, y: 4 }, desktop, snap);
         expect(result?.kind).toBe('maximize');
-        expect(result?.target).toEqual({ x: 0, y: 0, w: 1280, h: 700 });
+        // 铺满工作区:上边从任务栏下沿开始,不再有底部预留.
+        expect(result?.target).toEqual({ x: 0, y: WINDOW.dockReserve, w: 1280, h: 760 });
     });
 
     it('左/右边缘 -> 半屏,高度与最大化一致', () => {
         const left = resolveEdgeSnap({ x: snap.edge, y: 300 }, desktop, snap);
         const right = resolveEdgeSnap({ x: 1280 - snap.edge, y: 300 }, desktop, snap);
 
-        // 与最大化同高:铺到 Dock 上方(§4.2:"三者观感统一").
-        expect(left).toEqual({ target: { x: 0, y: 0, w: 640, h: 700 }, kind: 'left' });
-        expect(right).toEqual({ target: { x: 640, y: 0, w: 640, h: 700 }, kind: 'right' });
+        // 与最大化同几何:都铺满工作区(§4.2:"三者观感统一").
+        expect(left).toEqual({
+            target: { x: 0, y: WINDOW.dockReserve, w: 640, h: 760 },
+            kind: 'left',
+        });
+        expect(right).toEqual({
+            target: { x: 640, y: WINDOW.dockReserve, w: 640, h: 760 },
+            kind: 'right',
+        });
     });
 
     it('阈值开闭:刚好等于阈值吸附,超出一个像素不吸附', () => {
         expect(resolveEdgeSnap({ x: snap.edge, y: 500 }, desktop, snap)?.kind).toBe('left');
         expect(resolveEdgeSnap({ x: snap.edge + 1, y: 500 }, desktop, snap)).toBeNull();
-        expect(resolveEdgeSnap({ x: 500, y: snap.edge }, desktop, snap)?.kind).toBe('maximize');
-        expect(resolveEdgeSnap({ x: 500, y: snap.edge + 1 }, desktop, snap)).toBeNull();
+        // 顶部的阈值是"任务栏下沿 + snap.edge":指针进到任务栏下沿附近即触发.
+        const topEdge = WINDOW.dockReserve + snap.edge;
+        expect(resolveEdgeSnap({ x: 500, y: topEdge }, desktop, snap)?.kind).toBe('maximize');
+        expect(resolveEdgeSnap({ x: 500, y: topEdge + 1 }, desktop, snap)).toBeNull();
     });
 });
 
@@ -331,13 +355,12 @@ describe('窗口配置自洽', () => {
         }
     });
 
-    it('所有 from:bottom 的 inset 都等于 dockReserve + edgeGap', () => {
-        const bottomLine = WINDOW.dockReserve + WINDOW.edgeGap;
+    it('所有 from:bottom 的 inset 都等于 edgeGap(底边线只有一条)', () => {
         let seen = 0;
         for (const spec of WINDOW.windows) {
             for (const axis of [spec.defaultGeometry.y, spec.defaultGeometry.h, spec.defaultGeometry.x]) {
                 if (typeof axis !== 'string' && 'from' in axis && axis.from === 'bottom') {
-                    expect(axis.inset, spec.id).toBe(bottomLine);
+                    expect(axis.inset, spec.id).toBe(WINDOW.edgeGap);
                     seen += 1;
                 }
             }
@@ -347,8 +370,7 @@ describe('窗口配置自洽', () => {
     });
 
     it('标题栏按钮的 id 与顺序固定,标题栏至少可见高度不超过标题栏高度', () => {
-        expect(WINDOW.actions.map((action) => action.id))
-            .toEqual(['minimize', 'maximize', 'fullscreen', 'close']);
+        expect(WINDOW.actions.map((action) => action.id)).toEqual(['minimize', 'maximize']);
         for (const action of WINDOW.actions) {
             expect(action.glyph.length, action.id).toBeGreaterThan(0);
             expect(action.label.length, action.id).toBeGreaterThan(0);

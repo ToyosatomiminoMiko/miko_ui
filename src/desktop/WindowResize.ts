@@ -67,7 +67,7 @@ export function bindWindowResize(
     read: ResizeContext,
 ): void {
     bindDragGesture(handle, signal, {
-        // 最大化/全屏态下缩放无意义(几何由 CSS 类接管),直接不起手.
+        // 最大化态下缩放无意义(几何由 CSS 类接管),直接不起手.
         canStart: () => read.state() === 'normal',
         onStart: () => {},
         onDelta: (dx, dy) => onGeometry(applyResize(read.geometry(), direction, dx, dy)),

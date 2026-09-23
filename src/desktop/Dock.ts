@@ -1,5 +1,9 @@
 /**
- * Dock(任务栏):每个窗口一枚按钮 + 一个桌面动作区.
+ * Dock(顶部任务栏):每个窗口一枚按钮 + 一个桌面动作区.
+ *
+ * 普通任务栏:`.dock` 本身就是紧贴桌面上沿的那条通栏带(背景、下沿分隔线与
+ * 内边距都在它身上),窗口按钮组与桌面动作区是它的直接子节点.它的高度就是
+ * 配置里的 `dockReserve`,同时是窗口工作区的上沿(见 `WindowGeometry`).
  *
  * 按钮**由窗口清单生成**(构造参数 `windows`),不在 HTML 里手写;点击
  * 语义(提升/最小化/还原/复位)由 `WindowManager` 按状态分派,本模块只负责:
@@ -14,12 +18,10 @@ import { type WindowConfigEntry, type WindowId } from './types';
 import { create_element } from '../widgets/dom';
 import type { WindowState } from './WindowManager';
 
-/** 桌面动作区的两个全局入口:退出全屏与一键复位. */
+/** 桌面动作区:唯一的全局入口是一键复位. */
 export interface DockHandlers {
     /** 点击某个窗口的 Dock 按钮;按状态分派由 `WindowManager` 做. */
     onSelect(id: WindowId): void;
-    /** 单窗口全屏的出口(Dock 上的按钮;`Esc` 是另一条路径). */
-    onExitFullscreen(): void;
     /** 把五个窗口复位到默认几何. */
     onRestoreAll(): void;
 }
@@ -38,17 +40,14 @@ export interface DockHandle {
     readonly buttons: ReadonlyMap<WindowId, DockButtonHandle>;
     /** 只让当前焦点窗口的按钮亮起;`null` = 一个都不亮. */
     setActive(id: WindowId | null): void;
-    /** 全屏时 Dock 自动隐藏(退出全屏的那个按钮也随之消失,`Esc` 仍可用). */
-    setFullscreen(visible: boolean): void;
     dispose(): void;
 }
 
 /**
  * 建 Dock(内容整体替换 `container` 的现有子节点).
  *
- * `container` 就是 `.dock`:它自身铺满底部一条但 `pointer-events: none`,真正
- * 可点的盒子是里面那个 `.dock-inner`,只占内容宽度--两侧必须留出能点到的桌面,
- * 否则窗口南边的缩放手柄会被一条通栏的实心条压住(见 §11.1 B4).
+ * `container` 就是 `.dock` 本身:任务栏的背景/边框/内边距都在它身上,这里只
+ * 往里放两个直接子节点--窗口按钮组与桌面动作区.
  */
 export function createDock(
     container: HTMLElement,
@@ -83,13 +82,6 @@ export function createDock(
         group.append(button);
     }
 
-    const exitFullscreen = create_element('button', {
-        class: 'dock-action',
-        type: 'button',
-        'data-dock-action': 'exit-fullscreen',
-    }, '退出全屏');
-    exitFullscreen.addEventListener('click', () => handlers.onExitFullscreen());
-
     const restoreAll = create_element('button', {
         class: 'dock-action',
         type: 'button',
@@ -97,9 +89,8 @@ export function createDock(
     }, '全部还原');
     restoreAll.addEventListener('click', () => handlers.onRestoreAll());
 
-    const actions = create_element('div', { class: 'dock-actions' }, exitFullscreen, restoreAll);
-    const inner = create_element('div', { class: 'dock-inner' }, group, actions);
-    container.replaceChildren(inner);
+    const actions = create_element('div', { class: 'dock-actions' }, restoreAll);
+    container.replaceChildren(group, actions);
 
     // 初始状态走与运行期同一条路径(`setState`),不在这里另写一份 `data-state`:
     // 两处初始化就是"改一处漏一处"的起点.
@@ -112,15 +103,11 @@ export function createDock(
         setActive(id: WindowId | null) {
             for (const [buttonId, button] of buttons) button.setActive(buttonId === id);
         },
-        setFullscreen(visible: boolean) {
-            container.classList.toggle('is-fullscreen', visible);
-        },
         dispose() {
             // 按钮上的 click 监听随元素一起丢弃(节点由 replaceChildren 移除);
             // 这里只清状态,避免 dispose 之后再被外部引用到.
             buttons.clear();
             container.replaceChildren();
-            container.classList.remove('is-fullscreen');
         },
     };
 }

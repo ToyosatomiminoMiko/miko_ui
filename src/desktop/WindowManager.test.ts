@@ -107,9 +107,10 @@ describe('bind:装配', () => {
         const source = windowOf(layer, 'source');
 
         expect(source.style.getPropertyValue('left')).toBe('16px');
-        expect(source.style.getPropertyValue('top')).toBe('16px');
+        // `y: { at: 16 }` 从工作区上沿(顶部任务栏下沿 = 40px)量起.
+        expect(source.style.getPropertyValue('top')).toBe('56px');
         expect(source.style.getPropertyValue('width')).toBe('420px');
-        expect(source.style.getPropertyValue('height')).toBe('465px');
+        expect(source.style.getPropertyValue('height')).toBe('506px');
     });
 
     it('Dock 的按钮由清单生成,顺序一致,初始激活是初始焦点窗口', () => {
@@ -119,7 +120,7 @@ describe('bind:装配', () => {
         expect(buttons.map((button) => button.getAttribute('data-window')))
             .toEqual(WINDOW.windows.map((spec) => spec.id));
         expect(dock.querySelector<StubElement>('.dock-btn.is-active')?.getAttribute('data-window')).toBe('source');
-        expect(dock.querySelectorAll<StubElement>('.dock-action')).toHaveLength(2);
+        expect(dock.querySelectorAll<StubElement>('.dock-action')).toHaveLength(1);
     });
 
     it('三层容器的 z-index 来自配置:窗口层在视口之上,Dock 最高,预览在层之下', () => {
@@ -135,6 +136,20 @@ describe('bind:装配', () => {
         // 缺这一条时 .window 的正 z-index 会把 z-index:auto 的 Dock 盖住.
         expect(dockZ).toBeGreaterThan(layerZ);
         expect(snapZ).toBeLessThan(layerZ);
+    });
+
+    it('两个外壳尺寸由 config 写到 root 的 CSS 变量上,dispose 撤掉', () => {
+        const { root, manager } = setup();
+
+        // 运行期唯一来源是 DesktopConfig:几何与 CSS 读的是同一份数.
+        expect(root.style.getPropertyValue('--dock-reserve')).toBe(`${WINDOW.dockReserve}px`);
+        expect(root.style.getPropertyValue('--window-header-height')).toBe(`${WINDOW.headerHeight}px`);
+
+        manager.dispose();
+
+        // 行内变量跟着挂载一起撤,不给下一个实例留旧尺寸.
+        expect(root.style.getPropertyValue('--dock-reserve')).toBe('');
+        expect(root.style.getPropertyValue('--window-header-height')).toBe('');
     });
 
     it('五个窗口的初始 z-index 都写到 DOM 上,不靠 DOM 顺序', () => {
@@ -281,21 +296,6 @@ describe('状态机', () => {
         expect(element.classList.contains('is-focused')).toBe(true);
     });
 
-    it('关闭:走 .is-hidden,Dock 按钮记成 closed,且能从 Dock 恢复', () => {
-        const { layer, dock, manager } = setup();
-        const button = dock.querySelector('[data-window="objects"]') as unknown as StubElement;
-
-        manager.setClosed('objects', true);
-        expect(windowOf(layer, 'objects').classList.contains('is-hidden')).toBe(true);
-        // 关闭与最小化的区别只体现在 Dock 的 data-state 上(没有 `.is-closed` 规则).
-        expect(button.getAttribute('data-state')).toBe('closed');
-
-        button.dispatch('click');
-        expect(manager.getState('objects')).toBe('normal');
-        expect(windowOf(layer, 'objects').classList.contains('is-hidden')).toBe(false);
-        expect(button.getAttribute('data-state')).toBe('normal');
-    });
-
     it('最大化:进入清掉四条行内几何,退出按 restore 逐像素写回', () => {
         const { layer, manager } = setup();
         const before = manager.getGeometry('source');
@@ -316,7 +316,7 @@ describe('状态机', () => {
 
         expect(manager.getState('source')).toBe('normal');
         expect(element.style.getPropertyValue('left')).toBe('16px');
-        expect(element.style.getPropertyValue('height')).toBe('465px');
+        expect(element.style.getPropertyValue('height')).toBe('506px');
         expect(manager.getGeometry('source')).toEqual(before);
     });
 
@@ -334,33 +334,19 @@ describe('状态机', () => {
         expect(manager.getGeometry('source')).toEqual(moved);
     });
 
-    it('全屏/退出走两轮:第二轮同样回到中途挪过的位置', () => {
-        const { manager } = setup();
-        const moved = { x: 300, y: 200, w: 420, h: 300 };
-
-        manager.setFullscreen('source', true);
-        manager.setFullscreen('source', false);
-        manager.setGeometry('source', moved);
-
-        manager.setFullscreen('source', true);
-        manager.setFullscreen('source', false);
-
-        expect(manager.getGeometry('source')).toEqual(moved);
-    });
-
-    it('隐藏期间桌面变小:最小化/关闭的窗口也会被收回桌内,恢复后抓得到', () => {
+    it('隐藏期间桌面变小:最小化的窗口也会被收回桌内,恢复后抓得到', () => {
         const { root, manager } = setup();
         manager.setGeometry('params', { x: 900, y: 100, w: 420, h: 300 });
         manager.setGeometry('process', { x: 900, y: 100, w: 420, h: 300 });
         manager.setMinimized('params', true);
-        manager.setClosed('process', true);
+        manager.setMinimized('process', true);
 
         root.offsetWidth = 600;
         root.offsetHeight = 500;
         manager.onDesktopResize();
 
         manager.setMinimized('params', false);
-        manager.setClosed('process', false);
+        manager.setMinimized('process', false);
 
         for (const id of ['params', 'process'] as const) {
             const geometry = manager.getGeometry(id);
@@ -370,63 +356,16 @@ describe('状态机', () => {
         }
     });
 
-    it('最大化 -> 全屏 -> 退出:restore 不被全屏覆盖', () => {
-        const { manager } = setup();
-        const before = manager.getGeometry('params');
-
-        manager.setMaximized('params', true);
-        manager.setFullscreen('params', true);
-        expect(manager.getState('params')).toBe('fullscreen');
-
-        manager.setFullscreen('params', false);
-        expect(manager.getState('params')).toBe('normal');
-        expect(manager.getGeometry('params')).toEqual(before);
-
-        // 再次全屏再退出:仍然回到最初那份几何,而不是"最大化尺寸".
-        manager.setFullscreen('params', true);
-        manager.setFullscreen('params', false);
-        expect(manager.getGeometry('params')).toEqual(before);
-    });
-
-    it('全屏只有一个:后进者让先进者退出,退出全屏后 Dock 恢复可见', () => {
-        const { dock, manager } = setup();
-
-        manager.setFullscreen('source', true);
-        manager.setFullscreen('params', true);
-
-        expect(manager.getState('source')).toBe('normal');
-        expect(manager.getState('params')).toBe('fullscreen');
-        expect(dock.classList.contains('is-fullscreen')).toBe(true);
-
-        manager.exitFullscreen();
-        expect(manager.getState('params')).toBe('normal');
-        expect(dock.classList.contains('is-fullscreen')).toBe(false);
-    });
-
-    it('hasFullscreen 反映当前是否有全屏窗口(Esc 绑定的判定)', () => {
-        const { manager } = setup();
-        expect(manager.hasFullscreen()).toBe(false);
-
-        manager.setFullscreen('source', true);
-        expect(manager.hasFullscreen()).toBe(true);
-
-        manager.exitFullscreen();
-        expect(manager.hasFullscreen()).toBe(false);
-    });
-
-    it('最大化/全屏不换按钮文案:actions 是静态配置', () => {
+    it('最大化不换按钮文案:actions 是静态配置', () => {
         const { layer, manager } = setup();
         const element = windowOf(layer, 'source');
         const texts = (): string[] =>
             element.querySelectorAll<StubElement>('.window-control-btn').map((button) => button.textContent);
 
-        expect(texts()).toContain('max');
-        expect(texts()).toContain('full');
+        expect(texts()).toEqual(['min', 'max']);
 
         manager.setMaximized('source', true);
-        manager.setFullscreen('source', true);
-        expect(texts()).toContain('max');
-        expect(texts()).toContain('full');
+        expect(texts()).toEqual(['min', 'max']);
     });
 
     it('setGeometry 过夹取:小于最小尺寸会被顶到下限', () => {
@@ -445,8 +384,8 @@ describe('状态机', () => {
         manager.restoreAll();
 
         for (const spec of WINDOW.windows) expect(manager.getState(spec.id)).toBe('normal');
-        expect(manager.getGeometry('source')).toEqual({ x: 16, y: 16, w: 420, h: 465 });
-        expect(manager.getGeometry('objects')).toEqual({ x: 452, y: 424, w: 376, h: 260 });
+        expect(manager.getGeometry('source')).toEqual({ x: 16, y: 56, w: 420, h: 506 });
+        expect(manager.getGeometry('objects')).toEqual({ x: 452, y: 524, w: 376, h: 260 });
     });
 
     it('桌面变小后 normal 窗口被夹回桌内', () => {
@@ -489,10 +428,10 @@ describe('拖动 / 吸附', () => {
         expect(element.classList.contains('is-dragging')).toBe(true);
 
         title.dispatch('pointermove', { clientX: 120, clientY: 40, pointerId: 1 });
-        expect(manager.getGeometry('source')).toMatchObject({ x: 36, y: 36 });
+        expect(manager.getGeometry('source')).toMatchObject({ x: 36, y: 76 });
 
         title.dispatch('pointermove', { clientX: 130, clientY: 45, pointerId: 1 });
-        expect(manager.getGeometry('source')).toMatchObject({ x: 46, y: 41 });
+        expect(manager.getGeometry('source')).toMatchObject({ x: 46, y: 81 });
 
         title.dispatch('pointerup', { clientX: 130, clientY: 45, pointerId: 1 });
         expect(element.classList.contains('is-dragging')).toBe(false);
@@ -510,7 +449,7 @@ describe('拖动 / 吸附', () => {
 
         title.dispatch('pointerup', { clientX: 4, clientY: 400, pointerId: 1 });
 
-        expect(manager.getGeometry('source')).toEqual({ x: 0, y: 0, w: 640, h: 700 });
+        expect(manager.getGeometry('source')).toEqual({ x: 0, y: 40, w: 640, h: 760 });
         expect(snap.classList.contains('is-open')).toBe(false);
     });
 
@@ -589,7 +528,9 @@ describe('拖动 / 吸附', () => {
         const before = manager.getGeometry('source');
         manager.setMaximized('source', true);
 
-        dragTitle(layer, 'source', { x: 600, y: 20 }, { x: 620, y: 40 });
+        // 最大化窗口的标题栏在 y = dockReserve(40)..76;往下拖到吸附阈值
+        // (dockReserve + snap.edge = 56)之外,免得"拖到顶部 = 最大化"又把它吸回去.
+        dragTitle(layer, 'source', { x: 600, y: 60 }, { x: 620, y: 80 });
 
         expect(manager.getState('source')).toBe('normal');
         expect(manager.getGeometry('source')).toEqual({ ...before, x: before.x + 20, y: before.y + 20 });
@@ -632,22 +573,17 @@ describe('Dock 点击分派', () => {
         expect(manager.getState('params')).toBe('normal');
     });
 
-    it('全部还原 / 退出全屏两个桌面动作接到 WindowManager 上', () => {
+    it('唯一的桌面动作(全部还原)接到 WindowManager 上', () => {
         const { dock, manager } = setup();
-        manager.setFullscreen('params', true);
-
-        const exit = dock.querySelector('[data-dock-action="exit-fullscreen"]') as unknown as StubElement;
-        exit.dispatch('click');
-        expect(manager.getState('params')).toBe('normal');
-
         manager.setMaximized('source', true);
         manager.setMinimized('objects', true);
+
         const restore = dock.querySelector('[data-dock-action="restore-all"]') as unknown as StubElement;
         restore.dispatch('click');
 
         expect(manager.getState('source')).toBe('normal');
         expect(manager.getState('objects')).toBe('normal');
-        expect(manager.getGeometry('source')).toEqual({ x: 16, y: 16, w: 420, h: 465 });
+        expect(manager.getGeometry('source')).toEqual({ x: 16, y: 56, w: 420, h: 506 });
     });
 });
 

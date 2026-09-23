@@ -21,7 +21,7 @@ import { RESIZE_DIRECTIONS, type ResizeDirection } from './WindowResize';
 
 /** 标题栏上的一枚窗口按钮;`onClick` 由 `WindowManager` 给(它持有状态). */
 export interface WindowActionButton {
-    readonly id: 'minimize' | 'maximize' | 'fullscreen' | 'close';
+    readonly id: 'minimize' | 'maximize';
     readonly label: string;
     readonly glyph: string;
     readonly onClick: () => void;
@@ -71,7 +71,7 @@ export function writeGeometry(element: HTMLElement, g: Geometry): void {
     }
 }
 
-/** 清掉四条行内几何;进入 maximized/fullscreen 前必须调它(E9). */
+/** 清掉四条行内几何;进入 maximized 前必须调它(E9). */
 export function clearGeometry(element: HTMLElement): void {
     for (const name of ['left', 'top', 'width', 'height'] as const) {
         element.style.removeProperty(name);

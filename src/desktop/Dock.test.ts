@@ -23,7 +23,6 @@ function setup(): Fixture {
     const actions: string[] = [];
     const dock = createDock(container as unknown as HTMLElement, TEST_DESKTOP_CONFIG.windows, {
         onSelect: (id) => selected.push(id),
-        onExitFullscreen: () => actions.push('exit-fullscreen'),
         onRestoreAll: () => actions.push('restore-all'),
     });
     return { container, dock, selected, actions };
@@ -81,23 +80,25 @@ describe('createDock', () => {
         expect(buttonOf(container, 'objects').querySelector<StubElement>('.dock-btn-state')).toBeNull();
     });
 
-    it('两个桌面动作按钮上报各自的意图', () => {
+    it('唯一的桌面动作按钮(全部还原)上报意图', () => {
         const { container, actions } = setup();
 
-        container.querySelector<StubElement>('[data-dock-action="exit-fullscreen"]')!.dispatch('click');
+        const buttons = container.querySelectorAll<StubElement>('.dock-action');
+        expect(buttons).toHaveLength(1);
         container.querySelector<StubElement>('[data-dock-action="restore-all"]')!.dispatch('click');
 
-        expect(actions).toEqual(['exit-fullscreen', 'restore-all']);
+        expect(actions).toEqual(['restore-all']);
     });
 
-    it('全屏时整条 Dock 收起(内容只占内容宽度,见 §11.1 B4)', () => {
-        const { container, dock } = setup();
+    it('内容是 .dock 的两个直接子节点:按钮组在左,桌面动作区在右(没有中间层)', () => {
+        const { container } = setup();
 
-        dock.setFullscreen(true);
-        expect(container.classList.contains('is-fullscreen')).toBe(true);
-
-        dock.setFullscreen(false);
-        expect(container.classList.contains('is-fullscreen')).toBe(false);
+        // 顶部通栏任务栏不再需要"内容宽度"那层包装:盒子就是 .dock 自己.
+        expect(container.querySelector<StubElement>('.dock-inner')).toBeNull();
+        expect(container.children).toHaveLength(2);
+        const [first, second] = container.children as StubElement[];
+        expect(first.classList.contains('dock-group')).toBe(true);
+        expect(second.classList.contains('dock-actions')).toBe(true);
     });
 
     it('dispose 清空内容与状态', () => {
@@ -107,6 +108,5 @@ describe('createDock', () => {
 
         expect(container.children).toHaveLength(0);
         expect(dock.buttons.size).toBe(0);
-        expect(container.classList.contains('is-fullscreen')).toBe(false);
     });
 });

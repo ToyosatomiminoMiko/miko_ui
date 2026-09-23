@@ -4,10 +4,10 @@
  * 两条硬约束(继承自 `PanelController`,它当年就是为了修"模型与 DOM 分叉"):
  *
  * 1. **几何的唯一写入点**是 `_applyGeometry`:普通态把 `geometry` 逐条写进
- *    `left/top/width/height`;`maximized` / `fullscreen` 态**清掉**这四条行内属性
- *    (几何交给 CSS 类的 `inset: 0`).它不写类名,也**不碰 `z-index`**.
+ *    `left/top/width/height`;`maximized` 态**清掉**这四条行内属性
+ *    (几何交给 `.is-maximized` 的 `inset`).它不写类名,也**不碰 `z-index`**.
  * 2. **状态的唯一写入点**是 `_applyState`:`.window` 上的每一个类(除
- *    `.is-focused`)都在这里切,并刷新 `inert` / `aria-hidden` / 窗口按钮文案 /
+ *    `.is-focused`)都在这里切,并刷新 `inert` / `aria-hidden` /
  *    Dock 的激活态与隐藏态.
  *
  * `z-index` 有第三个写入点:`focus()`.几何写入会清行内属性,两者必须分开,
@@ -33,7 +33,14 @@ import { clearGeometry, createWindowFrame, writeGeometry, type WindowActionButto
 import { bindWindowResize } from './WindowResize';
 import { createSnapPreview, type SnapPreviewHandle } from './SnapPreview';
 
-export type WindowState = 'normal' | 'maximized' | 'fullscreen' | 'minimized' | 'closed';
+/**
+ * 窗口状态.
+ *
+ * 只有三种:没有真正的进程可关,`closed` 与 `minimized` 是同一件事(藏起来),
+ * `fullscreen` 与 `maximized` 的区别也只剩"遮不遮顶部任务栏"--而任务栏不该被
+ * 遮,所以后两者连同对应动作一起删掉了.
+ */
+export type WindowState = 'normal' | 'maximized' | 'minimized';
 
 /**
  * 标题栏"双击最大化"的判定阈值(ms).
@@ -77,7 +84,7 @@ interface Entry {
     readonly content: readonly Node[];
     /** 唯一几何真相源(普通态);最大化/最小化不改它. */
     geometry: Geometry;
-    /** 进入 maximized/fullscreen 前的几何,还原用. */
+    /** 进入 maximized 前的几何,还原用. */
     restore: Geometry | null;
     state: WindowState;
     /** 每个窗口一份:拖动/缩放的指针监听在它上面 abort. */
@@ -113,7 +120,7 @@ export class WindowManager {
      * @param config       桌面配置(窗口清单/动作/夹取常量/z 与吸附参数);
      *                     由消费者传入,本类不读任何模块级单例(D4)
      * @param layer        `.window-layer`:窗口的定位参照与 z-order 层
-     * @param dockElement  `.dock`:底部任务栏容器
+     * @param dockElement  `.dock`:顶部任务栏容器
      * @param snapElement  `.snap-preview`:吸附高亮层
      * @param content      各窗口的内容提供者(标题栏槽位 + 正文节点);
      *                     正文容器 `.window-body` 由本类自己建(D1)
@@ -153,6 +160,10 @@ export class WindowManager {
         this.layer.style.zIndex = String(this.config.z.windowLayer);
         this.snapElement.style.zIndex = String(this.config.z.snapPreview);
         this.dockElement.style.zIndex = String(this.config.z.dock);
+
+        // CSS 必须自己读的两个尺寸(任务栏高度 / 标题栏高度)也从 config 落到
+        // root 的 CSS 变量上:它们是同一份数被 JS 几何与 CSS 各消费一次.
+        this._writeShellVars(root);
 
         // z 取号的起点:每个实例各自从 config 给的第一号开始(不写字段初始化器,
         // 因为那时构造参数属性还没赋值).
@@ -220,7 +231,6 @@ export class WindowManager {
         this.snapPreview = createSnapPreview(this.snapElement);
         this.dock = createDock(this.dockElement, this.config.windows, {
             onSelect: (id) => this._onDockSelect(id),
-            onExitFullscreen: () => this.exitFullscreen(),
             onRestoreAll: () => this.restoreAll(),
         });
 
@@ -314,23 +324,6 @@ export class WindowManager {
         }
     }
 
-    setClosed(id: WindowId, closed: boolean): void {
-        const entry = this._require(id);
-        if (closed) {
-            if (this._hidden(entry)) return;
-            entry.state = 'closed';
-            this._applyState(id);
-            this._applyGeometry(id);
-            this._refocusAfterHide(id);
-        } else {
-            if (entry.state !== 'closed') return;
-            entry.state = 'normal';
-            this._applyState(id);
-            this._applyGeometry(id);
-            this.focus(id, { takeDomFocus: true });
-        }
-    }
-
     setMaximized(id: WindowId, maximized: boolean): void {
         const entry = this._require(id);
         if (maximized) {
@@ -350,46 +343,6 @@ export class WindowManager {
         // 先落地状态类,再按新状态决定"写四条行内属性"还是"清掉它们".
         this._applyState(id);
         this._applyGeometry(id);
-    }
-
-    /**
-     * 单窗口全屏.
-     *
-     * 从 maximized 进 fullscreen 时 `restore` **不覆盖**(否则退出全屏会回到
-     * 全屏尺寸,而不是最大化前的尺寸).
-     */
-    setFullscreen(id: WindowId, on: boolean): void {
-        const entry = this._require(id);
-        if (on) {
-            if (entry.state === 'fullscreen') return;
-            // 单窗口全屏:别的窗口的全屏先退掉(否则两层都铺满,退出时状态混乱).
-            for (const other of this.entries.values()) {
-                if (other.spec.id !== id && other.state === 'fullscreen') {
-                    this.setFullscreen(other.spec.id, false);
-                }
-            }
-            if (entry.state !== 'maximized') entry.restore = entry.geometry;
-            entry.state = 'fullscreen';
-        } else {
-            if (entry.state !== 'fullscreen') return;
-            entry.geometry = entry.restore ?? entry.geometry;
-            // 与 setMaximized 同一条:还原即作废,否则下一次全屏会回到旧位置.
-            entry.restore = null;
-            entry.state = 'normal';
-        }
-        this._applyState(id);
-        this._applyGeometry(id);
-    }
-
-    /** 当前是否有全屏窗口(`Esc` 绑定的判定要用它:没有就放行 Esc). */
-    hasFullscreen(): boolean {
-        return [...this.entries.values()].some((entry) => entry.state === 'fullscreen');
-    }
-
-    /** 退出当前全屏窗口(有的话);`Esc` 与 Dock 按钮都走这里. */
-    exitFullscreen(): void {
-        const fullscreen = [...this.entries.values()].find((entry) => entry.state === 'fullscreen');
-        if (fullscreen) this.setFullscreen(fullscreen.spec.id, false);
     }
 
     /** 把五个窗口复位到默认几何(对应参考项目的"恢复默认"). */
@@ -422,13 +375,13 @@ export class WindowManager {
         if (!this.root) return;
         this.desktop = this._measureDesktop();
         for (const entry of this.entries.values()) {
-            // 隐藏态(最小化/关闭)也要收:它们保留的是普通态几何,而恢复路径
-            // 不做夹取--桌面变小期间停在桌外的窗口恢复后就再也抓不回来了.
-            if (entry.state !== 'maximized' && entry.state !== 'fullscreen') {
+            // 隐藏态(最小化)也要收:它保留的是普通态几何,而恢复路径不做夹取
+            // --桌面变小期间停在桌外的窗口恢复后就再也抓不回来了.
+            if (entry.state !== 'maximized') {
                 // resize 是外部变化:把窗口整体收回桌内(拖动仍按 §3.4 的夹取).
                 entry.geometry = fitGeometry(entry.geometry, this._limits(entry));
             }
-            // maximized/fullscreen 的几何由 CSS 类接管,这里只需重刷状态类.
+            // maximized 的几何由 CSS 类接管,这里只需重刷状态类.
             this._applyState(entry.spec.id);
             this._applyGeometry(entry.spec.id);
         }
@@ -459,6 +412,10 @@ export class WindowManager {
         this.pendingSnap = null;
         this.focusedId = null;
         this.lastTitleDown.clear();
+        // 行内变量是这次挂载写上去的,跟着一起撤:同一个 root 再挂一个桌面时
+        // 不该继承上一个实例的尺寸.
+        this.root?.style.removeProperty('--dock-reserve');
+        this.root?.style.removeProperty('--window-header-height');
         this.root = null;
     }
 
@@ -471,7 +428,25 @@ export class WindowManager {
     }
 
     private _hidden(entry: Entry): boolean {
-        return entry.state === 'minimized' || entry.state === 'closed';
+        return entry.state === 'minimized';
+    }
+
+    /**
+     * 把两个"CSS 必须自己读"的尺寸从 config 写到桌面根的 CSS 变量上.
+     *
+     * 为什么由库写、而不是让消费者在主题里再传一遍:`dockReserve` 与
+     * `headerHeight` 各自有**两个**消费者--JS 几何(工作区上沿、正文高度换算)
+     * 与 CSS(`.dock` 高度、`.window.is-maximized` 的 `inset`、`.window-header`
+     * 高度).两处各留一份数就一定会漂:改了一处,窗口要么盖住任务栏,要么在
+     * 任务栏下留一条缝.写在这里之后,`DesktopConfig` 是运行期唯一来源,
+     * `styles/tokens.css` 里那份只是"没有 JS 时的兜底值".
+     *
+     * 写成 root 的行内变量:`.dock` / `.window` / `.window-layer` 都是它的后代,
+     * 变量沿继承树下发,同时压过 `:root` 上的主题值.
+     */
+    private _writeShellVars(root: HTMLElement): void {
+        root.style.setProperty('--dock-reserve', `${this.config.dockReserve}px`);
+        root.style.setProperty('--window-header-height', `${this.config.headerHeight}px`);
     }
 
     private _measureDesktop(): Desktop {
@@ -506,8 +481,6 @@ export class WindowManager {
         switch (action) {
             case 'minimize': this.setMinimized(id, true); break;
             case 'maximize': this.setMaximized(id, this.getState(id) !== 'maximized'); break;
-            case 'fullscreen': this.setFullscreen(id, this.getState(id) !== 'fullscreen'); break;
-            case 'close': this.setClosed(id, true); break;
             default: break;
         }
     }
@@ -519,9 +492,8 @@ export class WindowManager {
             this.reveal(id);
             return;
         }
-        if (entry.state === 'maximized' || entry.state === 'fullscreen') {
-            if (entry.state === 'maximized') this.setMaximized(id, false);
-            else this.setFullscreen(id, false);
+        if (entry.state === 'maximized') {
+            this.setMaximized(id, false);
             this.focus(id, { takeDomFocus: true });
             return;
         }
@@ -532,9 +504,8 @@ export class WindowManager {
         this.focus(id, { takeDomFocus: true });
     }
 
-    /** 关闭/最小化当前焦点窗口后,焦点交给可见窗口中 z 最高的那个. */
-    private _refocusAfterHide(hiddenId: WindowId): void {
-        let best: Entry | null = null;
+    /** 最小化当前焦点窗口后,焦点交给可见窗口中 z 最高的那个. */
+    private _refocusAfterHide(hiddenId: WindowId): void {        let best: Entry | null = null;
         for (const entry of this.entries.values()) {
             if (entry.spec.id === hiddenId || this._hidden(entry)) continue;
             if (!best || entry.zIndex > best.zIndex) best = entry;
@@ -553,7 +524,7 @@ export class WindowManager {
     private _bindWindowMove(entry: Entry): void {
         const id = entry.spec.id;
         /**
-         * 这次按下是否还欠一次"从最大化/全屏还原".
+         * 这次按下是否还欠一次"从最大化还原".
          *
          * 刻意**不在 pointerdown 上还原**:单纯点一下标题栏(而不是拖)不该把
          * 最大化窗口还原掉;等第一次真的移动了再还原并跟手.双击序列里夹着的
@@ -563,7 +534,7 @@ export class WindowManager {
         bindDragGesture(entry.frame.title, entry.gesture.signal, {
             canStart: (event) => {
                 if (this._hidden(entry)) return false;
-                // 双击标题栏 = 最大化 / 还原 / 退出全屏(与标题栏按钮同一条写入路径).
+                // 双击标题栏 = 最大化 / 还原(与标题栏按钮同一条写入路径).
                 if (this._isTitleDoubleClick(id, event)) {
                     this._toggleTitleDoubleClick(entry);
                     return false;
@@ -571,16 +542,15 @@ export class WindowManager {
                 return true;
             },
             onStart: () => {
-                pendingRestore = entry.state === 'maximized' || entry.state === 'fullscreen';
+                pendingRestore = entry.state === 'maximized';
                 entry.frame.element.classList.add('is-dragging');
                 this.focus(id);
             },
             onDelta: (dx, dy, event) => {
-                // 最大化/全屏下拖标题栏 = 第一次移动时还原,再跟手.
+                // 最大化下拖标题栏 = 第一次移动时还原,再跟手.
                 if (pendingRestore) {
                     pendingRestore = false;
-                    if (entry.state === 'maximized') this.setMaximized(id, false);
-                    else if (entry.state === 'fullscreen') this.setFullscreen(id, false);
+                    this.setMaximized(id, false);
                 }
                 let next = moveGeometry(entry.geometry, dx, dy, this._limits(entry));
                 // 磁吸只是"这一次移动"的修正,不写进 entry.geometry.
@@ -641,7 +611,6 @@ export class WindowManager {
     private _toggleTitleDoubleClick(entry: Entry): void {
         const id = entry.spec.id;
         if (entry.state === 'maximized') this.setMaximized(id, false);
-        else if (entry.state === 'fullscreen') this.setFullscreen(id, false);
         else if (entry.state === 'normal') this.setMaximized(id, true);
         this.focus(id);
     }
@@ -658,13 +627,13 @@ export class WindowManager {
     /**
      * 几何的唯一写入点.
      *
-     * 最大化/全屏的几何由 CSS 类负责(`inset: 0`),这里必须**先清掉四条行内
+     * 最大化的几何由 `.is-maximized` 的 `inset` 负责,这里必须**先清掉四条行内
      * 几何**:行内 `left/top/width/height` 会压过类规则,不清就是"点了最大化
      * 没反应"(见 §11.2 E9).
      */
     private _applyGeometry(id: WindowId): void {
         const entry = this._require(id);
-        if (entry.state === 'maximized' || entry.state === 'fullscreen') {
+        if (entry.state === 'maximized') {
             clearGeometry(entry.frame.element);
         } else {
             // 隐藏态也照常写几何:隐藏用 opacity + inert,尺寸必须仍然有效,
@@ -681,9 +650,11 @@ export class WindowManager {
         for (const listener of this.geometryListeners) listener(id);
     }
 
-    /** 窗口在屏幕上实际占的高度(最大化/全屏由 CSS 类决定,不看 `geometry`). */
+    /**
+     * 窗口在屏幕上实际占的高度(最大化由 CSS 类决定,不看 `geometry`).
+     * 最大化铺的是工作区(`h - dockReserve`,从顶部任务栏下沿到底边).
+     */
     private _effectiveHeight(entry: Entry): number {
-        if (entry.state === 'fullscreen') return this.desktop.h;
         if (entry.state === 'maximized') return this.desktop.h - this.config.dockReserve;
         return entry.geometry.h;
     }
@@ -695,27 +666,18 @@ export class WindowManager {
         const hidden = this._hidden(entry);
 
         element.classList.toggle('is-maximized', entry.state === 'maximized');
-        element.classList.toggle('is-fullscreen', entry.state === 'fullscreen');
+        // 隐藏态只有一个(is-minimized 的实现):用 opacity + inert,不用
+        // display:none--编辑器行号与高亮层会量到 0 尺寸(见 §5.6).
         element.classList.toggle('is-hidden', hidden);
-        // 关闭与最小化在视觉上是同一件事(都靠 `.is-hidden`);Dock 按钮的淡化
-        // 走 `data-state`,所以这里不再多写一个没有 CSS 消费者的 `is-closed`.
-        // 隐藏态用 opacity + inert,不用 display:none:编辑器行号与高亮层
-        // 会量到 0 尺寸(见 §5.6).
         element.toggleAttribute('inert', hidden);
         element.setAttribute('aria-hidden', String(hidden));
 
         // 窗口按钮的文案不做状态切换:actions 是**静态**配置,按钮一直显示自己
-        // 那一个词(`min` / `max` / `full` / `X`);"已最大化 / 已全屏"由窗口本身
-        // 的尺寸、`.is-maximized` / `.is-fullscreen` 类与按钮的 `label` 表达.
+        // 那一个词(`min` / `max`);"已最大化"由窗口本身的尺寸与
+        // `.is-maximized` 类表达.
 
         const button = this.dock?.buttons.get(id);
         button?.setState(entry.state);
         button?.setActive(this.focusedId === id);
-
-        // 全屏时 Dock 自动隐藏:这里按"全体里有没有全屏窗口"算一次,不能按当前
-        // 这个窗口算(否则后一个普通窗口的 applyState 会把刚亮起的全屏态抹掉).
-        this.dock?.setFullscreen(
-            [...this.entries.values()].some((other) => other.state === 'fullscreen'),
-        );
     }
 }

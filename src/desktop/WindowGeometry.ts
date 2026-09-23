@@ -6,23 +6,29 @@
  * 真正把结果写进页面的是 `WindowManager` + `WindowFrame.writeGeometry`.
  *
  * 三条数值口径(唯一一份,别在别处再发明):
- * - `usableHeight = desktop.h - dockReserve - edgeGap`:桌面减去给 Dock 与底边
- *   间隙留出的高度(数值上就是 `dH - 116`),各窗口 spec 里 `from: 'bottom'`
- *   的 `inset` 必须与这个和一致(单测守着).
+ * - 桌面被顶部 Dock(任务栏)切成两段:`[0, dockReserve)` 是任务栏,
+ *   `dockReserve` 之下才是窗口的**工作区**.所以 y 轴的默认坐标原点在工作区
+ *   上沿,`y: { at }` 由本文件统一加上 `dockReserve`,消费者不用自己加.
+ * - `usableHeight = desktop.h - dockReserve - edgeGap`:工作区再减去底边间隙
+ *   留出的高度,`fraction` 取的就是它.
  * - 夹取:`w/h ∈ [min, max(min, desktop)]`,`x ∈ [-(w - edgeKeep), dW - edgeKeep]`,
- *   `y ∈ [0, dH - headerMinVisible]`.标题栏是唯一的手动入口,绝不能被拖出桌顶.
+ *   `y ∈ [dockReserve, dH - headerMinVisible]`.标题栏是唯一的手动入口,既不能
+ *   被拖进顶部任务栏,也不能被拖出桌底.
  *   `bind()` 的初始几何同样要过一遍 `fitGeometry`,否则"默认值"会成为唯一的例外.
- * - 最大化/全屏**没有几何函数**:进入这两种态时行内四条属性被清掉,几何交给
- *   `styles/desktop.css` 的 `.is-maximized` / `.is-fullscreen`(`inset`),所以这里
- *   也不存在"最大化矩形"的第二份实现.
+ * - 最大化**没有几何函数**:进入这个态时行内四条属性被清掉,几何交给
+ *   `styles/desktop.css` 的 `.is-maximized`(`inset`),所以这里也不存在
+ *   "最大化矩形"的第二份实现.
  */
 import type { AxisSpec, WindowGeometrySpec } from './types';
 
-/** 桌面尺寸与底部两条余量(见文件头). */
+/** 桌面尺寸 + 顶部任务栏与底边间隙两条余量(见文件头). */
 export interface Desktop {
     readonly w: number;
     readonly h: number;
-    /** 底部为 Dock 留出的高度:最大化与半屏吸附都铺到 `h - dockReserve`. */
+    /**
+     * 顶部 Dock(任务栏)的高度:工作区从 `h` 方向上的这个位置开始,
+     * 最大化/吸附都铺在这条带之下.
+     */
     readonly dockReserve: number;
     /** 窗口与桌面边缘的间隙:默认几何的底边线在这之上再让出一段. */
     readonly edgeGap: number;
@@ -54,7 +60,12 @@ function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
 }
 
-/** 桌面可用高(减去 Dock 与底边间隙). */
+/** 工作区上沿:y 轴默认坐标的原点(顶部任务栏下沿). */
+function workAreaTop(desktop: Desktop): number {
+    return desktop.dockReserve;
+}
+
+/** 桌面可用高:工作区再减去底边间隙(`fraction` 取的就是它). */
 export function usableHeight(desktop: Desktop): number {
     return desktop.h - desktop.dockReserve - desktop.edgeGap;
 }
@@ -97,7 +108,7 @@ function resolveX(axis: AxisSpec, desktop: Desktop, w: number): number {
 }
 
 /**
- * 默认几何:锚点/夹取 -> px.
+ * 默认几何:锚点/夹取 -> px(绝对坐标,含顶部任务栏那条带).
  *
  * 计算顺序固定为"宽 -> (不依赖 y 的高) -> y -> (依赖 y 的高) -> x":
  * `view` / `process` 的 y 来自 `after`,它们的 h 再从这个 y 解出;
@@ -124,6 +135,12 @@ export function resolveDefaultGeometry(
     return { x, y, w, h };
 }
 
+/**
+ * y 的三种解析方式;`after` 与 `from: 'bottom'` 之外都从工作区上沿量起.
+ *
+ * 只有 `after` 与 `from: 'bottom'` 不在这里加 `workAreaTop`:前者接在已经算好的
+ * 窗口下方(那份几何里已经含过一次偏移),后者锚的是桌面底边.
+ */
 function resolveY(
     spec: WindowGeometrySpec,
     desktop: Desktop,
@@ -135,12 +152,17 @@ function resolveY(
         if (!base) throw unresolvedDependency(spec.after.id);
         return base.y + base.h + spec.after.gap;
     }
+    const top = workAreaTop(desktop);
     const axis = spec.y;
     if (axis === 'center') {
         if (knownH === null) throw unsupportedAxis(axis, 'y');
-        return clamp(Math.round((desktop.h - knownH) / 2), 0, desktop.h - knownH);
+        return clamp(
+            top + Math.round((desktop.h - top - knownH) / 2),
+            top,
+            Math.max(top, desktop.h - knownH),
+        );
     }
-    if (typeof axis !== 'string' && 'at' in axis) return axis.at;
+    if (typeof axis !== 'string' && 'at' in axis) return top + axis.at;
     if (typeof axis !== 'string' && 'from' in axis && axis.from === 'bottom') {
         if (knownH === null) throw unsupportedAxis(axis, 'y');
         return desktop.h - axis.inset - knownH;
@@ -162,14 +184,18 @@ function resolveBottomHeight(axis: AxisSpec, desktop: Desktop, y: number): numbe
  * `max(min, desktop)` 那个兜底是为了小视口:桌面比最小尺寸还小时,宁可让窗口
  * 超出桌面,也不要算出 `min > max` 的区间(`clamp` 会返回 `min`,窗口比桌面大,
  * 但标题栏仍在桌内,能抓回来).
+ *
+ * `y` 的下界是工作区上沿(`dockReserve`),不是桌顶:窗口被拖向顶部时停在顶部
+ * 任务栏下沿,标题栏不会被那条通栏带盖住.
  */
 export function clampGeometry(g: Geometry, limits: Limits): Geometry {
     const maxW = Math.max(limits.min.w, limits.desktop.w);
     const maxH = Math.max(limits.min.h, limits.desktop.h);
+    const top = workAreaTop(limits.desktop);
     const w = clamp(g.w, limits.min.w, maxW);
     const h = clamp(g.h, limits.min.h, maxH);
     const x = clamp(g.x, -(w - limits.edgeKeep), limits.desktop.w - limits.edgeKeep);
-    const y = clamp(g.y, 0, Math.max(0, limits.desktop.h - limits.headerMinVisible));
+    const y = clamp(g.y, top, Math.max(top, limits.desktop.h - limits.headerMinVisible));
     return { x, y, w, h };
 }
 
@@ -179,19 +205,20 @@ export function moveGeometry(g: Geometry, dx: number, dy: number, limits: Limits
 }
 
 /**
- * resize 时把窗口**整体**收进桌内.
+ * resize 时把窗口**整体**收进工作区.
  *
  * 与 `clampGeometry` 的分工:拖动的夹取刻意允许窗口挂出桌面边缘(否则"把窗口
  * 推到边上"就做不到了,见上面的 `x` 上下限),而视口变小属于外部变化,应该把
- * 用户摆好的窗口整体收回来(§9 第 11 项的"窗口不越界").窗口比桌面还大时收到
- * 左上角(标题栏仍然抓得到).
+ * 用户摆好的窗口整体收回来(§9 第 11 项的"窗口不越界").窗口比工作区还大时收到
+ * 工作区左上角(标题栏仍然抓得到).
  */
 export function fitGeometry(g: Geometry, limits: Limits): Geometry {
     const clamped = clampGeometry(g, limits);
+    const top = workAreaTop(limits.desktop);
     return {
         ...clamped,
         x: clamp(clamped.x, 0, Math.max(0, limits.desktop.w - clamped.w)),
-        y: clamp(clamped.y, 0, Math.max(0, limits.desktop.h - clamped.h)),
+        y: clamp(clamped.y, top, Math.max(top, limits.desktop.h - clamped.h)),
     };
 }
 
@@ -203,25 +230,29 @@ export type SnapKind = 'left' | 'right' | 'maximize';
  *
  * 判据只用到指针与桌面:被拖窗口自身的几何与"吸不吸附"无关(窗口间磁吸另有
  * `magnetize`),所以这里不接收它--不为"将来可能用得上"多留一个参数.
+ *
+ * 顶部判据的口径是"指针进到任务栏下沿附近":窗口被夹在工作区上沿时,指针还在
+ * 任务栏上(甚至更上面),拿 `snap.edge` 直接比 `0` 就永远触发不了最大化.
  */
 export function resolveEdgeSnap(
     pointer: { readonly x: number; readonly y: number },
     desktop: Desktop,
     snap: { readonly edge: number },
 ): { readonly target: Geometry; readonly kind: SnapKind } | null {
-    // 半屏与最大化两者高度一致(都铺到 Dock 上方),这样"怎么放都是同一个观感"
+    // 半屏与最大化两者几何一致(都铺满工作区),这样"怎么放都是同一个观感"
     // (见 §4.2:三者观感统一).
-    const height = desktop.h - desktop.dockReserve;
-    if (pointer.y <= snap.edge) {
-        return { target: { x: 0, y: 0, w: desktop.w, h: height }, kind: 'maximize' };
+    const top = workAreaTop(desktop);
+    const height = desktop.h - top;
+    if (pointer.y <= top + snap.edge) {
+        return { target: { x: 0, y: top, w: desktop.w, h: height }, kind: 'maximize' };
     }
     if (pointer.x <= snap.edge) {
         const w = Math.round(desktop.w / 2);
-        return { target: { x: 0, y: 0, w, h: height }, kind: 'left' };
+        return { target: { x: 0, y: top, w, h: height }, kind: 'left' };
     }
     if (pointer.x >= desktop.w - snap.edge) {
         const w = Math.round(desktop.w / 2);
-        return { target: { x: desktop.w - w, y: 0, w, h: height }, kind: 'right' };
+        return { target: { x: desktop.w - w, y: top, w, h: height }, kind: 'right' };
     }
     return null;
 }

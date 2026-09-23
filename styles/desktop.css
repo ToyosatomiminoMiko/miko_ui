@@ -6,7 +6,7 @@
  *   - 窗口外壳(.window / .window-header / .window-title / .window-actions /
  *     .window-controls / .window-body)
  *   - 八向缩放手柄(.resize-handle + [data-window-resize])
- *   - Dock(任务栏)与吸附高亮
+ *   - Dock(顶部任务栏)与吸附高亮
  *
  * **这里没有窗口几何**:窗口的 left/top/width/height 由 WindowManager 按
  * UI_CONFIG.window + WindowGeometry 写成行内样式;CSS 只有两个"必须自己读"的
@@ -64,18 +64,14 @@
     box-shadow: 0 8px 24px var(--color-shadow-panel);
 }
 
-/* 最大化:填满桌面,底部给 Dock 留出预留高度;全屏:铺满整个桌面.
-   两者都只靠一个类,不碰行内几何(进入这两种态时 WindowManager 会先清掉
-   left/top/width/height,否则行内属性会压过这里的 inset). */
+/* 最大化:填满工作区(Dock 这条顶部任务栏之下)、左右与下沿贴边.只靠一个类,
+   不碰行内几何(进入这个态时 WindowManager 会先清掉 left/top/width/height,
+   否则行内属性会压过这里的 inset). */
 .window.is-maximized {
-    inset: 0 0 var(--dock-reserve) 0;
+    inset: var(--dock-reserve) 0 0 0;
 }
 
-.window.is-fullscreen {
-    inset: 0;
-}
-
-/* 隐藏态(最小化 / 关闭):保留布局与尺寸,只做视觉与交互上的"消失".
+/* 隐藏态(最小化):保留布局与尺寸,只做视觉与交互上的"消失".
    必须 opacity 而不是 display: none--见文件头第 3 条. */
 .window.is-hidden {
     opacity: 0;
@@ -163,7 +159,7 @@
     outline-offset: 1px;
 }
 
-/* 窗口按钮:最小化 / 最大化 / 全屏 / 关闭. */
+/* 窗口按钮:最小化 / 最大化. */
 .window-controls {
     display: flex;
     align-items: center;
@@ -175,8 +171,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    /* 文案可能是单字符图标,也可能是 `min` / `max` / `full` / `restore` 这类
-       短词:宽度按内容给,只留 22px 下限(单字符时仍是个方钮). */
+    /* 文案可能是单字符图标,也可能是 `min` / `max` 这类短词:宽度按内容给,
+       只留 22px 下限(单字符时仍是个方钮). */
     min-width: 22px;
     height: 22px;
     padding: 0 6px;
@@ -210,19 +206,6 @@
 .window-body > * {
     flex: 1 1 auto;
     min-height: 0;
-}
-
-/* 全屏:标题栏收成一条悬停浮现的窄条(Dock 由 WindowManager 隐藏).
-   `:focus-within` 也要浮现:用键盘(或点过标题栏按钮之后)焦点落在标题栏里时,
-   退出按钮必须看得见,否则全屏只剩 `Esc` 一条出口. */
-.window.is-fullscreen > .window-header {
-    opacity: 0;
-    transition: opacity 0.15s ease;
-}
-
-.window.is-fullscreen > .window-header:hover,
-.window.is-fullscreen > .window-header:focus-within {
-    opacity: 1;
 }
 
 /* ==========================================================================
@@ -313,40 +296,32 @@
 }
 
 /* ==========================================================================
- * Dock(任务栏)
+ * Dock(顶部任务栏)
  * --------------------------------------------------------------------------
- * .dock 自身铺满底部一条但 pointer-events: none,真正可点的盒子是里面那个
- * .dock-inner,只占内容宽度--两侧必须留出能点到的桌面,否则窗口南边的缩放
- * 手柄会被一条通栏的实心条压住(见 §11.1 B4).
+ * 紧贴桌面上沿的一条通栏任务栏,高度就是配置里的 `--dock-reserve`(它同时是
+ * 工作区上沿:最大化与边缘吸附都从这条带下面开始,见 `.window.is-maximized`
+ * 与 `resolveEdgeSnap`).
+ *
+ * 普通任务栏:铺满整宽、左右与桌面边缘齐平、只有下沿一条分隔线,没有内缩 /
+ * 圆角 / 投影.窗口按钮组与桌面动作区是 `.dock` 的直接子节点,中间没有"只占
+ * 内容宽度"的包装层.
+ *
+ * 整条带自己收指针是应该的:窗口几何被夹在 `dockReserve` 之下,工作区里没有
+ * 东西需要这条带"让路".
  * ========================================================================== */
 
 .dock {
     position: absolute;
+    top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
     height: var(--dock-reserve);
     display: flex;
     align-items: center;
-    justify-content: center;
-    pointer-events: none;
-}
-
-/* 单窗口全屏时 Dock 自动隐藏(退出全屏用 Esc 或标题栏按钮). */
-.dock.is-fullscreen {
-    display: none;
-}
-
-.dock-inner {
-    display: flex;
-    align-items: center;
     gap: 10px;
-    padding: 6px 8px;
-    pointer-events: auto;
-    background: var(--color-bg-popover);
-    border: 1px solid var(--color-border-panel);
-    border-radius: var(--radius-md);
-    box-shadow: 0 8px 24px var(--color-shadow-panel);
+    padding: 0 10px;
+    background: var(--color-bg-header);
+    border-bottom: 1px solid var(--color-border-panel);
 }
 
 .dock-group {
@@ -379,18 +354,19 @@
     background: var(--color-accent-active-bg);
 }
 
-/* 隐藏态(最小化/关闭)只由按钮自身的淡化表达:曾经还有一个 6px 状态点,
- * 但它对这两个状态与这条 opacity 重复,对 maximized 与"窗口铺满桌面"重复,
- * 对 fullscreen 更是永远画不出来(全屏时 .dock 整条 display:none). */
-.dock-btn[data-state="minimized"],
-.dock-btn[data-state="closed"] {
+/* 隐藏态(最小化)只由按钮自身的淡化表达:曾经还有一个 6px 状态点,但它对这条
+ * opacity 重复,对 maximized 与"窗口铺满桌面"也重复. */
+.dock-btn[data-state="minimized"] {
     opacity: 0.6;
 }
 
+/* 桌面动作区贴任务栏右沿:窗口按钮组留在左边,`margin-left: auto` 把它推到
+   另一端(任务栏的常规布局),分隔线仍然只画在它与按钮组之间. */
 .dock-actions {
     display: flex;
     align-items: center;
     gap: 4px;
+    margin-left: auto;
     padding-left: 8px;
     border-left: 1px solid var(--color-border-divider);
 }

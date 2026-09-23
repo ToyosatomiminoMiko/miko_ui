@@ -134,9 +134,9 @@ describe('createWindowFrame 的结构契约', () => {
             geometry: GEOMETRY,
         });
 
-        const close = frame.controls.get('close')!.element as unknown as StubElement;
-        close.dispatch('click');
-        expect(clicked).toEqual(['close']);
+        const maximize = frame.controls.get('maximize')!.element as unknown as StubElement;
+        maximize.dispatch('click');
+        expect(clicked).toEqual(['maximize']);
     });
 
     it('几何在建好时立即写成四条行内属性(不闪在左上角)', () => {
@@ -171,11 +171,11 @@ describe('createWindowFrame 的结构契约', () => {
             geometry: GEOMETRY,
         });
         document.body.append(frame.element);
-        const close = frame.controls.get('close')!.element as unknown as StubElement;
+        const maximize = frame.controls.get('maximize')!.element as unknown as StubElement;
 
         frame.dispose();
 
-        close.dispatch('click');
+        maximize.dispatch('click');
         expect(clicked).toEqual([]);
         expect(frame.element.parentElement).toBeNull();
     });
