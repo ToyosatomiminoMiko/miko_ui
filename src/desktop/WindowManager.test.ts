@@ -356,6 +356,24 @@ describe('状态机', () => {
         }
     });
 
+    it('最大化期间桌面变小:还原时窗口同样被收回桌内,不会停在桌外', () => {
+        const { root, manager } = setup();
+        manager.setMaximized('params', true);
+
+        root.offsetWidth = 600;
+        root.offsetHeight = 500;
+        manager.onDesktopResize();
+
+        manager.setMaximized('params', false);
+
+        // 最大化期间 onDesktopResize 不碰几何(几何由 CSS 类接管),所以还原是
+        // 唯一能把它收回来的时机:漏掉这一步窗口会停在旧坐标(这里 x 本来是 844).
+        const geometry = manager.getGeometry('params');
+        expect(geometry.x).toBeGreaterThanOrEqual(0);
+        expect(geometry.x + geometry.w).toBeLessThanOrEqual(600);
+        expect(geometry.y).toBeLessThanOrEqual(500 - WINDOW.headerMinVisible);
+    });
+
     it('最大化不换按钮文案:actions 是静态配置', () => {
         const { layer, manager } = setup();
         const element = windowOf(layer, 'source');

@@ -11,7 +11,7 @@
  */
 import { type WindowActionId, type WindowSlot } from './types';
 import { createButton, type ButtonHandle } from '../widgets/Button';
-import { create_element, type Child } from '../widgets/dom';
+import { create_element, childNodes, type Child } from '../widgets/dom';
 import {
     geometryStyle,
     type Geometry,
@@ -75,13 +75,6 @@ export function clearGeometry(element: HTMLElement): void {
     }
 }
 
-/** `create_element()` 会跳过假值,直接 `append` 不会:这里统一把 `Child[]` 收成真节点. */
-function concrete(children: readonly Child[]): Array<Node | string> {
-    return children.filter(
-        (child): child is Node | string => child !== null && child !== undefined && child !== false,
-    );
-}
-
 export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     const element = create_element('section', {
         class: 'window',
@@ -95,13 +88,14 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     // 读屏名指向标题文本;id 由窗口 id 派生,一个窗口只有一个标题.
     title.id = `window-title-${spec.id}`;
     const label = create_element('span', {}, spec.title);
-    title.append(label, ...concrete(spec.slots.title ?? []));
+    // 槽位节点是 `Child[]`(可能含假值),统一走 `childNodes()` 落成真节点.
+    title.append(label, ...childNodes(spec.slots.title ?? [], element.ownerDocument));
     element.setAttribute('aria-labelledby', title.id);
 
     const actions = create_element(
         'div',
         { class: 'window-actions' },
-        ...concrete(spec.slots.actions ?? []),
+        ...childNodes(spec.slots.actions ?? [], element.ownerDocument),
     );
 
     const controls = create_element('div', { class: 'window-controls' });
@@ -125,7 +119,7 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
         title,
         actions,
         controls,
-        ...concrete(spec.slots.overlays ?? []),
+        ...childNodes(spec.slots.overlays ?? [], element.ownerDocument),
     );
     const body = create_element('div', { class: 'window-body' });
 

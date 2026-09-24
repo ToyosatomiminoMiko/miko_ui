@@ -323,7 +323,10 @@ export class WindowManager {
             entry.state = 'maximized';
         } else {
             if (entry.state !== 'maximized') return;
-            entry.geometry = entry.restore ?? entry.geometry;
+            // 还原也要收回桌内:`onDesktopResize` 对 maximized 的窗口只刷状态类
+            // (几何由 CSS 类接管),所以最大化期间桌面变小的话,`restore` 里那份
+            // 旧坐标从没被夹过 -- 直接写回就是"还原到桌外",标题栏都点不到.
+            entry.geometry = fitGeometry(entry.restore ?? entry.geometry, this._limits(entry));
             // 还原后立刻清掉:留着它下一次最大化就不会再记录新位置.
             entry.restore = null;
             entry.state = 'normal';

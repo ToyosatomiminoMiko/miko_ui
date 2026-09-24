@@ -210,8 +210,8 @@ radius.subscribe((value) => renderer.setPointRadius(value));
    内部路径不进公开面;
 8. 库里一次都没调用上游的批处理入口(更新路径不引调度器,见下).
 
-`boundary_baseline.json` 是分家那一刻的存档(八条全 0),现在由本仓库的
-`npm test` 守着:任何一条变正,测试直接失败.
+八条都是硬断言,全部必须为 0:任何一条出现违例,`npm test` 直接失败,没有
+baseline,也没有"允许的例外".
 
 ## 三条设计约束(改动前先读)
 

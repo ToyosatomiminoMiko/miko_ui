@@ -19,14 +19,16 @@
  * 留着不是凑数:`@/` 这条同时也是"库内不许用路径别名"的机器保证,而那正是
  * "换消费者不用改 import"的前提.
  *
+ * 八条都是硬断言:任何一条出现违例即非零退出.没有 baseline,也没有"允许的
+ * 例外" -- 库里的东西不属于任何单个应用,出现一处就该改成注入或自带实现.
+ *
  * 用法:
- *   node scripts/check_ui_boundary.mjs            # 与 baseline 比对;出现**新增**违例就非零退出
- *   node scripts/check_ui_boundary.mjs --update   # 按当前结果重写 baseline(耦合变少时用)
+ *   node scripts/check_ui_boundary.mjs            # 八条全 0 才通过
  *   node scripts/check_ui_boundary.mjs --list     # 打印全部违例明细
  *
  * `npm test` 的 `test` 脚本会先跑这一条.
  */
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,7 +36,6 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PKG_SRC = join(ROOT, 'src');
 const PKG_STYLES = join(ROOT, 'styles');
-const BASELINE_PATH = join(ROOT, 'boundary_baseline.json');
 
 /** 递归收集文件;`node_modules` 与 `dist` 不属于源码面. */
 function walk(dir, extensions) {
@@ -254,41 +255,21 @@ if (args.has('--list')) {
     process.exit(0);
 }
 
-if (args.has('--update')) {
-    const baseline = JSON.parse(existsSync(BASELINE_PATH) ? readFileSync(BASELINE_PATH, 'utf8') : '{}');
-    baseline.counts = current;
-    writeFileSync(BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`);
-    console.log(`已重写 baseline: ${relative(ROOT, BASELINE_PATH)}`);
-    for (const rule of RULES) console.log(`  ${rule}: ${current[rule]}`);
-    process.exit(0);
-}
-
-if (!existsSync(BASELINE_PATH)) {
-    console.error(`缺少 ${relative(ROOT, BASELINE_PATH)};先跑一次 --update 生成.`);
-    process.exit(1);
-}
-
-const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
-const allowed = baseline.counts ?? {};
 let failed = false;
 
 console.log('UI 库边界检查');
 for (const rule of RULES) {
     const now = current[rule];
-    const was = allowed[rule] ?? 0;
-    if (now > was) {
+    if (now > 0) {
         failed = true;
-        console.log(`  ✗ ${rule}: ${now} 处,超过 baseline 的 ${was} 处`);
+        console.log(`  ✗ ${rule}: ${now} 处`);
         printHits(rule);
-    } else if (now < was) {
-        console.log(`  ✓ ${rule}: ${now} 处(baseline ${was});耦合变少了,可用 --update 收紧`);
     } else {
-        console.log(`  · ${rule}: ${now} 处`);
+        console.log(`  · ${rule}: 0 处`);
     }
 }
 
 if (failed) {
-    console.error('\n出现新增耦合.库里的东西不属于任何单个应用,请改成注入或自带实现;');
-    console.error('确实必要就先说明理由,再跑 --update.');
+    console.error('\n出现耦合.库里的东西不属于任何单个应用,请改成注入或自带实现.');
     process.exit(1);
 }
