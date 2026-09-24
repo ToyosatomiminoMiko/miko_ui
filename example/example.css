@@ -79,3 +79,18 @@ body {
     line-height: 1;
     color: var(--color-text-strong);
 }
+
+/* -------------------------------------------------------------- 菜单示例 */
+
+/* 菜单窗口的正文:两段(按钮触发 / 直接显示)从顶端往下排,不做竖向居中.
+   面板 / 分组 / 菜单项的外观一条都不在这里:它们在库的 `widgets.css`
+   (`.menu-panel` / `.menu-group` / `.menu-item`). */
+.pane-menu {
+    justify-content: flex-start;
+}
+
+/* 段落的说明文字(示例自己的标签,不是库的类). */
+.menu-caption {
+    color: var(--color-text-muted);
+    font-size: 12px;
+}

@@ -10,10 +10,12 @@
  *   .switch / .slider      开关(圆钮是 .slider 那个 span)
  *   .slider-field          系数滑块(名称 + 滑杆 + 数值框 + 重置按钮)
  *   .ui-button             按钮基线(每个 `createButton` 都带,见下)
+ *   .menu-panel            菜单面板(`.menu-group` 分组,`.menu-item` 菜单项)
+ *   .menu-anchor / .menu-popover  浮层用法的锚点与开合(直接显示只用 `.menu-panel`)
  *
  * 按钮**有基线**:`createButton` 一律带 `.ui-button`,消费方的类名叠在它后面
  * (`.slider-field-reset` / `.window-control-btn` 这类只是定位钩子;真要加外观
- * 增量的目前只有 `.row-visibility-btn`).
+ * 增量的目前有 `.row-visibility-btn` 与 `.menu-item`).
  * 基线写成 `:where(.ui-button)` 的零优先级规则,任何变体类都能盖住它,与样式表
  * 加载顺序无关(见下"按钮基线"一节).
  *
@@ -77,6 +79,100 @@
     flex: 0 0 auto;
     align-self: flex-start;
     background: var(--color-fill-control-strong);
+}
+
+/* 浮层菜单项:见 `widgets/MenuItem.ts`.面板与开合归消费者(见 `Popover.ts`),
+   这一条是**库里唯一一份**菜单项外观,也是 `--color-text-menu*` 两个 token 的
+   唯一消费者.基线(`:where(.ui-button)`)给的是"按钮"的样子(1px 描边 + 次要
+   文字色),菜单项在它之上改成"整行,无边框,悬停高亮"的行式外观. */
+.menu-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    color: var(--color-text-menu);
+}
+
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible:not(:disabled) {
+    background: var(--color-accent-hover-bg);
+    color: var(--color-text-menu-hover);
+    outline: none;
+}
+
+/* 当前项:持续可见的左侧标记,不用底色抢注意力 */
+.menu-item.is-active {
+    background: var(--color-accent-active-bg);
+    box-shadow: inset 2px 0 0 var(--color-accent);
+    color: var(--color-text-active);
+}
+
+/* 右侧注记(可选):弱色小字,代码字体,与主文案同一行并贴右 */
+.menu-item-hint {
+    flex: 0 0 auto;
+    font-family: var(--code-font-family);
+    font-size: 10px;
+    color: var(--color-text-faint);
+}
+
+/* 菜单面板:**菜单外观的另一半**(`.menu-item` 给"一行",这里给"表面与分组").
+   与 `.menu-item` 一样,这份也只有库里一条:消费者只给数据与行为.
+
+   表面与位置分开:面板长什么样写在 `.menu-panel` 上,摆在哪由下面两条决定 --
+   - **直接显示**:只用 `.menu-panel`(它一直显示);
+   - **按钮触发**:`.menu-anchor` 包住触发按钮与 `.menu-popover`,开合是
+     `Popover` 写的 `.is-open`.
+   于是同一张面板换成常驻或浮层都不用改外观. */
+.menu-panel {
+    box-sizing: border-box;
+    padding: 6px;
+    background: var(--color-bg-popover);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 28px var(--color-shadow-popover);
+    /* 高度按**所属窗口正文**算(WindowManager 写 `--window-body-height`):
+       按视口留余量会在窗口比视口矮时超出窗口,再被正文裁掉就是"菜单被切一半". */
+    max-height: calc(var(--window-body-height, 40vh) - 8px);
+    overflow-y: auto;
+}
+
+/* 分组:组标题 + 若干菜单项;组间用细分隔线,不单独占一行留白 */
+.menu-group + .menu-group {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--color-border-group);
+}
+
+/* 分组标题 */
+.menu-group-title {
+    padding: 4px 8px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--color-text-group);
+}
+
+/* 浮层锚点:包住触发按钮与面板,给面板一个定位参照 */
+.menu-anchor {
+    position: relative;
+}
+
+/* 浮层菜单:挂在锚点下沿,宽度不小于触发按钮.开合只有 `.is-open` 一个状态
+   (由 `Popover` 写);表面规则它照样吃 `.menu-panel`. */
+.menu-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 100%;
+    z-index: 40;
+    display: none;
+}
+
+.menu-popover.is-open {
+    display: block;
 }
 
 

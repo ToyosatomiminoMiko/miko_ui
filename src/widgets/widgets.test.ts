@@ -14,6 +14,8 @@ import { installDomStub, StubElement } from '../../test/domStub';
 import { signal } from '../reactive';
 import { createButton } from './Button';
 import { create_element } from './dom';
+import { createMenuItem } from './MenuItem';
+import { createMenu } from './Menu';
 import { createNumberField } from './NumberField';
 import { createPopover } from './Popover';
 import { createRangeInput, DEFAULT_RANGE } from './RangeInput';
@@ -483,6 +485,181 @@ describe('createButton', () => {
         handle.dispose();
         stub(handle.element).dispatch('click');
         expect(clicks).toBe(1);
+    });
+});
+
+describe('createMenuItem', () => {
+    it('是带 .ui-button 基线的 role=menuitem 按钮,文案是主文本节点', () => {
+        const handle = createMenuItem({ text: '显示网格', hint: 'G' });
+
+        expect(handle.element.tagName).toBe('button');
+        expect(handle.element.type).toBe('button');
+        expect(handle.element.getAttribute('role')).toBe('menuitem');
+        // 与 createButton 同款:基线类在前,菜单项外观类在后(见 widgets.css)
+        expect(handle.element.className).toBe('ui-button menu-item');
+        expect(handle.element.textContent).toBe('显示网格G');
+    });
+
+    it('注记是可选的,只有它单独成盒(贴右的 .menu-item-hint)', () => {
+        const withoutHint = createMenuItem({ text: '关于' });
+        expect(withoutHint.element.querySelector('.menu-item-hint')).toBeNull();
+        expect(withoutHint.element.textContent).toBe('关于');
+
+        const withHint = createMenuItem({ text: '打开', hint: 'Ctrl+O' });
+        const hint = withHint.element.querySelector('.menu-item-hint') as unknown as StubElement;
+        expect(hint).not.toBeNull();
+        expect(hint.tagName).toBe('span');
+        expect(hint.textContent).toBe('Ctrl+O');
+    });
+
+    it('当前项标记由 active / setActive 单独维护,类名与 aria-current 一起切', () => {
+        const handle = createMenuItem({ text: '显示网格', active: true });
+        expect(handle.element.classList.contains('is-active')).toBe(true);
+        expect(handle.element.getAttribute('aria-current')).toBe('true');
+
+        handle.setActive(false);
+        expect(handle.element.classList.contains('is-active')).toBe(false);
+        // 两条不能分家:只切类名的话读屏不知道"这是当前项"
+        expect(handle.element.getAttribute('aria-current')).toBeNull();
+
+        handle.setActive(true);
+        expect(handle.element.classList.contains('is-active')).toBe(true);
+        expect(handle.element.getAttribute('aria-current')).toBe('true');
+    });
+
+    it('disabled 落到按钮上;ariaLabel/title 按选项落地', () => {
+        const handle = createMenuItem({
+            text: '导出图片',
+            hint: '仅桌面版',
+            ariaLabel: '导出为 PNG',
+            title: '暂不支持',
+            disabled: true,
+        });
+
+        expect(handle.element.disabled).toBe(true);
+        expect(handle.element.getAttribute('aria-label')).toBe('导出为 PNG');
+        expect(handle.element.title).toBe('暂不支持');
+    });
+
+    it('点击触发回调;dispose 后不再响应', () => {
+        let clicks = 0;
+        const handle = createMenuItem({ text: '重置视图' });
+        handle.onClick(() => {
+            clicks += 1;
+        });
+
+        stub(handle.element).dispatch('click');
+        expect(clicks).toBe(1);
+
+        handle.dispose();
+        stub(handle.element).dispatch('click');
+        expect(clicks).toBe(1);
+    });
+});
+
+describe('createMenu', () => {
+    const GROUPS = [
+        {
+            title: '显示',
+            entries: [
+                { value: 'grid', text: '显示网格', hint: 'G' },
+                { value: 'axes', text: '显示坐标轴', hint: 'A' },
+            ],
+        },
+        {
+            title: '操作',
+            entries: [
+                { value: 'reset', text: '重置视图', hint: 'R' },
+                { value: 'export', text: '导出图片', hint: '仅桌面版', disabled: true },
+            ],
+        },
+    ] as const;
+
+    /** 直接显示的面板:没有 trigger,没有开合. */
+    it('摆出 role=menu 的面板 / role=group 的分组 / 组标题与菜单项', () => {
+        const menu = createMenu({ groups: GROUPS, ariaLabel: '视图菜单' });
+
+        expect(menu.panel.className).toBe('menu-panel');
+        expect(menu.panel.getAttribute('role')).toBe('menu');
+        expect(menu.panel.getAttribute('aria-label')).toBe('视图菜单');
+        // 常驻面板不叠 .menu-popover,也不该有开合这回事
+        expect(menu.panel.classList.contains('menu-popover')).toBe(false);
+        expect(menu.isOpen).toBe(true);
+
+        // 桩的 querySelectorAll 只认自己实现的选择器,句柄类型是真 DOM,按需下钻
+        const groups = stub(menu.panel).querySelectorAll<StubElement>('.menu-group');
+        expect(groups.length).toBe(2);
+        expect(groups[0].getAttribute('role')).toBe('group');
+        expect(groups[0].getAttribute('aria-label')).toBe('显示');
+        expect((groups[0].querySelector('.menu-group-title') as StubElement).textContent).toBe('显示');
+        expect(menu.items.length).toBe(4);
+        expect(menu.items[3].element.disabled).toBe(true);
+    });
+
+    it('点菜单项回调 onSelect 的 value;没有 trigger 时不必关浮层', () => {
+        const menu = createMenu({ groups: GROUPS });
+        const picked: string[] = [];
+        menu.onSelect((value) => picked.push(value));
+
+        stub(menu.items[1].element).dispatch('click');
+        expect(picked).toEqual(['axes']);
+    });
+
+    it('setActive 只标记当前项,null 全部取消', () => {
+        const menu = createMenu({ groups: GROUPS });
+        menu.setActive('reset');
+        expect(menu.items.map((item) => item.element.classList.contains('is-active')))
+            .toEqual([false, false, true, false]);
+        expect(menu.items[2].element.getAttribute('aria-current')).toBe('true');
+
+        menu.setActive(null);
+        expect(menu.items.some((item) => item.element.classList.contains('is-active'))).toBe(false);
+    });
+
+    it('给 trigger 时叠 .menu-popover,开合/aria 归 Popover;选中先关再回调', () => {
+        const root = create_element('div');
+        const trigger = create_element('button', {}, '打开菜单');
+        root.append(trigger);
+        document.body.append(root);
+
+        const menu = createMenu({ groups: GROUPS, trigger, ariaLabel: '视图菜单' });
+        root.append(menu.panel);
+        menu.bind(root);
+
+        expect(menu.panel.classList.contains('menu-popover')).toBe(true);
+        expect(menu.isOpen).toBe(false);
+        expect(trigger.getAttribute('aria-controls')).toBe(menu.panel.id);
+
+        stub(trigger).dispatch('click');
+        expect(menu.isOpen).toBe(true);
+
+        let openDuringSelect: boolean | null = null;
+        let picked: string | null = null;
+        menu.onSelect((value) => {
+            // 回调里看到的必须已经是"关着":回调若抛错,浮层也不能僵在屏幕上
+            openDuringSelect = menu.isOpen;
+            picked = value;
+        });
+        stub(menu.items[0].element).dispatch('click');
+        expect(picked).toBe('grid');
+        expect(openDuringSelect).toBe(false);
+        expect(menu.isOpen).toBe(false);
+    });
+
+    it('注入已有面板时原样复用(窗口槽位节点不重建);dispose 解绑菜单项', () => {
+        const panel = create_element('div', { id: 'example-menu' });
+        const menu = createMenu({ groups: GROUPS, panel });
+
+        expect(menu.panel).toBe(panel);
+        expect(panel.getAttribute('role')).toBe('menu');
+
+        let clicks = 0;
+        menu.onSelect(() => {
+            clicks += 1;
+        });
+        menu.dispose();
+        stub(menu.items[0].element).dispatch('click');
+        expect(clicks).toBe(0);
     });
 });
 

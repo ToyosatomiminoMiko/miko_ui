@@ -22,6 +22,8 @@ export * from './widgets/RangeInput';
 export * from './widgets/Slider';
 export * from './widgets/NumberField';
 export * from './widgets/Popover';
+export * from './widgets/MenuItem';
+export * from './widgets/Menu';
 export * from './widgets/Row';
 
 // 共享交互层:键盘唯一出口 / 唯一拖拽实现 / 行缓存 / 数值与行外壳

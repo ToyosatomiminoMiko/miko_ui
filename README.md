@@ -180,7 +180,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | --- | --- |
 | `dom/` | `create_element` / `childNodes`(`Child` 类型),`DomRoot` 与 `rootDocument`(root 注入) |
 | `reactive/` | `signal` / `computed` / `effect` / `derivedSignal` / `onValueChange` / `isSignal` / `ValueSource` 工具 |
-| `widgets/` | `Button` `Switch` `Segmented` `RangeInput`(裸滑杆),`Slider`(系数滑块:名称 + 滑杆 + 数值框 + 重置按钮),`NumberField` `Popover`,以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
+| `widgets/` | `Button` `Switch` `Segmented` `RangeInput`(裸滑杆),`Slider`(系数滑块:名称 + 滑杆 + 数值框 + 重置按钮),`NumberField` `Popover`,`MenuItem`(菜单项)与 `Menu`(菜单:分组 + 当前项 + 开合;常驻显示或任意按钮触发),以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
 | `shared/` | 键盘唯一出口 `KeyboardController`,唯一拖拽实现 `bindDragGesture`,行缓存 `KeyedRowList`,`numberText`,行外壳 `rowDom` |
 | `desktop/` | `mountDesktop`,`WindowManager` / `WindowFrame` / `WindowGeometry` / `WindowResize` / `Dock` / `SnapPreview`,`windowSlotsProvider`,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
 | `editor/` | `CodeEditor`(建整套编辑器外壳),`EditorLineNumbers` / `EditorHighlight`(分词与槽宽由消费者注入),`HIGHLIGHT_ENABLED_CLASS` |
@@ -232,9 +232,10 @@ baseline,也没有"允许的例外".
 
 ## 还没做的
 
-附录 B.2 列的 7 类补件:`TextField` / `Menu` / `Splitter` / `ScrollArea` /
-表格件 / `Dialog`·`Toast` / `Tooltip`.它们是新功能而不是"分离"的前置条件,
-按普通排期补即可(该长成什么样取决于下一个真实消费者).
+附录 B.2 列的 7 类补件里 `Menu` 已补(见上表),还剩 6 类:`TextField` /
+`Splitter` / `ScrollArea` / 表格件 / `Dialog`·`Toast` / `Tooltip`.它们是新功能
+而不是"分离"的前置条件,按普通排期补即可(该长成什么样取决于下一个真实
+消费者).
 
 ## 交付
 

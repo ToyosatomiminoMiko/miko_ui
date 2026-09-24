@@ -1,10 +1,10 @@
 /**
  * `miko_ui` 的最小示例.
  *
- * 两个窗口:一个放两条**系数滑块**(普通参数 + 循环参数)与一个**计数按钮**,
- * 一个放它们的读数.
+ * 三个窗口:一个放两条**系数滑块**(普通参数 + 循环参数)与一个**计数按钮**,
+ * 一个放它们的读数,一个放**菜单项**(直接显示 + 任意按钮触发).
  *
- * 四件事值得看:
+ * 五件事值得看:
  *
  * 1. **数据只有一份**:每条参数一个 `signal`,滑块写它,读数读它,中间没有
  *    任何"值变了去同步另一个窗口"的手工回路.
@@ -17,6 +17,11 @@
  *    该值上(值与数值框文本都比)时按钮置灰.
  * 4. **跨窗口不需要同步代码**:计数按钮只写 `count.value`,读数窗口订阅同一个
  *    signal;按到 255 之后再按一下回到 0.
+ * 5. **菜单的声明与外观 / 交互分家**:`createMenu` 只收数据(`MenuGroup[]`)与一条
+ *    `onSelect`:给 `trigger` 就是**任意按钮触发**的浮层,不给就是**直接显示**的
+ *    常驻面板;摆树 / 分组 / 当前项 / 点外部关闭全在库里,外观在
+ *    `styles/widgets.css`.下游拿它做的窗口标题栏菜单只是"给个 trigger"的一个
+ *    调用点,不是它的前提.
  *
  * 页面只依赖 `miko_ui` 与本目录的文件:窗口层 / 吸附预览 / Dock / 每个
  * 窗口的外壳都由 `mountDesktop()` 按配置建出来.
@@ -24,12 +29,14 @@
 import {
     DEFAULT_DESKTOP_CONFIG,
     createButton,
+    createMenu,
     createSlider,
     create_element,
     mountDesktop,
     signal,
     watchValue,
     type DesktopConfig,
+    type MenuGroup,
     type Signal,
     type WindowConfigEntry,
 } from 'miko_ui';
@@ -92,10 +99,10 @@ countButton.onClick(() => {
 
 // ── 窗口二:读数(只读显示,订阅各自的 signal)────────────────────────────
 /** 一行读数:左边名字,右边值;`watchValue` 订阅时立刻回调一次,初值不用另写. */
-function createReadout(
+function createReadout<T>(
     name: string,
-    source: Signal<number>,
-    format: (value: number) => string,
+    source: Signal<T>,
+    format: (value: T) => string,
 ): HTMLDivElement {
     const output = create_element('output', { class: 'readout' });
     watchValue(source, (next) => {
@@ -113,12 +120,87 @@ const linearReadout = createReadout('线性数值', linear, (value) => String(va
 const angleReadout = createReadout('方位角', angle, (value) => value.toFixed(3));
 const countReadout = createReadout('计数', count, (value) => String(value));
 
+// ── 窗口三:菜单(直接显示 + 任意按钮触发)────────────────────────────────
+/**
+ * 菜单数据:一个分组标题 + 若干"标题 + 注记"项,形状照下游的「示例」菜单.
+ * `value` 是选中回调要的载荷(下游放的是文件名,这里就用文案本身).
+ *
+ * 摆树 / 分组 / 当前项 / 开合全在库的 `createMenu` 里,这里只有数据.
+ */
+const MENU_GROUPS: readonly MenuGroup<string>[] = [
+    {
+        title: '显示',
+        entries: [
+            { value: '显示网格', text: '显示网格', hint: 'G' },
+            { value: '显示坐标轴', text: '显示坐标轴', hint: 'A' },
+        ],
+    },
+    {
+        title: '操作',
+        entries: [
+            { value: '重置视图', text: '重置视图', hint: 'R' },
+            // 禁用态由控件自己表达(按钮的 disabled),消费者不写任何类名.
+            { value: '导出图片', text: '导出图片', hint: '仅桌面版', disabled: true },
+        ],
+    },
+];
+
+/** 菜单当前选中项(菜单项的 `value`);`null` = 还没选过. */
+const menuChoice = signal<string | null>(null);
+
+// 触发器是**普通按钮**:`createMenu` 只认"一个元素",它不认识窗口标题栏,
+// 也不要求触发按钮长什么样(下游的标题栏按钮只是它的一个调用点).
+const menuTrigger = createButton({ text: '打开菜单' });
+
+/** 直接显示:不给 `trigger`,面板常驻在正文里. */
+const staticMenu = createMenu({ groups: MENU_GROUPS, ariaLabel: '视图菜单(直接显示)' });
+/** 浮层:给了 `trigger`,`createMenu` 自己建 `Popover` 并叠上 `.menu-popover`. */
+const popoverMenu = createMenu({
+    groups: MENU_GROUPS,
+    ariaLabel: '视图菜单(浮层)',
+    trigger: menuTrigger.element,
+});
+
+// 选中态只有一个来源:两份菜单都把选中的 `value` 写进 `menuChoice`,再由它刷
+// 各自的当前项 -- 菜单不自己存"当前项".
+for (const menu of [staticMenu, popoverMenu]) {
+    menu.onSelect((value) => {
+        menuChoice.value = value;
+    });
+}
+watchValue(menuChoice, (choice) => {
+    staticMenu.setActive(choice);
+    popoverMenu.setActive(choice);
+});
+
+const menuPane = create_element(
+    'div',
+    { class: 'pane pane-menu' },
+    create_element('span', { class: 'menu-caption' }, '任意按钮触发(createMenu)'),
+    create_element(
+        'div',
+        { class: 'menu-anchor' },
+        menuTrigger.element,
+        popoverMenu.panel,
+    ),
+    create_element('span', { class: 'menu-caption' }, '直接显示(role="menu")'),
+    staticMenu.panel,
+);
+// 点浮层外关闭:绑定的根就是这张菜单所在的正文.
+popoverMenu.bind(menuPane);
+
+const menuReadout = createReadout<string | null>(
+    '菜单选择',
+    menuChoice,
+    (value) => value ?? '未选',
+);
+
 // ── 窗口清单:只换 `windows`,其余照用库的默认值 ──────────────────────────
 const WINDOWS: readonly WindowConfigEntry[] = [
     {
         id: 'slider',
-        title: '系数滑块',
-        dock: { label: '滑块' },
+        title: '控件window',
+        dock: { label: '控件dock' },
         defaultGeometry: {
             x: { at: 16 },
             y: { at: 16 },
@@ -129,17 +211,30 @@ const WINDOWS: readonly WindowConfigEntry[] = [
     },
     {
         id: 'number',
-        title: '读数',
-        dock: { label: '读数' },
+        title: '读数window',
+        dock: { label: '读数dock' },
         defaultGeometry: {
             x: { at: 16 },
             // `after` 给了之后 `y` 被忽略,但字段仍需存在(几何块的形状如此).
             y: { at: 16 },
             w: { at: 420 },
-            h: { at: 160 },
+            h: { at: 200 },
             after: { id: 'slider', gap: 12 },
         },
-        minSize: { w: 260, h: 96 },
+        minSize: { w: 260, h: 140 },
+    },
+    {
+        id: 'menu',
+        title: '菜单window',
+        dock: { label: '菜单dock' },
+        defaultGeometry: {
+            x: { at: 448 },
+            y: { at: 16 },
+            w: { at: 380 },
+            // 容得下"浮层 + 直接显示"两张分组菜单(正文会裁切).
+            h: { at: 400 },
+        },
+        minSize: { w: 280, h: 300 },
     },
 ];
 
@@ -169,8 +264,11 @@ mountDesktop(root, {
                         linearReadout,
                         angleReadout,
                         countReadout,
+                        menuReadout,
                     )],
                 };
+            case 'menu':
+                return { body: [menuPane] };
             default:
                 return { body: [] };
         }
