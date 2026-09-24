@@ -3,18 +3,29 @@ name: Release
 # ============================================================================
 # 库侧的"发布"契约(这段注释是真身;消费者那半由消费侧脚本自己维护)
 # ----------------------------------------------------------------------------
-# 发布 = **一个滚动 GitHub Release 资产**,不是 npm 包:
+# 这个文件有**两条交付链路**,互不干扰:
 #
-#   release tag : ui-latest            (滚动;不是版本承诺 -- 库不写版本号)
-#   资产文件名  : miko_ui_dist.tar.gz  (内容:包根 = dist/ + styles/ + LICENSE
-#                                       + 运行期清单 package.json)
+#   A. 滚动资产(`release` job,**只在 main 上**跑)
+#      release tag : ui-latest            (滚动;不是版本承诺 -- 资产不按版本归档)
+#      资产文件名  : miko_ui_dist.tar.gz  (内容:包根 = dist/ + styles/ + LICENSE
+#                                         + 运行期清单 package.json)
+#      下载地址    : https://github.com/<owner>/<repo>/releases/download/ui-latest/miko_ui_dist.tar.gz
 #
-#   下载地址    : https://github.com/<owner>/<repo>/releases/download/ui-latest/miko_ui_dist.tar.gz
+#      两个消费者只认这一份资产:各自的取件脚本下载 -> 校验 -> 解开 -> 原子替换缓存,
+#      再用根 `package.json` 的 `"@miko/ui": "file:.cache/miko_ui/current"` 链接进来.
+#      于是**这个 job 绿了,资产挂上了,库里改的东西才算交付出去**:交付形态是这份
+#      资产,不是 main 上的源码(消费者机器上没有 TypeScript,也不构建库).这条链路
+#      不读也不写 `version`.
 #
-# 两个消费者只认这一份资产:各自的取件脚本下载 -> 校验 -> 解开 -> 原子替换缓存,
-# 再用根 `package.json` 的 `"@miko/ui": "file:.cache/miko_ui/current"` 链接进来.
-# 于是**这个 job 绿了,资产挂上了,库里改的东西才算交付出去**:交付形态是这份资产,
-# 不是 main 上的源码(消费者机器上没有 TypeScript,也不构建库).
+#   B. npm 包(`publish` job,**只在推 `v*` tag 时**跑)
+#      推一个 `v` 开头的 tag 就把同名包用 **OIDC 信任发布**发到
+#      registry.npmjs.org,服务"别人也要能 `npm install`"的场景.它不发
+#      `ui-latest` 资产,滚动资产那次 main 推送也不发 npm.`package.json` 的
+#      `version` 只服务这条链路:打包脚本把它当运行期字段带进资产清单,所以资产里
+#      会出现它,但消费侧判断"缓存是不是最新"的依据始终是 `gitHead`,不是版本号.
+#
+# 为什么两条链路共用一个文件:npm 的 Trusted Publisher 配置只认 **workflow
+# 文件名**,包设置里填的就是 `release.yml`;把 npm 发布挪到别的文件名会被拒.
 #
 # 五条不变量,违反哪条这里都会红:
 #   1. 资产由 `scripts/pack_release.mjs` 生成,清单是**运行期清单**,不带
@@ -34,8 +45,9 @@ name: Release
 #      时间戳只进 notes,**绝不进资产**:资产是可复现的(清单里只有 gitHead,没有
 #      时间),塞进时间戳会让同一份内容每次构建的 sha256 都不同,RELEASING.md §2
 #      那条"内容没变则 sha256 不变"就作废了.
-#   4. 发布只在 `main` 上跑;打包这件事本身在每个 PR/推送上由 `ci.yml` 的
-#      dry-run 步骤先验一遍,坏掉的清单不该等到发布才发现.
+#   4. 滚动资产只在 `main` 上跑(npm 那条链路由推 tag 触发,是独立 job,不受这条
+#      约束);打包这件事本身在每个 PR/推送上由 `ci.yml` 的 dry-run 步骤先验一遍,
+#      坏掉的清单不该等到发布才发现.
 #   5. 资产**自证 commit**:清单里的 `gitHead` 必须等于本次构建的 `GITHUB_SHA`
 #      (由 `pack_release.mjs` 写入).消费侧的取件脚本每次构建拿它比
 #      `ui-latest` tag 指向的 commit,落后就自动重取 -- 所以 tag 必须指向
@@ -48,6 +60,10 @@ name: Release
 on:
   push:
     branches: [main]
+    # 推 `v*` tag = 向 npm 发一版(见下面的 publish job).
+    # 发布提交必然改动 `package.json`(版本号),所以即使 `paths-ignore` 对 tag 推送
+    # 也生效,这里也不会被它挡掉.
+    tags: ["v*"]
     # 纯文档改动不重出资产(资产里没有 README;LICENSE 变了要重出,所以只忽略
     # markdown).要强制重出一次:workflow_dispatch.
     paths-ignore:
@@ -64,7 +80,11 @@ permissions:
   contents: read
 
 jobs:
+  # ---- A. 滚动资产:只在分支(main)上跑 -------------------------------------
+  # 推 tag 时跳过:一次 tag 构建不该顺手把 `ui-latest` 资产覆盖成"某一个版本".
+  # workflow_dispatch 在分支上运行时同样满足这个条件.
   release:
+    if: startsWith(github.ref, 'refs/heads/')
     runs-on: ubuntu-latest
     # `gh release create/upload` 与 PATCH tag ref 都要写仓库
     permissions:
@@ -185,3 +205,114 @@ jobs:
 
           gh release view "$TAG" --json url,assets \
             --jq '.url, (.assets[] | "  \(.name)  \(.size) 字节")'
+
+  # ---- B. npm 包:只在推 `v*` tag 时跑 -------------------------------------
+  #
+  # 为什么不需要任何 token:GitHub 为本次 job 签发一张**一次性 OIDC 身份票**,
+  # npm 拿它比对"是不是这个仓库的这个 workflow 文件",对上就放行.没有长期凭据
+  # 可偷,不需要轮换,也不会因为 token 到期而某天突然发不出去.它同样**不查账号
+  # 2FA** -- 2FA 只约束"建/删 token,改包设置,批准暂存版本"这类账号级动作.
+  #
+  # 为什么必须写在**本文件**里:npm 包设置里的 Trusted Publisher 填的是 workflow
+  # 文件名 `release.yml`,换别的文件名发布会 ENEEDAUTH.owner/repo/文件名三个字段
+  # npm 保存时**不校验**,填错只有发布这一刻才报错.
+  #
+  # 为什么不带 `NODE_AUTH_TOKEN`:OIDC 路径里没有长期 token,npm CLI 自己拿 GitHub
+  # 签发的身份票去换一次性凭据.`actions/setup-node` 仍会因为 `registry-url` 往临时
+  # `.npmrc` 里写一行 `_authToken=${NODE_AUTH_TOKEN}`(值为空,官方示例也是这样),
+  # 不影响 OIDC.`registry-url` 在这里的作用是决定"往哪个 registry 发"
+  # (必须是官方源,不能是镜像).
+  #
+  # 发布前会把 `scripts.prepare` 从**工作树**里摘掉:因为 `npm publish` 打包前会
+  # 自动跑 `prepare`,而 `prepare` 就是 `npm run build`.更要紧的是
+  # **`npm publish --ignore-scripts` 拦不住它**(实测 npm 10.9.8),所以只能摘脚本,
+  # 不能靠开关.不摘就会构建两遍,违反本文件"生产构建只跑一次"的不变量.细节写在
+  # 那一步的注释里.
+  #
+  # 白拿的好处:公开仓库 + 公开包 + OIDC => npm 自动附带 provenance(可验证的
+  # 构建来源证明),不需要加 `--provenance`.
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC 必需:少了这一行,npm 那边只会报 ENEEDAUTH
+    # 同一时间只允许一个 npm 发布;不腰斩正在上传的那一次.
+    concurrency:
+      group: npm-publish
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          # 发布必须显式指到官方源:镜像只读,发不上去.
+          registry-url: "https://registry.npmjs.org"
+          # release 构建不引入依赖缓存这条供应链攻击面(与上面 release job 同一条理由).
+          package-manager-cache: false
+
+      # `--ignore-scripts`:不让 `prepare` 在安装阶段顺手构建一次;构建交给下面那条
+      # 显式闸门,失败信息才归得到"构建"名下.库的依赖树里唯一的安装脚本是 darwin
+      # 专用的 `fsevents`(可选依赖),跳过它没有副作用.
+      - name: Install pinned dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      # 发布前跑同一条闸门:build:dist -> typecheck(src + test + example)
+      # -> 边界守卫 -> vitest.发出去的必须是通过全部检查的那棵树.
+      - name: Build, typecheck and test
+        run: npm run build
+
+      # OIDC 信任发布要求 npm CLI >= 11.5.1 / Node >= 22.14.0.先把版本打出来:
+      # 将来 runner 镜像换 Node 大版本导致 npm 太旧时,这一行能在报错之前把原因
+      # 写进日志.
+      - name: Show toolchain versions
+        run: |
+          node -v
+          npm -v
+
+      # tag 与 `package.json` 的版本必须一致,否则这一版发出去就再也收不回来
+      # (npm 不允许同版本重发).
+      - name: Check tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::tag v$TAG_VERSION 与 package.json 的 $PKG_VERSION 不一致"
+            exit 1
+          fi
+
+      # 发布前把 `scripts.prepare` 从**工作树**里摘掉(只影响这次 CI 的 checkout,
+      # 不提交,不改仓库):
+      #
+      #   `npm publish` 会在打包前自动跑 `prepare`,而 `prepare` 就是
+      #   `npm run build` -- 不摘掉的话,上面的闸门刚跑完一次,这一条又跑一次,
+      #   本文件"生产构建只跑一次"的不变量当场作废.
+      #
+      #   注意:**`npm publish --ignore-scripts` 拦不住它**.那个开关能拦下
+      #   `npm ci` 阶段(所以上面那条注释成立),但对 pack/publish 阶段的
+      #   `prepare` 无效 -- 实测 npm 10.9.8 下
+      #   `npm pack --dry-run --ignore-scripts` 照样把整个 build + 257 个测试
+      #   跑了一遍.所以这里选择"摘掉脚本"而不是"加开关".
+      #
+      #   摘掉之后,发出去的 tarball 清单里也没有 `scripts.prepare` -- 与打包脚本
+      #   给消费者产出的运行期清单一致(那边同样不带 scripts),是想要的.
+      #
+      #   下面那条自检是保险:`npm pkg delete` 对不存在的键不报错,所以万一将来
+      #   `prepare` 改了名或删不掉,必须在**上传之前**红,而不是悄悄多构建一次.
+      - name: Drop prepare so publish does not rebuild
+        run: |
+          npm pkg delete scripts.prepare
+          node -e '
+            const p = require("./package.json");
+            if (p.scripts && p.scripts.prepare) {
+              throw new Error("scripts.prepare 还在:publish 会再构建一次");
+            }
+            console.log("prepare 已摘除,publish 不会重复构建");
+          '
+
+      - name: Publish to npm
+        run: npm publish

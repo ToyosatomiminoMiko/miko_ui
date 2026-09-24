@@ -141,3 +141,80 @@ describe('dispose 复位提示', () => {
         expect(hint.classList.contains('is-error')).toBe(false);
     });
 });
+
+describe('一组提示节点(列表被拆成多个窗口时,每处标题栏各有一句提示)', () => {
+    /** 两个提示节点:代表"实体"与"求值"两个窗口标题栏上的那一句. */
+    function setupPair(): {
+        stub: DomStub;
+        controller: FormulaCopyController;
+        first: StubElement;
+        second: StubElement;
+        root: StubElement;
+        formula: StubElement;
+    } {
+        const stub = installDomStub();
+        const first = stub.document.createElement('span');
+        first.textContent = '点击公式复制 TeX';
+        const second = stub.document.createElement('span');
+        second.textContent = '点击公式复制 TeX';
+
+        const root = stub.document.createElement('div');
+        const formula = stub.document.createElement('span');
+        formula.setAttribute('data-tex', 'y = x');
+        root.append(formula);
+        stub.document.body.append(root);
+
+        const controller = new FormulaCopyController(
+            [first, second] as unknown as HTMLElement[],
+        );
+        controller.bind(root as unknown as HTMLElement);
+        return { stub, controller, first, second, root, formula };
+    }
+
+    it('两个节点一起回显成功', async () => {
+        const { stub, controller, first, second, root, formula } = setupPair();
+
+        root.dispatch('click', { target: formula });
+
+        await vi.waitFor(() => {
+            expect(stub.clipboard.texts).toEqual(['y = x']);
+            expect(first.textContent).toBe('已复制 TeX');
+            expect(second.textContent).toBe('已复制 TeX');
+        });
+        // 状态类也要两个都有:只更新一半的话,另一处标题栏会显示旧文案.
+        expect(first.classList.contains('is-copied')).toBe(true);
+        expect(second.classList.contains('is-copied')).toBe(true);
+        controller.dispose();
+    });
+
+    it('失败态同样写两个节点', async () => {
+        const { stub, controller, first, second, root, formula } = setupPair();
+        stub.clipboard.fail = true;
+
+        root.dispatch('click', { target: formula });
+
+        await vi.waitFor(() => {
+            expect(first.textContent).toBe('复制失败');
+            expect(second.textContent).toBe('复制失败');
+        });
+        expect(second.classList.contains('is-error')).toBe(true);
+        controller.dispose();
+    });
+
+    it('dispose 把两个节点都复位', async () => {
+        const { controller, first, second, root, formula } = setupPair();
+
+        root.dispatch('click', { target: formula });
+        await vi.waitFor(() => {
+            expect(first.textContent).toBe('已复制 TeX');
+        });
+
+        controller.dispose();
+
+        for (const node of [first, second]) {
+            expect(node.textContent).toBe('点击公式复制 TeX');
+            expect(node.classList.contains('is-copied')).toBe(false);
+            expect(node.classList.contains('is-error')).toBe(false);
+        }
+    });
+});

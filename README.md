@@ -10,12 +10,21 @@ GraphCalc 的 Web UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 + �
 > `docs/ui-library-extraction-plan.md`(本文件的每一节都能在那份计划里找到
 > 出处).这份仓库是那个计划 P4 结束后的产物.
 
-## 取用:消费者下载 release 产物,不走 npm
+## 取用:主链路是 release 产物;另有对外的 npm 包
 
-本库**不发 npm**:没有 registry 包,没有 `npm publish`,没有版本号.它同时服务
+本库同时服务
 [miko_graphcalc](https://github.com/ToyosatomiminoMiko/miko_graphcalc) 与
 [ToyosatomiminoMiko.github.io](https://github.com/ToyosatomiminoMiko/ToyosatomiminoMiko.github.io)
-两个应用仓库,两边拿的是同一份产物.
+两个应用仓库,两边拿的是同一份产物;此外它**也发布到 npm**,服务"别人也想
+`npm install`"的场景.两条链路互不干扰:
+
+| 链路 | 触发 | 形态 | 谁在用 |
+| --- | --- | --- | --- |
+| **滚动 release 资产**(主) | 推到 `main` | `miko_ui_dist.tar.gz`,挂在 tag `ui-latest` 上,内容被覆盖 | 上面那两个应用仓库 |
+| **npm 包**(对外) | 推 `v*` tag | registry 上的 `miko_ui@<version>`,带 provenance | 外部消费者 |
+
+npm 那条链路走 **OIDC 信任发布**(无长期 token,不需要账号 2FA),细节见
+`RELEASING.md`.下面这一节讲的是主链路,也就是两个应用仓库用的那份.
 
 交付形态是**一个滚动 release 资产**:
 
@@ -53,7 +62,7 @@ import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
 装,根外不装).把它写成应用自己的依赖,行为才不依赖这个细节,也才能保证全程只有
 一份实例 -- 两个应用仓库都是这么写的.
 
-> **只面向打包器/浏览器**,两条原因(都与"不发 npm"有关,见 `RELEASING.md`):
+> **只面向打包器/浏览器**,两条原因(与交付形态有关,见 `RELEASING.md`):
 >
 > 1. 根入口会引 CSS(`formula/FormulaView` 引 `katex/dist/katex.min.css`),Node
 >    原生 ESM 加载不了 `.css`(`ERR_UNKNOWN_FILE_EXTENSION`);
@@ -259,18 +268,33 @@ baseline,也没有"允许的例外".
 
 ## 交付
 
-不发 npm,不写版本号.交付 = 把 `main` 推到 GitHub:
+**给两个应用仓库**(滚动资产):把 `main` 推到 GitHub.
 
 ```sh
 git push origin main
 ```
 
-`.github/workflows/release.yml` 随后把包根打成 `miko_ui_dist.tar.gz`,挂到滚动
-release `ui-latest`,并从**消费者用的那个公开 URL** 重新下载验一遍 sha256.两个
-应用仓库的 `scripts/fetch_ui.sh` 取的就是这份资产.本地想先看一眼资产:
+`.github/workflows/release.yml` 的 `release` job 随后把包根打成
+`miko_ui_dist.tar.gz`,挂到滚动 release `ui-latest`,并从**消费者用的那个公开
+URL** 重新下载验一遍 sha256.两个应用仓库的 `scripts/fetch_ui.sh` 取的就是这份
+资产.本地想先看一眼资产:
 
 ```sh
 npm run release:pack   # -> release/miko_ui_dist.tar.gz(清单含 gitHead,内容,sha256 都打在日志里)
 ```
+
+**给 npm**(对外):先把 `package.json` 的 `version` 改好并提交,再打同名 tag 推上去.
+
+```sh
+git tag v0.1.2 && git push origin v0.1.2
+```
+
+`release.yml` 的 `publish` job 会跑完整闸门(build + typecheck + test),核对 tag 与
+`package.json` 的版本一致,然后用 OIDC 把包发到 `registry.npmjs.org`.不需要任何
+token,也不需要给账号开 2FA -- 身份票由 GitHub 现场签发.三条要注意的:
+
+- 版本号只能往上走:npm 不允许同版本重发,发错了只能发下一个版本;
+- 发布目标由 `publishConfig.registry` 钉死在官方源,不会被本机的镜像配置带偏;
+- **只有推 tag 才发 npm**;只推 `main` 只出滚动资产.
 
 为什么这么定,怎么强制重出,将来怎么固定/回滚,见 `RELEASING.md`.

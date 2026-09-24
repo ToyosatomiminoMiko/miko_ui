@@ -19,12 +19,18 @@ jobs:
   # 为什么写在这里而不是写进 package.json:package.json 是严格 JSON,放不了注释;
   # 而这个 workflow 正是下面每一条的**执行点** -- 违反哪条,红的就是这个 job.
   #
-  # 1. 不发 npm registry;不写版本号."发布" = `release.yml` 把包根打成
-  #    `miko_ui_dist.tar.gz` 挂到滚动 release `ui-latest` 上,两个消费者只从
-  #    那里取**产物**,不 clone 源码,不本地构建.版本号依然只是负债 -- 每改一次
-  #    都要决定升哪一位,而没有任何人依赖这个决定(取舍与归档见 RELEASING.md).
-  # 1.1 发布 job 的"执行点"在 `release.yml` 顶部;那个文件只管 main 上的发布,
-  #    所以打包本身在这里也 dry-run 一遍(下面的 "Pack release asset"):让
+  # 1. 有两条交付链路,互不干扰:
+  #    1a. **滚动资产**(主):`release.yml` 的 release job 把包根打成
+  #        `miko_ui_dist.tar.gz` 挂到滚动 release `ui-latest` 上,两个消费者只从
+  #        那里取**产物**,不 clone 源码,不本地构建.这条链路**不读也不写版本号**.
+  #    1b. **npm 包**(对外):`release.yml` 的 publish job 在推 `v*` tag 时用
+  #        **OIDC 信任发布**把同名包发到 registry.npmjs.org.这条链路需要
+  #        `package.json` 的 `version`(tag 与它必须一致),且版本号只在这条链路上
+  #        有意义 -- 消费侧判断"缓存是不是最新"始终看资产清单里的 `gitHead`.
+  #        npm 的 Trusted Publisher **只认 workflow 文件名**,所以两条链路共用
+  #        `release.yml`;那份配置在 npm 包设置页,保存时不校验,填错发布时才报错.
+  # 1.1 两条链路的"执行点"都在 `release.yml` 顶部;这里管的是**资产**那条的
+  #    dry-run,所以打包本身在这里也跑一遍(下面的 "Pack release asset"):让
   #    "清单漏进 scripts"/"资产打不出来"在合入前就红,而不是等发布时才发现.
   # 1.2 资产必须**自证 commit**:清单里的 `gitHead` = 构建它的那个 commit(打包
   #    脚本写入;本地工作树脏时是 `<sha>-dirty`).消费侧的取件脚本每次构建拿它
@@ -92,6 +98,30 @@ jobs:
         run: |
           test -f dist/index.js
           test -f dist/index.d.ts
+
+      # 上面那条查的是**资产**(链路 A,1a)长什么样;这一条查**npm 包**(链路 B,1b)
+      # 的清单前提.三样缺一不可,而且缺了的症状都不出现在这个 job 里,只出现在
+      # `npm publish` 那一刻:
+      #   - `private` 还在   -> npm 直接拒绝发布;
+      #   - 没有 `version`   -> npm 包必须有版本号(且 tag 要跟它一致);
+      #   - 没有 `files`,或 `files` 里没有 `dist` -> `.gitignore` 里写着 `/dist`,
+      #     npm 会照它排除,于是发出去一个**没有代码的空包**.
+      #   最后一条只有 `npm pack --dry-run` 看得见,所以在这里把前提断言掉.
+      # `publishConfig.registry` 一并钉死:本机/CI 的默认源可能是镜像,镜像只读.
+      - name: Check npm publish prerequisites
+        run: |
+          node -e '
+            const p = require("./package.json");
+            if (p.private) throw new Error("package.json 带 private:npm publish 会被拒");
+            if (!p.version) throw new Error("package.json 缺 version:npm 包必须有版本号");
+            if (!Array.isArray(p.files) || !p.files.includes("dist")) {
+              throw new Error("files 缺 dist:npm 会照 .gitignore 排除 dist/,发出去是空包");
+            }
+            if (!String(p.publishConfig?.registry ?? "").includes("registry.npmjs.org")) {
+              throw new Error("publishConfig.registry 不是官方源:会被本机/镜像配置带偏");
+            }
+            console.log(`npm 发布前提就绪:miko_ui@${p.version}`);
+          '
 
       # 交付形态是 release 资产(`miko_ui_dist.tar.gz`),不是 `dist/` 目录本身.
       # 这里在**每个 PR/推送**上先打一遍(不发布,发布只在 main 的 release.yml),

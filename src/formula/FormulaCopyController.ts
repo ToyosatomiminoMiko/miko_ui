@@ -8,10 +8,12 @@
  * 公式 DOM 由消费者在每次 sync 时整体重建(内部走 createFormulaElement 的
  * 模板 clone),逐个绑定会在重建后失效.
  *
- * 为什么提示只有一处:
- * "可复制"的文案只由调用方传入的那一个提示元素承担,复制成功/失败也改那一处
- * 回显;公式本身只用 cursor / focus 样式表达可操作,不在每行挂 tooltip,避免
- * 列表被提示文字淹没.
+ * 为什么提示是一组节点而不是一个:
+ * "可复制"的文案由调用方传入的提示元素承担,复制成功/失败改这些元素回显;公式
+ * 本身只用 cursor / focus 样式表达可操作,不在每行挂 tooltip,避免列表被提示
+ * 文字淹没.但**提示可以不止一处**:同一个列表被拆成两个窗口(或同一屏上有两处
+ * 可复制公式的列表)时,每处标题栏都该有这句提示.所以构造参数收一个**数组**,
+ * 一次回显写全部节点 -- 它们表达的是同一个状态,不该各说各话.
  *
  * 键盘入口:可复制公式由 FormulaView 加了 `tabindex="0"` 与 `role="button"`,
  * 所以除鼠标外还有一条键盘路径.
@@ -46,6 +48,9 @@ async function writeClipboardText(text: string): Promise<boolean> {
 }
 
 export class FormulaCopyController {
+    /** 全部提示节点:一次回显写它们全部(见文件头"为什么是一组节点"). */
+    private readonly hints: readonly HTMLElement[];
+    /** 提示恢复用的原文案(取第一个节点的初始文本,全部节点共用). */
     private readonly defaultHint: string;
     /** 提示节点所属的 document:计时器从它走,不读全局. */
     private readonly doc: Document;
@@ -59,9 +64,23 @@ export class FormulaCopyController {
      */
     private resetTimer: number | null = null;
 
-    constructor(private readonly hint: HTMLElement) {
-        this.defaultHint = hint.textContent ?? '';
-        this.doc = hint.ownerDocument;
+    /**
+     * @param hint 提示节点:传**一个**(单处提示)或**一组**(多处提示,如列表被
+     *             拆成两个窗口)都行.传数组时它们表达同一个状态,每次回显一起写,
+     *             不会只更新一半.
+     *
+     *             至少要有一个节点,空数组会抛错 -- 没有提示节点就没有"复制成功
+     *             了"的回显,把这种配置错误留在构造期比留到运行期好.
+     *
+     *             恢复用的原文案取**第一个**节点的初始文本,所有节点共用同一份;
+     *             节点初始文案不一致时以第一个为准(它们本就该是同一句话).
+     */
+    constructor(hint: HTMLElement | readonly HTMLElement[]) {
+        this.hints = Array.isArray(hint) ? hint : [hint as HTMLElement];
+        const first = this.hints[0];
+        if (!first) throw new Error('FormulaCopyController: 至少要有一个提示节点');
+        this.defaultHint = first.textContent ?? '';
+        this.doc = first.ownerDocument;
     }
 
     bind(root: HTMLElement): void {
@@ -96,8 +115,7 @@ export class FormulaCopyController {
             this.doc.defaultView?.clearTimeout(this.resetTimer);
             this.resetTimer = null;
         }
-        this.hint.textContent = this.defaultHint;
-        this.hint.classList.remove('is-copied', 'is-error');
+        this._writeHints(this.defaultHint, null);
     }
 
     private readonly onClick = (event: MouseEvent): void => {
@@ -118,20 +136,30 @@ export class FormulaCopyController {
         this._flashHint(copied ? HINT_COPIED : HINT_FAILED, copied);
     }
 
-    /** 回显写在构造时传入的提示元素上,延时后恢复原文案. */
+    /**
+     * 把回显写到**全部**提示节点上,延时后恢复原文案.
+     *
+     * `ok` 传 `null` 表示"回到中性":文案复原,两个状态类都摘掉.
+     */
     private _flashHint(message: string, ok: boolean): void {
         if (this.resetTimer !== null) this.doc.defaultView?.clearTimeout(this.resetTimer);
 
-        this.hint.textContent = message;
-        this.hint.classList.toggle('is-copied', ok);
-        this.hint.classList.toggle('is-error', !ok);
+        this._writeHints(message, ok);
 
         const timer = this.doc.defaultView?.setTimeout(() => {
             this.resetTimer = null;
-            this.hint.textContent = this.defaultHint;
-            this.hint.classList.remove('is-copied', 'is-error');
+            this._writeHints(this.defaultHint, null);
         }, HINT_RESET_DELAY);
         // 没有 defaultView 的环境(离屏 document)不退化为异常:提示留在原地.
         this.resetTimer = timer ?? null;
+    }
+
+    /** 一次回显/复原的唯一写入点:所有提示节点走同一段代码,不会只更新一半. */
+    private _writeHints(message: string, ok: boolean | null): void {
+        for (const hint of this.hints) {
+            hint.textContent = message;
+            hint.classList.toggle('is-copied', ok === true);
+            hint.classList.toggle('is-error', ok === false);
+        }
     }
 }
