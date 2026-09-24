@@ -29,6 +29,11 @@ name: Release
 #   3. 资产**原地覆盖同一个文件名**:消费者拿到的 URL 永远不变.所以更新走
 #      `gh release upload --clobber`(资产先就位,再把 tag 挪过去),不用
 #      "删掉 release 再建" -- 那中间有一段 404 窗口,消费者的 preinstall 会失败.
+#      release notes 里那张表跟着这次构建重写(`gh release edit --notes-file`),
+#      否则覆盖上传后,"发布时间"会永远停在首次发布那一刻.
+#      时间戳只进 notes,**绝不进资产**:资产是可复现的(清单里只有 gitHead,没有
+#      时间),塞进时间戳会让同一份内容每次构建的 sha256 都不同,RELEASING.md §2
+#      那条"内容没变则 sha256 不变"就作废了.
 #   4. 发布只在 `main` 上跑;打包这件事本身在每个 PR/推送上由 `ci.yml` 的
 #      dry-run 步骤先验一遍,坏掉的清单不该等到发布才发现.
 #   5. 资产**自证 commit**:清单里的 `gitHead` 必须等于本次构建的 `GITHUB_SHA`
@@ -98,10 +103,15 @@ jobs:
           TAG: ui-latest
           ASSET: release/miko_ui_dist.tar.gz
           ASSET_NAME: miko_ui_dist.tar.gz
+        # 发布时间(UTC,ISO 8601):这张表要回答"这一份是什么时候挂上去的".
+        # 取的是**本次发布**的时刻;覆盖上传的分支会把 notes 一起重写(见下面
+        # 的 gh release edit),所以它不会停在首次发布那一刻.
+        # 只进 notes,不进资产 -- 理由见文件头不变量 3(可复现 sha256).
         run: |
           set -Eeuo pipefail
           test -f "$ASSET"
           SHA256="$(sha256sum "$ASSET" | cut -d' ' -f1)"
+          STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
           {
             printf '## miko_ui rolling release (`ui-latest`)\n\n'
@@ -109,6 +119,7 @@ jobs:
             printf '库不发 npm,不写版本号;交付形态就是下面这一个文件.\n\n'
             printf '| 项 | 值 |\n| --- | --- |\n'
             printf '| commit | `%s` |\n' "$GITHUB_SHA"
+            printf '| 发布时间 (UTC) | `%s` |\n' "$STAMP"
             printf '| 资产 | `%s` |\n' "$ASSET_NAME"
             printf '| sha256 | `%s` |\n' "$SHA256"
             printf '| 内容 | `dist/` + `styles/` + `LICENSE` + 运行期清单 `package.json` |\n\n'
@@ -123,6 +134,9 @@ jobs:
             # 给人看的(`git ls-remote --tags` 能对上"资产是哪一版"),消费者用
             # 的是固定 URL,不读 tag 的指向.
             gh release upload "$TAG" "$ASSET" --clobber
+            # notes 不随资产一起更新,得显式重写一次:不然表里的 sha256 与发布
+            # 时间还停在上一份,而 release 页面看起来"就是最新那一份".
+            gh release edit "$TAG" --notes-file notes.md
             gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" \
               -f sha="$GITHUB_SHA" -F force=true >/dev/null
           else
