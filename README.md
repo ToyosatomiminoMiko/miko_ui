@@ -283,13 +283,17 @@ URL** 重新下载验一遍 sha256.两个应用仓库的 `scripts/fetch_ui.sh` �
 npm run release:pack   # -> release/miko_ui_dist.tar.gz(清单含 gitHead,内容,sha256 都打在日志里)
 ```
 
-**给 npm**(对外):先把 `package.json` 的 `version` 改好并提交,再打同名 tag 推上去.
+**给 npm**(对外):一条命令.
 
 ```sh
-git tag v0.1.2 && git push origin v0.1.2
+npm run release:npm -- patch   # 或 minor / major / 显式 x.y.z;加 --dry-run 只打印计划
 ```
 
-`release.yml` 的 `publish` job 会跑完整闸门(build + typecheck + test),核对 tag 与
+它会把版本号(`package.json` + `package-lock.json` 三处)一起改好,跑完整闸门,提交并
+推 `main`(出滚动资产),再打 `v<version>` tag 推上去(发 npm).操作笔记与故障对照在
+`docs/npm-release-note.md`.
+
+`release.yml` 的 `publish` job 随后会跑完整闸门(build + typecheck + test),核对 tag 与
 `package.json` 的版本一致,然后用 OIDC 把包发到 `registry.npmjs.org`.不需要任何
 token,也不需要给账号开 2FA -- 身份票由 GitHub 现场签发.三条要注意的:
 

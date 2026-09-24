@@ -97,11 +97,27 @@ git commit ... && git push origin main
 
 ## 2.1 怎么发一版到 npm(链路 B)
 
-改好 `package.json` 的 `version` 并提交,然后推一个 `v` 开头的 tag:
+一条命令:
 
 ```sh
-git tag v0.1.2 && git push origin v0.1.2
+npm run release:npm -- patch     # 或 minor / major / 显式 x.y.z
 ```
+
+`scripts/release_npm.mjs` 会依次:检查前置(main 上,已跟踪文件干净,与 origin/main
+一致)-> 检查 npm 上没发过这个版本,本地/远端没有同名 tag -> 只改两个文件里的版本号
+并断言没有别的改动 -> 跑完整闸门 -> 提交并推 `main` -> 打 tag 并推 tag.任一步失败
+都当场停下,在动 git 之前失败的话版本号会**自动还原**.加 `--dry-run` 只打印计划,
+一个文件都不动.
+
+手工兜底(脚本坏掉时用,等价于上面做的事):
+
+```sh
+npm pkg set version=0.1.3        # 记得 package-lock.json 的顶层与 packages[""] 两处也要改
+git add package.json package-lock.json && git commit -m v0.1.3 && git push origin main
+git tag v0.1.3 && git push origin v0.1.3
+```
+
+操作层面的笔记(故障对照,别做的事,术语)在 `docs/npm-release-note.md`.
 
 `release.yml` 的 `publish` job 随后:
 
@@ -250,9 +266,19 @@ npx --yes npm@11 ci --no-audit --no-fund     # EUSAGE 就是锁缺跨平台条�
 `.gitignore` 排除,于是发布出去的是**一个没有代码的空包**.链路 A 的 CI 检查看不到
 这个(它查的是 release 资产),只有 `npm pack --dry-run` 看得见.
 
-### 还没验证的事
+### 第一次真实发布(2026-09-24,`v0.1.2`)的验收结果
 
-这套 publish job 是 2026-09-25 才接上的,**第一次真实发布尚未跑过**.第一次推 tag
-时必须确认:Actions 里 `publish` job 绿,`https://www.npmjs.com/package/miko_ui`
-上出现新版本,包页面带 provenance 徽章.这三条都成立之后,再谈撤销 token 与收紧
-包设置.
+`publish` job 全绿,`release` job 按 `if` 正确跳过.事后从 registry 侧核对:
+
+| 检查 | 结果 |
+| --- | --- |
+| `registry.npmjs.org/miko_ui/0.1.2` | ✅ 存在,`dist-tags.latest` 已指向 `0.1.2` |
+| provenance | ✅ `/-/npm/v1/attestations/miko_ui@0.1.2` 返回 200(`0.1.1` 是 404 -- 那次没有 OIDC) |
+| tarball 内容 | ✅ 79 个文件,含 `dist/index.js`,`dist/index.d.ts`,6 个 CSS;无 `src/`,无 `scripts/` |
+| 发布清单里的 `prepare` | ✅ 已按设计摘除(其余 `scripts` 仍在,对 registry 安装没有影响:registry 安装只跑 `preinstall`/`install`/`postinstall`) |
+
+两个**下次发布还会再遇到**的正常现象,别据此以为失败:
+
+- **传播延迟**:job 绿了之后 registry 还要 1-2 分钟才查得到新版本(实测 `0.1.2`
+  先 404,约两分钟后 200);
+- 版本端点与 `dist-tags` 是分开传播的,可能一个先到一个后到.

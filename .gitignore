@@ -1,4 +1,4 @@
-prompt.md
+/prompt
 # dependencies
 /node_modules
 
@@ -9,7 +9,7 @@ prompt.md
 *.tsbuildinfo
 
 # release 资产(`npm run release:pack` 的产出:stage/ + miko_ui_dist.tar.gz)
-# 它不是交付形态本身 —— 交付形态是 GitHub 上 `ui-latest` 那个 release 资产,
+# 它不是交付形态本身 -- 交付形态是 GitHub 上 `ui-latest` 那个 release 资产,
 # 见 RELEASING.md.这里只是本地/CI 打包时的落地目录,不入库.
 /release
 
