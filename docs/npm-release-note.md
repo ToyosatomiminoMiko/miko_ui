@@ -16,6 +16,32 @@ npm run release:npm -- patch
 
 ---
 
+## 日常推送:版本号一个字都不用动
+
+**改代码,修 bug 的日常推送,不要碰版本号,也不需要发 npm:**
+
+```sh
+git add -A && git commit -m "..." && git push origin main
+```
+
+推 `main` 就已经把最新产物交给两个应用仓库了(滚动资产 `ui-latest` 被覆盖,
+消费侧靠 `gitHead` 判断要不要重取,全程与版本号无关).
+
+| 你想做什么 | 命令 | 版本号 |
+| --- | --- | --- |
+| 日常改代码,给自己那两个应用用 | `git push origin main` | **不用动** |
+| 想给 npm 上的人一个新快照 | `npm run release:npm -- patch` | 脚本自动改 |
+
+两个 job 的分工就写在这两条上:推到**分支**只跑 `release`(资产),推到 **tag**
+才跑 `publish`(npm).所以:
+
+- npm 上的版本**落后于 `main` 是正常的** -- 它只是"上一次对外发的快照"的标记;
+- 没人用 npm 时,你甚至可以几个月不发一次,`main` 照样天天推;
+- 副作用只有一个:滚动资产清单里的 `version` 会停在 `0.1.2` 直到你下次发 npm.
+  这不影响任何东西 -- 消费侧认的是 `gitHead`.
+
+---
+
 ## 你唯一要决定的事:升哪一位
 
 | 写什么 | 结果 | 什么时候用 |
@@ -33,7 +59,7 @@ npm run release:npm -- patch
 ## 标准流程(三步)
 
 ```sh
-cd /mnt/IVSTINIANVS/__projects_web/miko_ui
+cd /.../miko_ui
 
 # 1) 先把要发的代码提交并推上去 -- 脚本要求"已跟踪文件没有未提交改动"
 git add -A && git commit -m "..." && git push origin main

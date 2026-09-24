@@ -145,25 +145,6 @@ git tag v0.1.3 && git push origin v0.1.3
   所以 npm 发布必须写在**这个文件**里,另起 `publish.yml` 会 ENEEDAUTH;
 - npm **保存信任发布配置时不校验** owner / repo / workflow 文件名,填错只有发布时现形.
 
-## 3. 消费者怎么取
-
-两个应用仓库(`miko_graphcalc`,`ToyosatomiminoMiko.github.io`)用的是同一套:
-
-1. 根 `package.json` 里 `"@miko/ui": "file:.cache/miko_ui/current"`,并**自己声明**
-   库的运行时依赖 `@preact/signals-core`(把这条关系变成应用侧的显式契约,同时
-   保证只有一份实例);
-2. `preinstall` -> `scripts/fetch_ui.sh`:下载 -> 校验 -> 解开 -> 原子替换
-   `.cache/miko_ui/current`(gitignore).已有健康产物时直接复用,所以
-   `npm ci` 反复跑是廉价的;
-3. **没有"clone 源码并本地构建"的回退**:拿不到资产就明确失败,并打印 release
-   页面,期望 URL,手动下载与放置步骤.要靠本地源码构建排查库的问题时,去库仓库
-   (或它的本地工作副本;本机现在在 `/mnt/IVSTINIANVS/__projects_web/miko_ui`,
-   独立仓库,不在 `miko_graphcalc` 里)跑 `npm run build:dist`.
-
-消费侧脚本里可覆盖的变量(`MIKO_UI_REPO` / `MIKO_UI_RELEASE` / `MIKO_UI_ASSET` /
-`MIKO_UI_ASSET_URL` / `MIKO_UI_ASSET_FILE` / `MIKO_UI_DIR`)在两个仓库的
-`fetch_ui.sh` 顶部有完整表格.
-
 ## 4. 规则的真身不在本文档里
 
 这些规则以前抄在这里,但抄一遍就会漂移一次.规则写在各自的**执行点**旁边,本文档
