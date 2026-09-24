@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
  */
 
 /** 库自带的样式表(颜色字面量只许出现在 tokens.css). */
-const LIB_CSS = ['tokens.css', 'widgets.css', 'desktop.css', 'editor.css'] as const;
+const LIB_CSS = ['tokens.css', 'widgets.css', 'desktop.css', 'editor.css', 'feedback.css'] as const;
 
 function read(name: string): string {
     return readFileSync(new URL(`../../styles/${name}`, import.meta.url), 'utf8');

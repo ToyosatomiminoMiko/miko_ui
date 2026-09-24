@@ -15,17 +15,17 @@
  * (与 CSS 里的唯一规则对应).
  */
 import { writeGeometry } from './WindowFrame';
-import type { Geometry } from './WindowGeometry';
+import type { AbsoluteGeometry } from './WindowGeometry';
 
 export interface SnapPreviewHandle {
-    show(target: Geometry): void;
+    show(target: AbsoluteGeometry): void;
     hide(): void;
     dispose(): void;
 }
 
 export function createSnapPreview(element: HTMLElement): SnapPreviewHandle {
     return {
-        show(target: Geometry) {
+        show(target: AbsoluteGeometry) {
             writeGeometry(element, target);
             element.classList.add('is-open');
         },

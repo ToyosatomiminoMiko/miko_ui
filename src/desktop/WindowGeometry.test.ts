@@ -12,13 +12,15 @@ import {
     geometryStyle,
     magnetize,
     moveGeometry,
-    resolveDefaultGeometry,
+    resolveRelativeGeometry,
+    resolveRelativeGeometries,
     resolveEdgeSnap,
     usableHeight,
     type Desktop,
-    type Geometry,
+    type AbsoluteGeometry,
     type Limits,
 } from './WindowGeometry';
+import type { RelativeGeometry } from './types';
 
 const WINDOW = TEST_DESKTOP_CONFIG;
 
@@ -27,13 +29,19 @@ function desktopOf(w: number, h: number): Desktop {
     return { w, h, dockReserve: WINDOW.dockReserve, edgeGap: WINDOW.edgeGap };
 }
 
-/** 按配置顺序把五个窗口的默认几何全部解出来(顺序即依赖顺序). */
-function resolveAll(desktop: Desktop): Map<string, Geometry> {
-    const resolved = new Map<string, Geometry>();
-    for (const spec of WINDOW.windows) {
-        resolved.set(spec.id, resolveDefaultGeometry(spec.defaultGeometry, desktop, resolved));
-    }
-    return resolved;
+/**
+ * 把整张窗口清单的默认几何解出来.
+ *
+ * 走的是生产路径 `resolveRelativeGeometries`(`WindowManager.bind()` 用的同一个
+ * 函数):依赖由它内部解,这里**不需要**先排好序.
+ */
+function resolveAll(desktop: Desktop): Map<string, AbsoluteGeometry> {
+    return resolveRelativeGeometries(WINDOW.windows, desktop);
+}
+
+/** 与 {@link resolveAll} 同义,但把窗口清单**倒过来**喂进去. */
+function resolveAllReversed(desktop: Desktop): Map<string, AbsoluteGeometry> {
+    return resolveRelativeGeometries([...WINDOW.windows].reverse(), desktop);
 }
 
 function limitsFor(id: string, desktop: Desktop): Limits {
@@ -72,7 +80,7 @@ const VIEWPORTS = [
     },
 ] as const;
 
-describe('resolveDefaultGeometry:五个窗口的默认几何', () => {
+describe('resolveRelativeGeometry:五个窗口的默认几何', () => {
     for (const { label, desktop, expected } of VIEWPORTS) {
         it(`${label}:五个窗口逐项与方案里的期望值一致`, () => {
             const resolved = resolveAll(desktop);
@@ -175,8 +183,166 @@ describe('resolveDefaultGeometry:五个窗口的默认几何', () => {
 
     it('after 引用了未解析的窗口时抛一条能读懂的错', () => {
         const view = WINDOW.windows.find((spec) => spec.id === 'view')!;
-        expect(() => resolveDefaultGeometry(view.defaultGeometry, desktopOf(1280, 800), new Map()))
+        expect(() => resolveRelativeGeometry(view.defaultGeometry, desktopOf(1280, 800), new Map()))
             .toThrow(/after/);
+    });
+});
+
+describe('resolveRelativeGeometries:相对声明 -> 绝对坐标(纯函数批量入口)', () => {
+    const desktop = desktopOf(1280, 800);
+
+    it('返回的每个窗口都是四个绝对值,没有锚点残留', () => {
+        const resolved = resolveAll(desktop);
+        expect(resolved.size).toBe(WINDOW.windows.length);
+        for (const [id, geometry] of resolved) {
+            for (const key of ['x', 'y', 'w', 'h'] as const) {
+                expect(typeof geometry[key], `${id}.${key}`).toBe('number');
+                expect(Number.isFinite(geometry[key]), `${id}.${key}`).toBe(true);
+            }
+        }
+    });
+
+    it('纯:同输入同输出,调两次逐字段相同', () => {
+        const a = resolveAll(desktop);
+        const b = resolveAll(desktop);
+        for (const id of a.keys()) expect(b.get(id), id).toEqual(a.get(id));
+    });
+
+    it('**不依赖调用方排序**:清单倒过来喂,结果逐字段相同', () => {
+        // 这条就是重构的收益:`after` 的先后以前是"数组顺序即依赖顺序"这条
+        // 只写在注释里的契约,现在由函数内部解,倒序喂也解得对.
+        const forward = resolveAll(desktop);
+        const reversed = resolveAllReversed(desktop);
+        for (const id of forward.keys()) {
+            expect(reversed.get(id), id).toEqual(forward.get(id));
+        }
+    });
+
+    it('after 指向不存在的窗口 -> 启动期抛错,而不是算出一个错坐标', () => {
+        expect(() => resolveRelativeGeometries(
+            [{ id: 'a', defaultGeometry: {
+                x: { at: 0 }, y: { at: 0 }, w: { at: 10 }, h: { at: 10 },
+                after: { id: '不存在', gap: 8 },
+            } }],
+            desktop,
+        )).toThrow(/after/);
+    });
+
+    it('after 成环 -> 抛一条能读出是哪一圈的错', () => {
+        expect(() => resolveRelativeGeometries(
+            [
+                { id: 'a', defaultGeometry: {
+                    x: { at: 0 }, y: { at: 0 }, w: { at: 10 }, h: { at: 10 },
+                    after: { id: 'b', gap: 8 },
+                } },
+                { id: 'b', defaultGeometry: {
+                    x: { at: 0 }, y: { at: 0 }, w: { at: 10 }, h: { at: 10 },
+                    after: { id: 'a', gap: 8 },
+                } },
+            ],
+            desktop,
+        )).toThrow(/成环/);
+    });
+
+    it('窗口 id 重复 -> 抛错(而不是后者静默盖掉前者)', () => {
+        const spec = { x: { at: 0 }, y: { at: 0 }, w: { at: 10 }, h: { at: 10 } };
+        expect(() => resolveRelativeGeometries(
+            [{ id: 'dup', defaultGeometry: spec }, { id: 'dup', defaultGeometry: spec }],
+            desktop,
+        )).toThrow(/重复/);
+    });
+});
+
+describe('resolveRelativeGeometry:split(把居中区域等分成并排的几块)', () => {
+    const desktop = desktopOf(1280, 800);
+
+    /**
+     * 一个宽窗口拆成并排两块:典型的"原来一个 objects,现在实体 / 求值".
+     *
+     * `x` 是占位值(`'center'`):并排的一排里,宽度与 x 由同一份"第几块"信息一起
+     * 算出,`resolveX` 走 `split` 分支时根本不读它.类型上仍然必填,免得"相对"
+     * 退化成 `undefined` 分支(见 `RelativeGeometry` 的文件头).
+     */
+    const panel = (index: number): RelativeGeometry => ({
+        x: 'center',
+        y: { from: 'bottom', inset: 16 },
+        w: { split: { count: 2, index, inset: 436 * 2, gap: 12 } },
+        h: { at: 260 },
+    });
+
+    function resolvePanels(desk: Desktop = desktop): AbsoluteGeometry[] {
+        return [0, 1].map((index) => resolveRelativeGeometry(panel(index), desk, new Map()));
+    }
+
+    it('两块等宽,x 相差一个"宽 + gap"', () => {
+        const [a, b] = resolvePanels();
+        // 1280 - 872 - 12 = 396,对半分各 198.
+        expect(a.w).toBe(198);
+        expect(b.w).toBe(198);
+        expect(b.x).toBe(a.x + a.w + 12);
+    });
+
+    it('整排居中:x 关于桌面中心对称', () => {
+        const [a, b] = resolvePanels();
+        const leftGap = a.x;
+        const rightGap = desktop.w - (b.x + b.w);
+        expect(leftGap).toBe(rightGap);
+    });
+
+    it('`x` 省略合法,y 与 h 仍走自己的锚点(两块底边齐平)', () => {
+        const [a, b] = resolvePanels();
+        expect(b.y).toBe(a.y);
+        expect(b.y + b.h).toBe(desktop.h - 16);
+        expect(a.y + a.h).toBe(desktop.h - 16);
+    });
+
+    it('换一个桌面宽度仍然等宽且居中(inset 手算法在这里会错)', () => {
+        const wide = desktopOf(1920, 1080);
+        const [a, b] = resolvePanels(wide);
+        expect(a.w).toBe(b.w);
+        expect(a.w).toBe(Math.floor((1920 - 872 - 12) / 2));
+        expect(a.x).toBe(1920 - (b.x + b.w));
+    });
+
+    it('count = 1 就是"居中区域里的一块"', () => {
+        const single = resolveRelativeGeometry(
+            // `x` 是占位值:`w` 用了 split 时不读它(见 RelativeGeometry 的文件头).
+            { x: 'center', y: { at: 16 }, w: { split: { count: 1, index: 0, inset: 0, gap: 0 } }, h: { at: 100 } },
+            desktop,
+            new Map(),
+        );
+        expect(single.w).toBe(1280);
+        expect(single.x).toBe(0);
+    });
+
+    it('index 越界 / count 非法时抛一条能读懂的错', () => {
+        const bad = (split: { count: number; index: number; inset: number; gap: number }) =>
+            resolveRelativeGeometry(
+                { x: 'center', y: { at: 16 }, w: { split }, h: { at: 100 } },
+                desktop,
+                new Map(),
+            );
+        expect(() => bad({ count: 2, index: 2, inset: 0, gap: 0 })).toThrow(/index/);
+        expect(() => bad({ count: 0, index: 0, inset: 0, gap: 0 })).toThrow(/count/);
+    });
+});
+
+describe('resolveRelativeGeometry:纵向 after(旧语义不受影响)', () => {
+    it('y 接在依赖窗口下方,且不去动 x', () => {
+        const desktop = desktopOf(1280, 800);
+        const base = resolveRelativeGeometry(
+            { x: 'center', y: { at: 16 }, w: { at: 300 }, h: { at: 200 } },
+            desktop,
+            new Map(),
+        );
+        const below = resolveRelativeGeometry(
+            { x: 'center', y: { at: 0 }, w: { at: 300 }, h: { at: 100 }, after: { id: 'base', gap: 12 } },
+            desktop,
+            new Map([['base', base]]),
+        );
+        // y 从工作区上沿量起:16 是相对工作区的偏移,所以要加上 dockReserve.
+        expect(below.y).toBe(WINDOW.dockReserve + 16 + 200 + 12);
+        expect(below.x).toBe(base.x);
     });
 });
 
@@ -223,7 +389,7 @@ describe('moveGeometry', () => {
     const limits = limitsFor('source', desktop);
 
     it('增量语义:夹住之后回拖能立刻跟上', () => {
-        const start: Geometry = { x: 100, y: 100, w: 420, h: 300 };
+        const start: AbsoluteGeometry = { x: 100, y: 100, w: 420, h: 300 };
 
         const moved = moveGeometry(start, 40, 30, limits);
         expect(moved).toEqual({ x: 140, y: 130, w: 420, h: 300 });
@@ -304,7 +470,7 @@ describe('resolveEdgeSnap', () => {
 
 describe('magnetize', () => {
     const magnet = WINDOW.snap.magnet;
-    const other: Geometry = { x: 500, y: 300, w: 400, h: 200 };
+    const other: AbsoluteGeometry = { x: 500, y: 300, w: 400, h: 200 };
 
     it('x 贴到其它窗口的左/右边,只改一个轴', () => {
         const nearLeft = magnetize({ x: 504, y: 100, w: 200, h: 100 }, [other], magnet);
@@ -322,7 +488,7 @@ describe('magnetize', () => {
     });
 
     it('最近的一条胜出;超出阈值则原样返回', () => {
-        const others: Geometry[] = [
+        const others: AbsoluteGeometry[] = [
             { x: 500, y: 0, w: 100, h: 100 },
             { x: 506, y: 0, w: 100, h: 100 },
         ];
@@ -332,7 +498,7 @@ describe('magnetize', () => {
 });
 
 describe('geometryStyle', () => {
-    const geometry: Geometry = { x: 16, y: 32, w: 420, h: 260 };
+    const geometry: AbsoluteGeometry = { x: 16, y: 32, w: 420, h: 260 };
 
     it('四条属性是 px 字符串', () => {
         expect(geometryStyle(geometry)).toEqual({
@@ -363,6 +529,8 @@ describe('窗口配置自洽', () => {
         let seen = 0;
         for (const spec of WINDOW.windows) {
             for (const axis of [spec.defaultGeometry.y, spec.defaultGeometry.h, spec.defaultGeometry.x]) {
+                // `x` 可省(横向 after 时由被依赖窗口算出),滤掉 undefined.
+                if (axis === undefined) continue;
                 if (typeof axis !== 'string' && 'from' in axis && axis.from === 'bottom') {
                     expect(axis.inset, spec.id).toBe(WINDOW.edgeGap);
                     seen += 1;

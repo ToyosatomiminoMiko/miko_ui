@@ -14,7 +14,7 @@ import { createButton, type ButtonHandle } from '../widgets/Button';
 import { create_element, childNodes, type Child } from '../widgets/dom';
 import {
     geometryStyle,
-    type Geometry,
+    type AbsoluteGeometry,
 } from './WindowGeometry';
 import { RESIZE_DIRECTIONS, type ResizeDirection } from './WindowResize';
 
@@ -40,7 +40,7 @@ export interface WindowFrameSpec {
     /** 由桌面配置的 `actions` 生成的窗口按钮(见 `WindowManager._actionButtons`). */
     readonly controls: readonly WindowActionButton[];
     /** 建好即刻写入行内样式,避免首帧闪在左上角. */
-    readonly geometry: Geometry;
+    readonly geometry: AbsoluteGeometry;
 }
 
 export interface WindowFrameHandle {
@@ -62,7 +62,7 @@ export interface WindowFrameHandle {
  * 不要用 `element.style.cssText = ...`:`cssText` 赋值会清空整个行内声明块,
  * 把 `focus()` 写的 `z-index` 一起清掉,被拖的窗口会当场掉到其它窗口后面.
  */
-export function writeGeometry(element: HTMLElement, g: Geometry): void {
+export function writeGeometry(element: HTMLElement, g: AbsoluteGeometry): void {
     for (const [name, value] of Object.entries(geometryStyle(g))) {
         element.style.setProperty(name, value);
     }

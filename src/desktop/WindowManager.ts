@@ -23,10 +23,10 @@ import {
     fitGeometry,
     magnetize,
     moveGeometry,
-    resolveDefaultGeometry,
+    resolveRelativeGeometries,
     resolveEdgeSnap,
     type Desktop,
-    type Geometry,
+    type AbsoluteGeometry,
     type Limits,
     type SnapKind,
 } from './WindowGeometry';
@@ -72,9 +72,9 @@ interface Entry {
     /** 消费者给的正文节点:`dispose()` 时原样还回桌面根,不留在被删的外壳里. */
     readonly content: readonly Node[];
     /** 唯一几何真相源(普通态);最大化/最小化不改它. */
-    geometry: Geometry;
+    geometry: AbsoluteGeometry;
     /** 进入 maximized 前的几何,还原用. */
-    restore: Geometry | null;
+    restore: AbsoluteGeometry | null;
     state: WindowState;
     /** 每个窗口一份:拖动/缩放的指针监听在它上面 abort. */
     readonly gesture: AbortController;
@@ -86,7 +86,7 @@ interface Entry {
 interface PendingSnap {
     readonly id: WindowId;
     readonly kind: SnapKind;
-    readonly target: Geometry;
+    readonly target: AbsoluteGeometry;
 }
 
 export class WindowManager {
@@ -125,9 +125,19 @@ export class WindowManager {
     /**
      * 建 frame + 搬正文 + 建 Dock + 起初始焦点 + 挂 resize.
      *
-     * 顺序不能换:①先算全部默认几何(数组顺序即依赖顺序);②建 frame,把
-     * `content` 给的标题栏节点放进对应槽位,正文节点 append 进 `.window-body`;
-     * ③Dock;④初始焦点(没有焦点就没有 z 序参照).
+     * **初始化只有两个阶段**(见 `RelativeGeometry` 的文件头):
+     *
+     * ```text
+     * ① RelativeGeometry[]  ──resolveRelativeGeometries(纯函数)──▶  Map<id, AbsoluteGeometry>
+     * ② Map<id, AbsoluteGeometry> ──▶ createWindowFrame({ geometry })   // 只吃绝对值
+     * ```
+     *
+     * 相对定位在①就全部换成了绝对坐标,窗口那一侧不认识锚点.①的依赖由纯函数
+     * 内部解,**不需要**窗口清单先按 `after` 排好序.
+     *
+     * 其余顺序不能换:①之后才②建 frame(把 `content` 给的标题栏节点放进对应
+     * 槽位,正文节点 append 进 `.window-body`),再③Dock,最后④初始焦点
+     * (没有焦点就没有 z 序参照).
      */
     bind(): void {
         if (this.bound) {
@@ -158,11 +168,10 @@ export class WindowManager {
         // 因为那时构造参数属性还没赋值).
         this.z = this.config.z.first;
 
-        // 1) 默认几何:数组顺序即依赖顺序(view 依赖 source,process 依赖 params).
-        const resolved = new Map<WindowId, Geometry>();
-        for (const spec of this.config.windows) {
-            resolved.set(spec.id, resolveDefaultGeometry(spec.defaultGeometry, this.desktop, resolved));
-        }
+        // 1) 默认几何:一次纯函数调用,把整张声明表换成每个窗口的绝对坐标.
+        //    依赖(各窗口的 `after`)由 `resolveRelativeGeometries` 在内部解,所以不再
+        //    需要"数组顺序即依赖顺序"这条隐式契约.
+        const resolved = resolveRelativeGeometries(this.config.windows, this.desktop);
 
         // 2) 逐个建窗口.
         for (const spec of this.config.windows) {
@@ -194,7 +203,7 @@ export class WindowManager {
                 zIndex: this.z,
             };
             this.entries.set(spec.id, entry);
-            // 默认几何也要过一遍夹取:`resolveDefaultGeometry` 只做锚点换算,
+            // 默认几何也要过一遍夹取:`resolveRelativeGeometries` 只做锚点换算,
             // 小视口下它的结果可以低于 `minSize`(`view` 在 1280x700 上是 178 <
             // 180),`objects` 的 `y` 甚至可能为负(标题栏被顶出桌顶,再也抓不回来).
             // 用 `restoreAll` / `onDesktopResize` 同一条 `fitGeometry` 收回桌内.
@@ -283,7 +292,7 @@ export class WindowManager {
         return entry.state;
     }
 
-    getGeometry(id: WindowId): Geometry {
+    getGeometry(id: WindowId): AbsoluteGeometry {
         const entry = this.entries.get(id);
         if (!entry) throw new Error(`WindowManager: 未登记的窗口 ${id}`);
         return entry.geometry;
@@ -338,10 +347,8 @@ export class WindowManager {
 
     /** 把所有窗口复位到默认几何并回到 normal 态. */
     restoreAll(): void {
-        const resolved = new Map<WindowId, Geometry>();
-        for (const spec of this.config.windows) {
-            resolved.set(spec.id, resolveDefaultGeometry(spec.defaultGeometry, this.desktop, resolved));
-        }
+        // 与 `bind()` 共用同一条解析路径:这里以前抄了一份一模一样的循环.
+        const resolved = resolveRelativeGeometries(this.config.windows, this.desktop);
         for (const entry of this.entries.values()) {
             entry.state = 'normal';
             entry.restore = null;
@@ -355,7 +362,7 @@ export class WindowManager {
     }
 
     /** 几何的唯一入口:过一遍夹取,再交给 `_applyGeometry`. */
-    setGeometry(id: WindowId, next: Geometry): void {
+    setGeometry(id: WindowId, next: AbsoluteGeometry): void {
         const entry = this._require(id);
         entry.geometry = clampGeometry(next, this._limits(entry));
         this._applyGeometry(id);
@@ -529,7 +536,7 @@ export class WindowManager {
          */
         let pendingRestore = false;
         /** 本次拖动里未被磁吸修正的位置;`null` = 还没开始累加. */
-        let unsnapped: Geometry | null = null;
+        let unsnapped: AbsoluteGeometry | null = null;
         bindDragGesture(entry.frame.title, entry.gesture.signal, {
             canStart: (event) => {
                 if (this._hidden(entry)) return false;
@@ -622,8 +629,8 @@ export class WindowManager {
         this.focus(id);
     }
 
-    private _otherGeometries(id: WindowId): Geometry[] {
-        const others: Geometry[] = [];
+    private _otherGeometries(id: WindowId): AbsoluteGeometry[] {
+        const others: AbsoluteGeometry[] = [];
         for (const entry of this.entries.values()) {
             if (entry.spec.id === id || this._hidden(entry)) continue;
             others.push(entry.geometry);

@@ -12,6 +12,9 @@
  *   .ui-button             按钮基线(每个 `createButton` 都带,见下)
  *   .menu-panel            菜单面板(`.menu-group` 分组,`.menu-item` 菜单项)
  *   .menu-anchor / .menu-popover  浮层用法的锚点与开合(直接显示只用 `.menu-panel`)
+ *   .object-row / .row-main / .row-actions  行外壳三件套(`shared/rowDom.ts`)
+ *   .diagnostic*           反馈条目的默认观感在 `feedback.css`
+ *   .is-copied / .is-error 复制反馈的状态(见 `formula/FormulaCopyController.ts`)
  *
  * 按钮**有基线**:`createButton` 一律带 `.ui-button`,消费方的类名叠在它后面
  * (`.slider-field-reset` / `.window-control-btn` 这类只是定位钩子;真要加外观
@@ -396,3 +399,57 @@
     border-color: var(--color-select-border);
     color: var(--color-text-active);
 }
+
+/* ==========================================================================
+ * 行外壳:对象行 / 求值行 / 步骤行共用的那一层
+ * --------------------------------------------------------------------------
+ * 结构由 `shared/rowDom.ts` 建(`createObjectRow` / `createRowActions`),所以
+ * 这三条基线属于库:
+ *
+ *   .object-row     行外壳(`<article>`);第二个类名由调用方给(`entity-row`...)
+ *   .row-main       主内容包装:吃掉除行末动作外的全部宽度
+ *   .row-actions    行末动作容器:整组贴右,按钮竖排
+ *
+ * 补上之前这三个类在库的样式表里**一条规则都没有**,消费者只能自己写 -- 而那
+ * 恰恰是 `test/emittedClasses.test.ts` 那条类名契约要禁止的事.现在默认观感
+ * 归库,消费者仍然可以:
+ *   - 用 `.entity-row` 这类**自己的**行类名写增量(推荐,不需要覆盖);
+ *   - 或直接重载下面任意一条(库不改这些选择器的优先级,后加载的消费者样式赢).
+ *
+ * 这里只给"行是横排,主内容占满,动作贴右"这三件结构事实 + 一层默认底色,不写
+ * 消费者的行内排版(`.entity-row > .row-main` 的换行规则等留在应用侧).
+ * ========================================================================== */
+
+.object-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 8px;
+    border: 1px solid var(--color-border-faint);
+    border-radius: var(--radius-sm);
+    background: var(--color-fill-row);
+}
+
+/* 主内容:flex:1 让它吃掉除行末动作外的全部宽度,动作因此始终贴右.
+   `min-width: 0` 是必需的:否则长公式/长文本会把行撑破而不是让内部收缩. */
+.row-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+/* 行末动作:整组贴右靠 `.row-main` 的 flex:1;按钮竖排,免得两个按钮并排把
+   主内容挤得读不出来(窄面板下尤其明显).动作项自己的外观来自 `.ui-button`
+   基线,这里不重复. */
+.row-actions {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+}
+

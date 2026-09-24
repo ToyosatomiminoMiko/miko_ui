@@ -43,6 +43,13 @@ export type WindowActionId = 'minimize' | 'maximize';
  * 处,于是 `x: { from: 'right', inset } -> x = dW - inset - w`,`h: { from:
  * 'bottom', inset } -> h = dH - inset - y`.同一列上的窗口共用同一个底边
  * `inset`,底边自然齐平,不需要第二套规则.
+ *
+ * `split` 是**一个锚点描述一整排**:把桌面中间那块(两边各留 `inset`)按 `count`
+ * 等分,第 `index` 块自己算出宽度与 x,整排仍然居中.它同时是 `w` 与 `x` 的锚点,
+ * 因为"第几块"这一个信息决定了两者 -- 宽度 = (可用宽 - 间隙) / count,x = 居中
+ * 起点 + index * (宽度 + 间隙).写成一个锚点而不是"inset 里手动减 gap 再手动
+ * 偏移",是因为后者只在某一个桌面宽度下算得对:`clamp` 只做夹取,不会对半分,
+ * 也没法把整排居中.
  */
 export type AxisSpec =
     | { readonly at: number }
@@ -52,20 +59,74 @@ export type AxisSpec =
     | {
         readonly clamp: readonly [min: number, max: number];
         readonly inset: number;
+    }
+    | {
+        /** 把居中区域等分成 `count` 份,自己是第 `index` 份(从 0 起). */
+        readonly split: {
+            readonly count: number;
+            readonly index: number;
+            /** 两端各留多少(px):`左右两条桌面边` 到整排的距离. */
+            readonly inset: number;
+            /** 份与份之间的间隙(px). */
+            readonly gap: number;
+        };
     };
 
 /**
- * 默认几何:写"锚点",不写算出来的数字.
+ * **相对**几何:消费者写的声明(锚点 + 可能依赖别的窗口或桌面尺寸).
  *
- * 列高与中列宽度都依赖桌面尺寸,写死 px 只在某一个视口下正确,因此配置里
- * 只描述锚点,由 `WindowGeometry.resolveDefaultGeometry()` 按当前桌面算出 px.
+ * 与 {@link AbsoluteGeometry} 是一对反义名字,也是这条流水线的两端:
+ *
+ * ```text
+ *   RelativeGeometry(消费者写)
+ *        │  resolveRelativeGeometries() / resolveRelativeGeometry()   ← 纯函数
+ *        ▼
+ *   AbsoluteGeometry(四个具体像素)                ← 窗口只吃这个
+ * ```
+ *
+ * 为什么叫"相对":这里的定位以**别的东西**为参照,不是最终坐标.参照物有两类 --
+ *
+ * 1. **桌面尺寸**:`{ fraction }` / `{ clamp }` / `{ from: 'right' | 'bottom' }` /
+ *    `'center'` 都随视口变,同一个声明在 1280 与 1920 上算出不同的数;
+ * 2. **别的窗口**:`after` 接在另一个窗口下方,`split` 的每一块还要知道同排有几块,
+ *    自己是第几块 -- 单独一个窗口的声明算不出自己的 x.
+ *
+ * 只有 `{ at: n }` 是"绝对像素"(仍是相对工作区原点量),但类型不为此分家:一个窗口
+ * 的几何里只要有一处是相对的,整份声明就得经过解析,所以整体叫"相对几何"更省事,
+ * 也提醒你别把它当坐标用.
+ *
+ * 窗口那一侧(`createWindowFrame` / `writeGeometry` / `geometryStyle`)只接受
+ * `AbsoluteGeometry`,**不认识锚点**:相对定位不会漏进窗口.
+ *
+ * 四个轴都是必填:没有"这个轴不用写"的字段.某个锚点会盖掉同轴的另一项时,
+ * 照旧写一个**占位值**并在注释里注明(现有两处:`y` 给 `after` 时写 `y: { at: 0 }`,
+ * 并排的 `split` 里写 `x: 'center'`)-- 占位值不会被读到,但类型上不存在
+ * `undefined` 分支,解析器也就不需要"先判断有没有"这一步.
  */
-export interface WindowGeometrySpec {
+export interface RelativeGeometry {
+    /**
+     * 横向锚点.
+     *
+     * 当 `w` 用了 `split` 时这个字段**不被读取**(整排的 x 由 `split` 的 `index`
+     * 算出并整排居中),按上面的约定写 `'center'` 当占位.
+     */
     readonly x: AxisSpec;
+    /**
+     * 纵向锚点.
+     *
+     * 当本窗口给了 `after` 时这个字段**不被读取**(y 接在依赖窗口下方),按约定
+     * 写 `{ at: 0 }` 当占位.
+     */
     readonly y: AxisSpec;
     readonly w: AxisSpec;
     readonly h: AxisSpec;
-    /** 依赖另一个窗口:`y` 接在 `after` 的下方 `gap` 像素处(`y` 被忽略). */
+    /**
+     * 纵向依赖另一个窗口:`y` 接在它的**下方** `gap` 像素处,此时 `y` 被占位忽略.
+     *
+     * 横向的"接在右边"不在这里 -- 并排的窗口用 `w` 上的 `split` 锚点(见
+     * `AxisSpec`),因为并排时宽度与 x 由同一份"第几块"信息一起算出,分成两处写
+     * 会得到互相矛盾的坐标.
+     */
     readonly after?: { readonly id: string; readonly gap: number };
 }
 
@@ -103,7 +164,7 @@ export interface WindowConfigEntry {
     /** 标题栏文案,同时是 Dock 按钮的 `title` 与无障碍名. */
     readonly title: string;
     readonly dock: { readonly label: string };
-    readonly defaultGeometry: WindowGeometrySpec;
+    readonly defaultGeometry: RelativeGeometry;
     readonly minSize: { readonly w: number; readonly h: number };
 }
 

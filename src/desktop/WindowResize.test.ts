@@ -7,11 +7,11 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type StubElement } from '../../test/domStub';
-import type { Geometry } from './WindowGeometry';
+import type { AbsoluteGeometry } from './WindowGeometry';
 import type { WindowState } from './WindowManager';
 import { applyResize, bindWindowResize, RESIZE_DIRECTIONS } from './WindowResize';
 
-const START: Geometry = { x: 100, y: 200, w: 400, h: 300 };
+const START: AbsoluteGeometry = { x: 100, y: 200, w: 400, h: 300 };
 
 beforeEach(() => {
     installDomStub();
@@ -52,7 +52,7 @@ describe('applyResize', () => {
 describe('bindWindowResize', () => {
     function setup(state: WindowState = 'normal'): {
         handle: StubElement;
-        calls: Geometry[];
+        calls: AbsoluteGeometry[];
         controller: AbortController;
         setState(next: WindowState): void;
     } {
@@ -62,7 +62,7 @@ describe('bindWindowResize', () => {
         handle.style.cursor = 'nwse-resize';
 
         let current = state;
-        const calls: Geometry[] = [];
+        const calls: AbsoluteGeometry[] = [];
         const controller = new AbortController();
         bindWindowResize(
             handle as unknown as HTMLElement,

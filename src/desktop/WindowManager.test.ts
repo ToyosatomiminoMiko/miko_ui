@@ -173,7 +173,7 @@ describe('bind:装配', () => {
         const { manager } = setup(1280, 700);
         const view = WINDOW.windows.find((spec) => spec.id === 'view')!;
 
-        // raw resolveDefaultGeometry 在这里只给 178(见 WindowGeometry.test.ts
+        // raw resolveRelativeGeometry 在这里只给 178(见 WindowGeometry.test.ts
         // 的说明),夹取后必须顶到 minSize.h.
         expect(manager.getGeometry('view').h).toBeGreaterThanOrEqual(view.minSize.h);
     });

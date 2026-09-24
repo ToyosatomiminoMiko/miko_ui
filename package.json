@@ -32,6 +32,7 @@
     "./styles/widgets.css": "./styles/widgets.css",
     "./styles/desktop.css": "./styles/desktop.css",
     "./styles/editor.css": "./styles/editor.css",
+    "./styles/feedback.css": "./styles/feedback.css",
     "./package.json": "./package.json"
   },
   "main": "./dist/index.js",

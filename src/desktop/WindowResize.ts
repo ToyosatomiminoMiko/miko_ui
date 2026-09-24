@@ -14,7 +14,7 @@
  * 3. 至少 `edgeKeep` 宽留在桌内,这条同样由调用方那次夹取保证.
  */
 import { bindDragGesture } from '../shared/dragGesture';
-import type { Geometry } from './WindowGeometry';
+import type { AbsoluteGeometry } from './WindowGeometry';
 import type { WindowState } from './WindowManager';
 
 export type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -30,11 +30,11 @@ export const RESIZE_DIRECTIONS: readonly ResizeDirection[] = [
 
 /** 方向 + 增量 -> 未夹取的几何(纯算术). */
 export function applyResize(
-    g: Geometry,
+    g: AbsoluteGeometry,
     direction: ResizeDirection,
     dx: number,
     dy: number,
-): Geometry {
+): AbsoluteGeometry {
     let { x, y, w, h } = g;
 
     if (direction.includes('e')) w += dx;
@@ -53,7 +53,7 @@ export function applyResize(
 
 /** 手柄绑定要读的窗口侧状态(几何与状态都是唯一真相源,不读 DOM 类名). */
 export interface ResizeContext {
-    geometry(): Geometry;
+    geometry(): AbsoluteGeometry;
     state(): WindowState;
 }
 
@@ -62,7 +62,7 @@ export function bindWindowResize(
     handle: HTMLElement,
     signal: AbortSignal,
     direction: ResizeDirection,
-    onGeometry: (next: Geometry) => void,
+    onGeometry: (next: AbsoluteGeometry) => void,
     read: ResizeContext,
 ): void {
     bindDragGesture(handle, signal, {

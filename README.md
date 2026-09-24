@@ -40,7 +40,7 @@ main 每次推送后,`.github/workflows/release.yml` 把包根(`dist/` + `styles
 ```ts
 import { mountDesktop, signal } from '@miko/ui';
 import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
-// 或者按分组引:@miko/ui/styles/tokens.css / widgets.css / desktop.css / editor.css
+// 或者按分组引:@miko/ui/styles/tokens.css / widgets.css / desktop.css / editor.css / feedback.css
 ```
 
 > `@miko/ui` 只是应用侧给这条 `file:` 依赖起的名字,目录里的包名仍是 `miko_ui`.
@@ -170,6 +170,17 @@ radius.subscribe((value) => renderer.setPointRadius(value));
   传 signal = 双向绑定(值变了控件自己更新,用户操作写回 signal).
 - **样式只有类名**:库的样式表里没有 id 选择器,所以消费者不需要为库准备
   任何 id;token 层开放覆盖(`--color-*` / `--radius-*` 等).
+- **几何写锚点,不写数字**:`w` 上的 `split` 描述"把居中区域等分成并排的
+  几块"(第 `index` 块自己算宽度与 x,整排居中),`after: { id, gap }` 描述"y 接在
+  另一个窗口下方".两者都按当前桌面算 px,所以在 1280 与 1920 上都成立;`clamp`
+  只做夹取,不会对半分,也没有"整排居中"这回事.
+- **相对定位在初始化前就换算完**:消费者写的是 `RelativeGeometry`(锚点,可能以
+  桌面尺寸或别的窗口为参照),窗口拿到的是 `AbsoluteGeometry`(`x/y/w/h` 四个具体
+  像素).两段之间的桥是纯函数 `resolveRelativeGeometries(windows, desktop)` --
+  `WindowManager` 在 `bind()` 里一次调用它,然后再建窗口,所以**窗口那一侧不认识
+  锚点**.依赖(`after`)由这个函数内部解,窗口清单不必按依赖序排好.
+  `RelativeGeometry` 的四个轴都是必填,某个锚点会盖掉同轴另一项时写占位值
+  (如并排时 `x: 'center'`),类型里不存在"这个轴没写"的分支.
 
 ## 公开面
 
@@ -187,7 +198,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | `feedback/` | `MessageList`(错误/警告列表,零领域依赖) |
 | `formula/` | `createFormulaElement`(KaTeX;`katex` 是**可选** peer),`FormulaCopyController` |
 | `theme/` | `applyTheme(root, tokens)`,`DEFAULT_THEME_TOKENS` |
-| `styles/` | `tokens.css`(默认主题,最先加载),`widgets.css`,`desktop.css`,`styles.css`(总入口) |
+| `styles/` | `tokens.css`(默认主题,最先加载),`widgets.css`(含行外壳 `.object-row`/`.row-main`/`.row-actions`),`desktop.css`,`editor.css`,`feedback.css`(`.diagnostic*`,复制反馈的 `.is-copied`/`.is-error`),`styles.css`(总入口) |
 
 ## 边界契约(有机器守,不靠自觉)
 
@@ -212,6 +223,15 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 八条都是硬断言,全部必须为 0:任何一条出现违例,`npm test` 直接失败,没有
 baseline,也没有"允许的例外".
+
+另有一条**测试级**契约,守的是样式归属而不是耦合:`test/emittedClasses.test.ts`
+断言"库**产出的每个类名**,库的样式表里要么有默认规则,要么在
+`INTENTIONAL_HOOKS` 里显式声明它只是定位钩子(带理由)".背景是
+`MessageList` / `rowDom` / `FormulaCopyController` 曾经产出
+`.diagnostic*` / `.object-row` / `.row-main` / `.row-actions` /
+`.is-copied` / `.is-error` 却没有配套样式,消费者于是被迫给库的类写外观 --
+而消费侧的 `styleLayers.test.ts` 恰好禁止这件事.这条断言让"游离的类名"不可能
+再悄悄漂出来:新增一个产出而不给样式,CI 就会红.
 
 ## 三条设计约束(改动前先读)
 

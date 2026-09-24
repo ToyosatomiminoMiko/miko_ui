@@ -9,7 +9,7 @@
  * 它**不是**任何消费者配置的副本:消费者改自己的窗口布局不必改这里,这里改
  * 夹具也不会影响消费者.
  */
-import type { DesktopConfig, WindowGeometrySpec } from '../src/desktop/types';
+import type { DesktopConfig, RelativeGeometry } from '../src/desktop/types';
 
 /** 夹具里的窗口 id;与库的 `WindowId`(不透明 string)不同,这里收窄成字面量. */
 export type FixtureWindowId = 'source' | 'view' | 'params' | 'process' | 'objects';
@@ -24,7 +24,7 @@ export interface FixtureWindowEntry {
     readonly id: FixtureWindowId;
     readonly title: string;
     readonly dock: { readonly label: string };
-    readonly defaultGeometry: WindowGeometrySpec;
+    readonly defaultGeometry: RelativeGeometry;
     readonly minSize: { readonly w: number; readonly h: number };
 }
 

@@ -6,6 +6,7 @@
  *   miko_ui/styles/widgets.css    控件
  *   miko_ui/styles/desktop.css    桌面窗口系统
  *   miko_ui/styles/editor.css     源码编辑器外壳(结构与对齐)
+ *   miko_ui/styles/feedback.css   反馈件(消息 / 诊断列表条目)
  *
  * 这里按"token -> 控件 -> 桌面"的顺序再排一遍:桌面样式读 token
  * (如 --window-header-height),顺序反了在覆盖场景下会出现
@@ -18,3 +19,4 @@
 @import "./widgets.css";
 @import "./desktop.css";
 @import "./editor.css";
+@import "./feedback.css";
