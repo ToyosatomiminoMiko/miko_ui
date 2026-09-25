@@ -33,6 +33,7 @@
     "./styles/desktop.css": "./styles/desktop.css",
     "./styles/editor.css": "./styles/editor.css",
     "./styles/feedback.css": "./styles/feedback.css",
+    "./styles/scrollbar.css": "./styles/scrollbar.css",
     "./package.json": "./package.json"
   },
   "main": "./dist/index.js",

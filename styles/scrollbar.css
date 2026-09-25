@@ -1,0 +1,59 @@
+/* ==========================================================================
+ * miko_ui 滚动条(单独的一条规定,不与任何组件耦合)
+ * --------------------------------------------------------------------------
+ * 启用方式只有一个:在**会滚动**的元素上挂 `ui-scrollbar`.
+ *
+ * ```html
+ * <div class="my-list ui-scrollbar"> ... </div>
+ * ```
+ *
+ * 为什么是显式类名,而不是全局 `*` / `[class]` 选择器:滚动条外观是消费方的
+ * 选择(同页里原本就该用系统滚动条的区域不该被库改掉).库只提供这一种规定,
+ * 不替消费者决定"哪里算滚动区";类名就是这条规定与页面之间**唯一**的接触面 --
+ * 它不认识任何组件类,也不被任何组件类认识,删掉这一份 CSS,库的其余部分是
+ * 完整的(`test/scrollbarStyles.test.ts` 守这两条).
+ *
+ * 为什么挂在滚动容器**自己**身上(而不是只标一个祖先):两类实现里只有一类会
+ * 继承.
+ *   - 标准属性 `scrollbar-width` / `scrollbar-color`(Firefox;Chromium 121+
+ *     部分支持)是**继承属性**,标在祖先上对内部滚动区也生效;
+ *   - `::-webkit-scrollbar*` 伪元素(Safari 与旧 Chromium)**不可继承**,只作用
+ *     于滚动容器本身.
+ * 所以"标一个祖先全覆盖"不成立,每个滚动容器要自己挂类.
+ *
+ * 取值只来自 token 层(`--scrollbar-size` / `--color-scrollbar` /
+ * `--color-scrollbar-hover` / `--radius-pill`),这里不出现第二份字面量:
+ * 换主题只改 `styles/tokens.css`.
+ *
+ * 选择器一律包在 `:where()` 里(零优先级):消费方用任何一条自己的规则都能
+ * 覆盖它,不必跟库比优先级.
+ * ========================================================================== */
+
+:where(.ui-scrollbar) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-scrollbar) transparent;
+}
+
+:where(.ui-scrollbar)::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+}
+
+:where(.ui-scrollbar)::-webkit-scrollbar-track,
+:where(.ui-scrollbar)::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+:where(.ui-scrollbar)::-webkit-scrollbar-thumb {
+    /* 透明描边 + `background-clip: content-box`:滑块比命中区窄一圈,
+       鼠标更容易抓住,视觉上也不会贴住内容. */
+    border: 2px solid transparent;
+    border-radius: var(--radius-pill);
+    background: var(--color-scrollbar);
+    background-clip: content-box;
+}
+
+:where(.ui-scrollbar)::-webkit-scrollbar-thumb:hover {
+    background: var(--color-scrollbar-hover);
+    background-clip: content-box;
+}

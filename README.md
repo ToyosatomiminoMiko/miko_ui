@@ -49,7 +49,7 @@ main 每次推送后,`.github/workflows/release.yml` 把包根(`dist/` + `styles
 ```ts
 import { mountDesktop, signal } from '@miko/ui';
 import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
-// 或者按分组引:@miko/ui/styles/tokens.css / widgets.css / desktop.css / editor.css / feedback.css
+// 或者按分组引:@miko/ui/styles/tokens.css / scrollbar.css / widgets.css / desktop.css / editor.css / feedback.css
 ```
 
 > `@miko/ui` 只是应用侧给这条 `file:` 依赖起的名字,目录里的包名仍是 `miko_ui`.
@@ -179,6 +179,10 @@ radius.subscribe((value) => renderer.setPointRadius(value));
   传 signal = 双向绑定(值变了控件自己更新,用户操作写回 signal).
 - **样式只有类名**:库的样式表里没有 id 选择器,所以消费者不需要为库准备
   任何 id;token 层开放覆盖(`--color-*` / `--radius-*` 等).
+- **滚动条是单独的一条规定**:滚动容器挂上 `ui-scrollbar` 类,就得到统一的细
+  滚动条(`styles/scrollbar.css`).这条规定只认这一个类名,不认识任何组件,也
+  不被任何组件引用 -- 删掉它,库的其余部分是完整的.取值只来自 token
+  (`--scrollbar-size` / `--color-scrollbar*`),换主题不用动组件.
 - **几何写锚点,不写数字**:`w` 上的 `split` 描述"把居中区域等分成并排的
   几块"(第 `index` 块自己算宽度与 x,整排居中),`after: { id, gap }` 描述"y 接在
   另一个窗口下方".两者都按当前桌面算 px,所以在 1280 与 1920 上都成立;`clamp`
@@ -207,7 +211,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | `feedback/` | `MessageList`(错误/警告列表,零领域依赖) |
 | `formula/` | `createFormulaElement`(KaTeX;`katex` 是**可选** peer),`FormulaCopyController` |
 | `theme/` | `applyTheme(root, tokens)`,`DEFAULT_THEME_TOKENS` |
-| `styles/` | `tokens.css`(默认主题,最先加载),`widgets.css`(含行外壳 `.object-row`/`.row-main`/`.row-actions`),`desktop.css`,`editor.css`,`feedback.css`(`.diagnostic*`,复制反馈的 `.is-copied`/`.is-error`),`styles.css`(总入口) |
+| `styles/` | `tokens.css`(默认主题,最先加载),`scrollbar.css`(独立的滚动条规定:滚动容器挂 `.ui-scrollbar`),`widgets.css`(含行外壳 `.object-row`/`.row-main`/`.row-actions`),`desktop.css`,`editor.css`,`feedback.css`(`.diagnostic*`,复制反馈的 `.is-copied`/`.is-error`),`styles.css`(总入口) |
 
 ## 边界契约(有机器守,不靠自觉)
 

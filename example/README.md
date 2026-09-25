@@ -30,7 +30,7 @@ npm run dev             # Vite 会打印实际端口
 | `watchValue(value, ...)` | 窗口「读数window」订阅各自的 signal,把值写进只读读数. |
 | `createButton({ text })` | 窗口「控件window」里的计数按钮:`onClick` 只写 `count.value`(`0..255`,满了回 0),计数读数订阅同一个 signal.也是窗口「菜单window」里的浮层**触发器** -- 菜单不认识窗口标题栏,任意按钮都能触发. |
 | `MenuGroup` / `MenuEntry` | 菜单数据就是库的这两个类型(`value` / `text` / `hint` / `disabled`),示例**不另立一份镜像类型**. |
-| `createMenu({ groups, ariaLabel, trigger? })` | 窗口「菜单window」的全部结构:摆 `role="menu"` 面板,按分组套 `role="group"` 与组标题,建出菜单项.给 `trigger` 就是浮层(自己建 `Popover`,面板叠 `.menu-popover`),不给就是常驻面板. |
+| `createMenu({ groups, ariaLabel, trigger?, panel? })` | 窗口「菜单window」的全部结构:摆 `role="menu"` 面板,按分组套 `role="group"` 与组标题,建出菜单项.给 `trigger` 就是浮层(自己建 `Popover`,面板叠 `.menu-popover`),不给就是常驻面板. |
 | `MenuHandle.onSelect` | 唯一的业务回调:拿到被点项的 `value`;浮层**先关再回调**,回调抛错也不会僵在屏幕上. |
 | `MenuHandle.setActive` | 当前项只有一个来源:两份菜单都把选中的 `value` 写进 `menuChoice`,再由它刷各自的当前项(高亮 + `aria-current`). |
 
@@ -41,6 +41,11 @@ npm run dev             # Vite 会打印实际端口
 `.menu-panel` / `.menu-group` + `.menu-group-title` / `.menu-item` /
 `.menu-item-hint`,浮层位置是库的 `.menu-anchor` + `.menu-popover`.示例的
 `example.css` 只剩页面级规则与窗口正文排布.
+
+示例唯一挂的一笔类名是面板上的 **`ui-scrollbar`**:面板有 `max-height`,内容多了
+会滚动,而滚动条是库的**另一条独立规定**(`styles/scrollbar.css`)--菜单件不认识
+它,它也不认识菜单件,所以"这份面板要不要统一滚动条外观"由消费者挂类决定.
+不给这个类,面板仍然能滚,只是用系统滚动条(下游应用挂在标题栏浮层那颗面板上).
 
 ## 目录
 

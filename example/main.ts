@@ -152,13 +152,26 @@ const menuChoice = signal<string | null>(null);
 // 也不要求触发按钮长什么样(下游的标题栏按钮只是它的一个调用点).
 const menuTrigger = createButton({ text: '打开菜单' });
 
+/**
+ * 菜单面板自己会滚动(`.menu-panel` 有 `max-height` + `overflow-y`),但库的
+ * 滚动条规定与菜单件**互不认识**(见 `styles/scrollbar.css`):要不要统一滚动条
+ * 外观,由消费者在这颗面板上挂 `ui-scrollbar` 决定.下游应用挂在标题栏浮层上,
+ * 示例这里两份菜单各挂一次.
+ */
+const scrollablePanel = (): HTMLElement => create_element('div', { class: 'ui-scrollbar' });
+
 /** 直接显示:不给 `trigger`,面板常驻在正文里. */
-const staticMenu = createMenu({ groups: MENU_GROUPS, ariaLabel: '视图菜单(直接显示)' });
+const staticMenu = createMenu({
+    groups: MENU_GROUPS,
+    ariaLabel: '视图菜单(直接显示)',
+    panel: scrollablePanel(),
+});
 /** 浮层:给了 `trigger`,`createMenu` 自己建 `Popover` 并叠上 `.menu-popover`. */
 const popoverMenu = createMenu({
     groups: MENU_GROUPS,
     ariaLabel: '视图菜单(浮层)',
     trigger: menuTrigger.element,
+    panel: scrollablePanel(),
 });
 
 // 选中态只有一个来源:两份菜单都把选中的 `value` 写进 `menuChoice`,再由它刷
