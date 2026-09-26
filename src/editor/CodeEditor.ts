@@ -64,30 +64,27 @@ export interface CodeEditorHandle {
 export function createCodeEditor(options: CodeEditorOptions): CodeEditorHandle {
     const root = options.root;
 
-    const textarea = create_element('textarea', {
+    const textarea = create_element({ tag: 'textarea', root }, {
         class: 'code-editor-textarea',
         spellcheck: String(options.spellcheck ?? false),
-        root,
     });
     textarea.value = options.value ?? '';
 
-    const lines = create_element('pre', { class: 'code-editor-lines', root });
-    const gutter = create_element('div', {
+    const lines = create_element({ tag: 'pre', root }, { class: 'code-editor-lines' });
+    const gutter = create_element({ tag: 'div', root }, {
         class: 'code-editor-gutter',
         'aria-hidden': 'true',
-        root,
     }, lines);
 
-    const highlightCode = create_element('pre', { class: 'code-editor-highlight-code', root });
-    const highlightScroller = create_element('div', {
+    const highlightCode = create_element({ tag: 'pre', root }, { class: 'code-editor-highlight-code' });
+    const highlightScroller = create_element({ tag: 'div', root }, {
         class: 'code-editor-highlight',
         'aria-hidden': 'true',
-        root,
     }, highlightCode);
 
     // 顺序即契约:textarea 与高亮层必须是相邻兄弟(见文件头第 1 条).
-    const input = create_element('div', { class: 'code-editor-input', root }, textarea, highlightScroller);
-    const element = create_element('div', { class: 'code-editor', root }, gutter, input);
+    const input = create_element({ tag: 'div', root }, { class: 'code-editor-input' }, textarea, highlightScroller);
+    const element = create_element({ tag: 'div', root }, { class: 'code-editor' }, gutter, input);
 
     const lineNumbers = new EditorLineNumbers(
         textarea,

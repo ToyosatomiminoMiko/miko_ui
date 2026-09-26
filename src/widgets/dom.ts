@@ -1,9 +1,16 @@
 /**
  * 声明式建 DOM 的最小原语.
  *
- * 这一层只干一件事:把"标签 + 属性 + 子节点"写成一次函数调用,让上层可以用
+ * 这一层只干一件事:把"造什么节点 + 属性 + 子节点"写成一次函数调用,让上层可以用
  * 嵌套的表达式声明一棵树,而不是 `createElement` / `setAttribute` / `append`
  * 三行样板排成一片.
+ *
+ * 一次调用分三层,彼此不同级,所以参数也分开:
+ * 1. `ElementSpec`(**创建层**):`tag` 与 `root` -- 造什么标签,由哪个 document
+ *    的 `createElement` 造出来.这两件都是"造"的时候的事,一个都不进 DOM;
+ * 2. `ElementAttributes`(**属性层**):纯 HTML 属性表,键就是属性名,值必须是
+ *    string,逐个 `setAttribute`;
+ * 3. `children`(**结构层**):子节点,文本写成字符串.
  *
  * 刻意不做的事:
  * - **不引入 JSX**:那需要改 `tsconfig`(`jsx`)与 `vite` 的编译链,与本项目
@@ -19,39 +26,50 @@ import { rootDocument, type DomRoot } from '../dom/root';
 /** 子节点:假值一律跳过,便于在声明里写 `cond && create_element(...)`. */
 export type Child = Node | string | null | false | undefined;
 
-export interface ElementOptions {
+/**
+ * 属性表:纯 HTML 属性层.键就是属性名(`class` / `id` / `role` / `for` / `type` /
+ * `aria-*` / `data-*` ...),值必须是 string,逐个走 `setAttribute`.
+ *
+ * 这里**没有 `root`**:`root` 属于创建层(见 `ElementSpec`),不是 HTML 属性.分开
+ * 的直接好处是这张表的类型不必为它放宽,值类型只有 `string | undefined`,所以
+ * "`DomRoot` 值挂到属性键下","属性名打错"都在编译期报,而不是运行时 `TypeError`.
+ */
+export type ElementAttributes = Readonly<Record<string, string | undefined>>;
+
+/**
+ * 创建层:造什么标签 + 造在哪个 document 上.
+ *
+ * 两件都是"造"的时候才需要的信息,都不进 DOM,所以合成一个参数,与属性表分开.
+ * `tag` 写成字面量时,`K` 会被推出来,返回类型随之收窄到对应的 HTMLElement 子类
+ * (`create_element({ tag: 'label' })` 给 `HTMLLabelElement`).
+ */
+export interface ElementSpec<K extends keyof HTMLElementTagNameMap = keyof HTMLElementTagNameMap> {
+    /** 标签名(字面量). */
+    readonly tag: K;
     /**
-     * 建在哪个 document 上;不是 HTML 属性,不写进节点.不传用全局 `document`
-     * (见 `dom/root.ts`),`mountDesktop()` / Shadow DOM 场景显式传.
+     * 建在哪个 document 上;不传用全局 `document`(见 `dom/root.ts`).
+     * `mountDesktop()` / Shadow DOM 场景显式传.
      */
-    root?: DomRoot;
-    /**
-     * 其余键一律 `setAttribute`:键就是属性名(`class` / `id` / `role` / `for` /
-     * `type` / `aria-*` / `data-*` ...),值必须是 string.
-     *
-     * 类型上为了容纳 `root` 放宽到了 `string | DomRoot | undefined`,所以"值必须
-     * 是 string"这条由运行时守:undefined 跳过,别的非 string 直接抛.
-     */
-    [attribute: string]: string | DomRoot | undefined;
+    readonly root?: DomRoot;
 }
 
 /**
  * 建一个元素.
  *
- * 一次调用 = 标签 + 属性表 + 子节点.属性表的键就是 HTML 属性名;文本也是子节点.
- * 产出的 DOM 与手写 HTML 同构,所以下面每个例子都写出它生成的 HTML.
+ * 一次调用 = 创建层(`tag` + `root`)+ 属性层 + 子节点.属性表的键就是 HTML 属性名;
+ * 文本也是子节点.产出的 DOM 与手写 HTML 同构,所以下面每个例子都写出它生成的 HTML.
  *
  * ```ts
  * create_element(
- *     'div',                                              // 标签(字面量)
+ *     { tag: 'div' },                                     // 创建层:标签(字面量)
  *     {
  *         class: 'control-row',                           // -> class="..."
- *         role: 'group',                                  // -> 其余属性一律 setAttribute
+ *         role: 'group',                                  // -> 属性一律 setAttribute
  *         'aria-label': '半径',
  *     },
  *     '半径',                                              // 文本:字符串子节点
- *     create_element('span', { class: 'unit' }),          // 子节点:嵌套
- *     showUnit && create_element('strong'),               // 子节点:假值(null/undefined/false)跳过
+ *     create_element({ tag: 'span' }, { class: 'unit' }), // 子节点:嵌套
+ *     showUnit && create_element({ tag: 'strong' }),      // 子节点:假值(null/undefined/false)跳过
  * );
  * ```
  *
@@ -66,41 +84,41 @@ export interface ElementOptions {
  * `createFieldLabel()` 是最短的一版:
  *
  * ```ts
- * const label = create_element('label', {}, '半径');
+ * const label = create_element({ tag: 'label' }, {}, '半径');
  * label.htmlFor = 'ui-number-1';
  * // -> <label for="ui-number-1">半径</label>
  * ```
  *
  * HTML 上看不出来的有两件:
  *
- * - **返回类型随标签收窄**:`create_element('label')` 给 `HTMLLabelElement`
- *   (所以上面 `label.htmlFor` 不用 `as`),`create_element('input')` 给
- *   `HTMLInputElement`.这是 TS 内置的字面量表 `HTMLElementTagNameMap` 推出来的
+ * - **返回类型随标签收窄**:`create_element({ tag: 'label' })` 给
+ *   `HTMLLabelElement`(所以上面 `label.htmlFor` 不用 `as`),`{ tag: 'input' }`
+ *   给 `HTMLInputElement`.这是 TS 内置的字面量表 `HTMLElementTagNameMap` 推出来的
  *   (它基本覆盖了当前稳定标准的 HTML 元素),**没有第二份签名兜底**:标签是
  *   运行期才知道的 `string` 时这里编译不过 -- 那种情况直接 `document.createElement`.
- * - **`root`**:决定节点建在哪个 document 上(见 `dom/root.ts`),不传就用全局
+ * - **`root`**:决定节点由哪个 document 造出来(见 `dom/root.ts`),不传就用全局
  *   `document`;`desktop/mountDesktop.ts` 显式传 `ownerDocument`.
- * @param tag HTML 标签名
- * @param options 属性表;`root` 是保留键,不进 DOM
- * @param children 子节点(文本写成字符串)
+ *
+ * @param spec 创建层:标签名 + 根上下文
+ * @param attributes 属性层:HTML 属性表,值必须是 string
+ * @param children 结构层:子节点(文本写成字符串)
  */
 export function create_element<K extends keyof HTMLElementTagNameMap>(
-    tag: K,
-    options: ElementOptions = {},
+    spec: ElementSpec<K>,
+    attributes: ElementAttributes = {},
     ...children: Child[]
 ): HTMLElementTagNameMap[K] {
-    // 1. 建节点:root 从 options 里摘出来,交给 rootDocument 决定建在哪个 document 上.
-    const { root, ...attributes } = options;
-    const doc = rootDocument(root);
-    const element = doc.createElement(tag);
+    // 1. 建节点:root 只在创建层出现,由 rootDocument 决定用哪个 document.
+    const doc = rootDocument(spec.root);
+    const element = doc.createElement(spec.tag);
 
     // 2. 属性一律 setAttribute:class 不特殊,和 id / role / aria-* 走同一条路.
-    //    值必须是 string;undefined 跳过(可选属性常常是 undefined),别的类型
-    //    直接抛 -- 否则会被 setAttribute 静默转成 "[object Object]".
+    //    undefined 跳过(可选属性常常是 undefined).类型上这里已经只会是 string,
+    //    这一抛是给 JS 调用方兜底 -- 否则会被 setAttribute 静默转成 "[object Object]".
     for (const [name, value] of Object.entries(attributes)) {
         if (value === undefined) continue;
         if (typeof value !== 'string') {
-            throw new TypeError(`create_element('${tag}'): 属性 ${name} 的值必须是 string`);
+            throw new TypeError(`create_element('${spec.tag}'): 属性 ${name} 的值必须是 string`);
         }
         element.setAttribute(name, value);
     }
@@ -120,6 +138,9 @@ export function create_element<K extends keyof HTMLElementTagNameMap>(
  * `create_element()` 内部走同一套规则;"先建容器,稍后再搬节点"的场景
  * (`mountDesktop` 的背景节点,`WindowManager` 的窗口正文)也要用它,所以单独
  * 导出,避免各写一份过滤逻辑而漏掉字符串/假值中的一种.
+ *
+ * 这里的 `root` 是位置参数而不是 spec:它没有属性表要分开,也没有变长子节点
+ * 造成的歧义,没有合成对象的理由.
  */
 export function childNodes(children: readonly Child[], root?: DomRoot): Node[] {
     const doc = rootDocument(root);

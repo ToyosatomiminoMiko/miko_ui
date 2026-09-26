@@ -51,7 +51,7 @@ export interface SwitchHandle {
 
 export function createSwitch(options: SwitchOptions): SwitchHandle {
     const source = options.value;
-    const input = create_element('input');
+    const input = create_element({ tag: 'input' });
     input.type = 'checkbox';
     input.id = nextWidgetId('switch');
     input.checked = peekValue(source);
@@ -60,10 +60,10 @@ export function createSwitch(options: SwitchOptions): SwitchHandle {
     }
 
     const element = create_element(
-        'label',
+        { tag: 'label' },
         { class: 'switch' },
         input,
-        create_element('span', { class: 'slider' }),
+        create_element({ tag: 'span' }, { class: 'slider' }),
     );
 
     const listeners = new Set<(value: boolean) => void>();

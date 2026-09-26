@@ -56,7 +56,7 @@ export interface MenuItemHandle {
 const ACTIVE_CLASS = 'is-active';
 
 export function createMenuItem(options: MenuItemOptions): MenuItemHandle {
-    // 走 `createButton` 而不是自己 `create_element('button')`:基线类
+    // 走 `createButton` 而不是自己 `create_element({ tag: 'button' })`:基线类
     // `.ui-button`,`type="button"`,点击分发与 `dispose` 都复用同一套,菜单项
     // 只是在它上面叠一个外观变体类 `.menu-item`(基线是零优先级的
     // `:where(.ui-button)`,所以加载顺序不影响谁赢).
@@ -76,7 +76,7 @@ export function createMenuItem(options: MenuItemOptions): MenuItemHandle {
     if (options.hint !== undefined) {
         // 注记是第二个 flex 子项;`.menu-item` 的 `justify-content: space-between`
         // 负责把它推到行右端,不需要消费者写任何布局.
-        element.append(create_element('span', { class: 'menu-item-hint' }, options.hint));
+        element.append(create_element({ tag: 'span' }, { class: 'menu-item-hint' }, options.hint));
     }
 
     /**

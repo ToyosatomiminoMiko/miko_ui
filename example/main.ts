@@ -104,14 +104,14 @@ function createReadout<T>(
     source: Signal<T>,
     format: (value: T) => string,
 ): HTMLDivElement {
-    const output = create_element('output', { class: 'readout' });
+    const output = create_element({ tag: 'output' }, { class: 'readout' });
     watchValue(source, (next) => {
         output.textContent = format(next);
     });
     return create_element(
-        'div',
+        { tag: 'div' },
         { class: 'readout-row' },
-        create_element('span', { class: 'readout-name' }, name),
+        create_element({ tag: 'span' }, { class: 'readout-name' }, name),
         output,
     );
 }
@@ -158,7 +158,7 @@ const menuTrigger = createButton({ text: '打开菜单' });
  * 外观,由消费者在这颗面板上挂 `ui-scrollbar` 决定.下游应用挂在标题栏浮层上,
  * 示例这里两份菜单各挂一次.
  */
-const scrollablePanel = (): HTMLElement => create_element('div', { class: 'ui-scrollbar' });
+const scrollablePanel = (): HTMLElement => create_element({ tag: 'div' }, { class: 'ui-scrollbar' });
 
 /** 直接显示:不给 `trigger`,面板常驻在正文里. */
 const staticMenu = createMenu({
@@ -187,16 +187,16 @@ watchValue(menuChoice, (choice) => {
 });
 
 const menuPane = create_element(
-    'div',
+    { tag: 'div' },
     { class: 'pane pane-menu' },
-    create_element('span', { class: 'menu-caption' }, '任意按钮触发(createMenu)'),
+    create_element({ tag: 'span' }, { class: 'menu-caption' }, '任意按钮触发(createMenu)'),
     create_element(
-        'div',
+        { tag: 'div' },
         { class: 'menu-anchor' },
         menuTrigger.element,
         popoverMenu.panel,
     ),
-    create_element('span', { class: 'menu-caption' }, '直接显示(role="menu")'),
+    create_element({ tag: 'span' }, { class: 'menu-caption' }, '直接显示(role="menu")'),
     staticMenu.panel,
 );
 // 点浮层外关闭:绑定的根就是这张菜单所在的正文.
@@ -262,7 +262,7 @@ mountDesktop(root, {
             case 'slider':
                 return {
                     body: [create_element(
-                        'div',
+                        { tag: 'div' },
                         { class: 'pane' },
                         linearSlider.element,
                         cyclicSlider.element,
@@ -272,7 +272,7 @@ mountDesktop(root, {
             case 'number':
                 return {
                     body: [create_element(
-                        'div',
+                        { tag: 'div' },
                         { class: 'pane' },
                         linearReadout,
                         angleReadout,

@@ -76,7 +76,7 @@ export function clearGeometry(element: HTMLElement): void {
 }
 
 export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
-    const element = create_element('section', {
+    const element = create_element({ tag: 'section' }, {
         class: 'window',
         'data-window': spec.id,
         role: 'region',
@@ -84,21 +84,21 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     // 可脚本聚焦(`reveal()` 的落点)但不进 Tab 序.
     element.tabIndex = -1;
 
-    const title = create_element('span', { class: 'window-title' });
+    const title = create_element({ tag: 'span' }, { class: 'window-title' });
     // 读屏名指向标题文本;id 由窗口 id 派生,一个窗口只有一个标题.
     title.id = `window-title-${spec.id}`;
-    const label = create_element('span', {}, spec.title);
+    const label = create_element({ tag: 'span' }, {}, spec.title);
     // 槽位节点是 `Child[]`(可能含假值),统一走 `childNodes()` 落成真节点.
     title.append(label, ...childNodes(spec.slots.title ?? [], element.ownerDocument));
     element.setAttribute('aria-labelledby', title.id);
 
     const actions = create_element(
-        'div',
+        { tag: 'div' },
         { class: 'window-actions' },
         ...childNodes(spec.slots.actions ?? [], element.ownerDocument),
     );
 
-    const controls = create_element('div', { class: 'window-controls' });
+    const controls = create_element({ tag: 'div' }, { class: 'window-controls' });
     const controlHandles = new Map<string, ButtonHandle>();
     for (const control of spec.controls) {
         // `window-control-btn` 只是定位钩子:外观与任何 `createButton(...)` 一样
@@ -114,18 +114,18 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     // 浮层是 header 的直接子节点(不是 .window-actions 的子节点,那一层是按钮行),
     // 也必须在 .window-body 之外,否则会被正文的裁切切掉.
     const header = create_element(
-        'header',
+        { tag: 'header' },
         { class: 'window-header' },
         title,
         actions,
         controls,
         ...childNodes(spec.slots.overlays ?? [], element.ownerDocument),
     );
-    const body = create_element('div', { class: 'window-body' });
+    const body = create_element({ tag: 'div' }, { class: 'window-body' });
 
     const handles = RESIZE_DIRECTIONS.map((direction) => ({
         direction,
-        element: create_element('div', {
+        element: create_element({ tag: 'div' }, {
             class: 'resize-handle',
             'data-window-resize': direction,
         }),

@@ -24,7 +24,7 @@ import type { SwitchHandle } from './Switch';
  * 关联走 `htmlFor` 属性(真 DOM 会把它反射成 `for` 属性).
  */
 export function createFieldLabel(text: string, forId: string): HTMLLabelElement {
-    const label = create_element('label', {}, text);
+    const label = create_element({ tag: 'label' }, {}, text);
     label.htmlFor = forId;
     return label;
 }
@@ -38,10 +38,10 @@ export function createFieldLabel(text: string, forId: string): HTMLLabelElement 
  */
 export function createControlGroup(title: string, ...children: Child[]): HTMLElement {
     const titleId = nextWidgetId('control-title');
-    const header = create_element('header', { class: 'control-title' }, title);
+    const header = create_element({ tag: 'header' }, { class: 'control-title' }, title);
     header.id = titleId;
     return create_element(
-        'section',
+        { tag: 'section' },
         { class: 'control-group', 'aria-labelledby': titleId },
         header,
         ...children,
@@ -50,7 +50,7 @@ export function createControlGroup(title: string, ...children: Child[]): HTMLEle
 
 /** 行容器:`<div class="control-row">...</div>`. */
 export function createRow(...children: Child[]): HTMLDivElement {
-    return create_element('div', { class: 'control-row' }, ...children);
+    return create_element({ tag: 'div' }, { class: 'control-row' }, ...children);
 }
 
 /** 一行"文字 + 开关":`<div class="control-row"><label for>文字</label>开关</div>`. */
@@ -76,7 +76,7 @@ export function createNumberRow(
 /** 行内小开关组(`.control-toggle-group`):"标签 X/Y/Z"与"网格 XZ/XY/YZ". */
 export function createInlineToggle(text: string, toggle: SwitchHandle): HTMLDivElement {
     return create_element(
-        'div',
+        { tag: 'div' },
         { class: 'control-toggle-group' },
         createFieldLabel(text, toggle.input.id),
         toggle.element,

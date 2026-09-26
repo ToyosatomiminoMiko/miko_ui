@@ -91,7 +91,7 @@ export function createNumberField(options: NumberFieldOptions): NumberFieldHandl
     const format = options.format ?? ((value: number) => String(value));
     const parse = options.parse ?? defaultParse;
 
-    const input = create_element('input');
+    const input = create_element({ tag: 'input' });
     input.type = 'number';
     input.id = nextWidgetId('number');
     if (options.min !== undefined) input.min = String(options.min);

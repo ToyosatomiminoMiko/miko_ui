@@ -71,7 +71,7 @@ export function createSegmented<T extends string>(
     const buttons: Array<{ value: T; element: HTMLButtonElement }> = [];
     let current = peekValue(source);
 
-    const element = create_element('div', {
+    const element = create_element({ tag: 'div' }, {
         class: options.modifier === undefined
             ? 'segmented'
             : `segmented ${options.modifier}`,
@@ -100,7 +100,7 @@ export function createSegmented<T extends string>(
     };
 
     for (const item of options.items) {
-        const button = create_element('button', {}, item.label);
+        const button = create_element({ tag: 'button' }, {}, item.label);
         button.type = 'button';
         button.addEventListener('click', () => select(item.value), { signal: abort.signal });
         buttons.push({ value: item.value, element: button });

@@ -60,17 +60,15 @@ export function mountDesktop(root: HTMLElement, spec: DesktopSpec): DesktopHandl
     // 配置里的 z-index 决定,这里只让人读起来是同一个结构).
     root.append(...childNodes(spec.background ?? [], doc));
 
-    const windowLayer = create_element('div', { class: 'window-layer', root: doc });
-    const snapPreview = create_element('div', {
+    const windowLayer = create_element({ tag: 'div', root: doc }, { class: 'window-layer' });
+    const snapPreview = create_element({ tag: 'div', root: doc }, {
         class: 'snap-preview',
         'aria-hidden': 'true',
-        root: doc,
     });
-    const dock = create_element('div', {
+    const dock = create_element({ tag: 'div', root: doc }, {
         class: 'dock',
         role: 'toolbar',
         'aria-label': '窗口',
-        root: doc,
     });
     root.append(windowLayer, snapPreview, dock);
 

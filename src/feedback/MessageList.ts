@@ -83,9 +83,8 @@ export class MessageList {
 
     private _createNode(level: MessageLevel, message: string): HTMLElement {
         // 类名与文案是固定契约:消费者的 CSS 按 `diagnostic-<level>` 着色.
-        return create_element('div', {
+        return create_element({ tag: 'div', root: this.container.ownerDocument }, {
             class: `diagnostic diagnostic-${level}`,
-            root: this.container.ownerDocument,
         }, `[${level}] ${message}`);
     }
 }

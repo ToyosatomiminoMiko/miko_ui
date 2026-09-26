@@ -58,7 +58,7 @@ export function createDock(
 ): DockHandle {
     const buttons = new Map<WindowId, DockButtonHandle>();
 
-    const group = create_element('div', { class: 'dock-group' });
+    const group = create_element({ tag: 'div' }, { class: 'dock-group' });
     for (const spec of windows) {
         // 按钮统一走 `createButton`:`type="button"` 与 `.ui-button` 基线都归它,
         // `dock-btn` 只是定位 / 状态钩子(见 styles/desktop.css).
@@ -88,7 +88,7 @@ export function createDock(
     restoreAll.element.setAttribute('data-dock-action', 'restore-all');
     restoreAll.onClick(() => handlers.onRestoreAll());
 
-    const actions = create_element('div', { class: 'dock-actions' }, restoreAll.element);
+    const actions = create_element({ tag: 'div' }, { class: 'dock-actions' }, restoreAll.element);
     container.replaceChildren(group, actions);
 
     // 初始状态走与运行期同一条路径(`setState`),不在这里另写一份 `data-state`:

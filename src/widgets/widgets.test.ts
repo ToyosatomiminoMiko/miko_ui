@@ -617,8 +617,8 @@ describe('createMenu', () => {
     });
 
     it('给 trigger 时叠 .menu-popover,开合/aria 归 Popover;选中先关再回调', () => {
-        const root = create_element('div');
-        const trigger = create_element('button', {}, '打开菜单');
+        const root = create_element({ tag: 'div' });
+        const trigger = create_element({ tag: 'button' }, {}, '打开菜单');
         root.append(trigger);
         document.body.append(root);
 
@@ -647,7 +647,7 @@ describe('createMenu', () => {
     });
 
     it('注入已有面板时原样复用(窗口槽位节点不重建);dispose 解绑菜单项', () => {
-        const panel = create_element('div', { id: 'example-menu' });
+        const panel = create_element({ tag: 'div' }, { id: 'example-menu' });
         const menu = createMenu({ groups: GROUPS, panel });
 
         expect(menu.panel).toBe(panel);
@@ -670,9 +670,9 @@ describe('createPopover', () => {
         root: HTMLDivElement;
         handle: ReturnType<typeof createPopover>;
     } {
-        const root = create_element('div');
-        const trigger = create_element('button', {}, '示例');
-        const panel = create_element('div', { class: 'example-menu' });
+        const root = create_element({ tag: 'div' });
+        const trigger = create_element({ tag: 'button' }, {}, '示例');
+        const panel = create_element({ tag: 'div' }, { class: 'example-menu' });
         panel.id = 'example-menu';
         root.append(trigger, panel);
         document.body.append(root);
@@ -710,7 +710,7 @@ describe('createPopover', () => {
         const { trigger, panel, root, handle } = setup();
         stub(trigger).dispatch('click');
 
-        const inside = create_element('span', {}, '项');
+        const inside = create_element({ tag: 'span' }, {}, '项');
         panel.append(inside);
         stub(root).dispatch('click', { target: inside });
         expect(handle.isOpen).toBe(true);

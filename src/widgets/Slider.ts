@@ -154,23 +154,23 @@ export function createSlider(options: SliderOptions): SliderHandle {
     // 名字与徽章之间那个空格只进可访问名(`<label for>` 的文本);flex 布局里
     // 纯空白文本节点不渲染,视觉间距仍由 CSS 的 gap 给.
     const tag = options.cyclic
-        ? create_element('span', { class: 'slider-field-tag' }, 'cyclic')
+        ? create_element({ tag: 'span' }, { class: 'slider-field-tag' }, 'cyclic')
         : null;
     const label = create_element(
-        'label',
+        { tag: 'label' },
         { class: 'slider-field-label' },
         options.label,
-        options.hint === undefined ? null : create_element('small', {}, options.hint),
+        options.hint === undefined ? null : create_element({ tag: 'small' }, {}, options.hint),
         tag === null ? null : ' ',
         tag,
     );
     label.htmlFor = range.input.id;
 
     const element = create_element(
-        'div',
+        { tag: 'div' },
         { class: 'slider-field' },
         range.element,
-        create_element('div', { class: 'slider-field-meta' }, label, number.input, reset.element),
+        create_element({ tag: 'div' }, { class: 'slider-field-meta' }, label, number.input, reset.element),
     );
     if (options.cyclic) element.classList.add('is-cyclic');
 

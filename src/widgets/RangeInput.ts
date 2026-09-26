@@ -58,7 +58,7 @@ export interface RangeInputHandle {
 
 export function createRangeInput(options: RangeInputOptions): RangeInputHandle {
     const source = options.value;
-    const input = create_element('input');
+    const input = create_element({ tag: 'input' });
     input.type = 'range';
     input.id = nextWidgetId('range');
     input.min = String(options.min ?? DEFAULT_RANGE.min);

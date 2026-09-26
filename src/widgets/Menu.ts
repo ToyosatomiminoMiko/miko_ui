@@ -88,7 +88,7 @@ export interface MenuHandle<T> {
 }
 
 export function createMenu<T>(options: MenuOptions<T>): MenuHandle<T> {
-    const panel = options.panel ?? create_element('div');
+    const panel = options.panel ?? create_element({ tag: 'div' });
     // 面板与角色由本件写全:注入的容器不必自己记得带类名.
     panel.classList.add('menu-panel');
     panel.setAttribute('role', 'menu');
@@ -107,9 +107,9 @@ export function createMenu<T>(options: MenuOptions<T>): MenuHandle<T> {
 
     const groups = options.groups.map((group) => {
         const element = create_element(
-            'div',
+            { tag: 'div' },
             { class: 'menu-group', role: 'group', 'aria-label': group.title },
-            create_element('div', { class: 'menu-group-title' }, group.title),
+            create_element({ tag: 'div' }, { class: 'menu-group-title' }, group.title),
         );
         for (const entry of group.entries) {
             const item = createMenuItem({

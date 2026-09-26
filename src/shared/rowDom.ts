@@ -46,9 +46,9 @@ export function createObjectRow(
     rowClass: string,
     actions: HTMLElement | null,
 ): { readonly row: HTMLElement; readonly main: HTMLElement } {
-    const row = create_element('article', { class: `object-row ${rowClass}` });
+    const row = create_element({ tag: 'article' }, { class: `object-row ${rowClass}` });
     row.setAttribute('role', 'listitem');
-    const main = create_element('div', { class: 'row-main' });
+    const main = create_element({ tag: 'div' }, { class: 'row-main' });
     row.append(main);
     if (actions !== null) row.append(actions);
     return { row, main };
@@ -67,7 +67,7 @@ export function createObjectRow(
 export function createRowActions(
     ...actions: Array<HTMLElement | null | false | undefined>
 ): HTMLElement {
-    const container = create_element('div', { class: 'row-actions' });
+    const container = create_element({ tag: 'div' }, { class: 'row-actions' });
     for (const action of actions) {
         if (action) container.append(action);
     }
