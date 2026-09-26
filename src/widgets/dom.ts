@@ -1,5 +1,7 @@
 /**
- * 声明式建 DOM 的最小原语.
+ * 声明式建 DOM 的最小原语 + 库内的 DOM 根上下文口径.
+ *
+ * ## 建节点
  *
  * 这一层只干一件事:把"造什么节点 + 属性 + 子节点"写成一次函数调用,让上层可以用
  * 嵌套的表达式声明一棵树,而不是 `createElement` / `setAttribute` / `append`
@@ -20,8 +22,41 @@
  *
  * 产出的 DOM 必须与手写 HTML 完全同构,类名沿用现有 CSS(见
  * `styles/widgets.css`),所以样式一个字符都不用改.
+ *
+ * ## 根上下文
+ *
+ * `DomRoot` / `rootDocument` 也在本文件:原先单独占 `dom/root.ts`,删掉 `rootWindow`
+ * 之后只剩两个名字,再开一个目录不值得,就搬到建节点的地方 -- 它俩本来就是
+ * `create_element()` / `childNodes()` 的 `root` 参数要用的东西.
+ *
+ * 为什么要有这一层:组件如果直接读全局 `document` / `window`,就默认了"页面上只有
+ * 我一个实例,我拥有整个页面".这一个假设同时挡住三件事:同页两个实例,嵌进别人的
+ * 页面,以及 Shadow DOM 隔离.
+ *
+ * 口径:
+ * - **建节点**走 `rootDocument(root)`.`createElement`/`createTextNode`;
+ * - **全局监听**(keydown / resize)挂在所属 `Document` 上(Shadow DOM 里的
+ *   键盘事件是 composed 的,会照常到达 document);
+ * - **不传 root** 时退回全局 `document` -- 这是给"应用侧只有一个页面实例"
+ *   准备的默认值;库自己的 `mountDesktop()` 永远显式传 root.
+ *
+ * 这两个名字**不从 `miko_ui` 导出**(见 `index.ts`):消费者手上已经有 `Document` /
+ * `ShadowRoot`,直接填进 `root` 参数即可,不需要命名这个类型,也不需要自己换算.
  */
-import { rootDocument, type DomRoot } from '../dom/root';
+
+/** 可被接受的 document root:文档它自己,或某个 shadow 树的根. */
+export type DomRoot = Document | ShadowRoot;
+
+/**
+ * 取 root 所属的 `Document`.
+ *
+ * 不传 root 时返回全局 `document`(唯一的裸 `document` 引用,只此一处).
+ * Document 有 `body` -> 原样返回;
+ * ShadowRoot 没有 `body`,也不该有 -> 取它的 ownerDocument.
+ */
+export function rootDocument(root: DomRoot | undefined = undefined): Document {
+    return root === undefined ? document : ('body' in root ? root : root.ownerDocument);
+}
 
 /** 子节点:假值一律跳过,便于在声明里写 `cond && create_element(...)`. */
 export type Child = Node | string | null | false | undefined;
@@ -47,7 +82,7 @@ export interface ElementSpec<K extends keyof HTMLElementTagNameMap = keyof HTMLE
     /** 标签名(字面量). */
     readonly tag: K;
     /**
-     * 建在哪个 document 上;不传用全局 `document`(见 `dom/root.ts`).
+     * 建在哪个 document 上;不传用全局 `document`(见上面的 `rootDocument()`).
      * `mountDesktop()` / Shadow DOM 场景显式传.
      */
     readonly root?: DomRoot;
@@ -96,8 +131,8 @@ export interface ElementSpec<K extends keyof HTMLElementTagNameMap = keyof HTMLE
  *   给 `HTMLInputElement`.这是 TS 内置的字面量表 `HTMLElementTagNameMap` 推出来的
  *   (它基本覆盖了当前稳定标准的 HTML 元素),**没有第二份签名兜底**:标签是
  *   运行期才知道的 `string` 时这里编译不过 -- 那种情况直接 `document.createElement`.
- * - **`root`**:决定节点由哪个 document 造出来(见 `dom/root.ts`),不传就用全局
- *   `document`;`desktop/mountDesktop.ts` 显式传 `ownerDocument`.
+ * - **`root`**:决定节点由哪个 document 造出来(见上面的 `rootDocument()`),不传就用
+ *   全局 `document`;`desktop/mountDesktop.ts` 显式传 `ownerDocument`.
  *
  * @param spec 创建层:标签名 + 根上下文
  * @param attributes 属性层:HTML 属性表,值必须是 string

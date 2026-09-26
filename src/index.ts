@@ -5,16 +5,24 @@
  * - 包外的消费者**只**从 `miko_ui` 导入;`package.json` 的 `exports` 里 JS 入口
  *   只放这一个(其余条目是样式表),内部路径(`miko_ui/src/...`)不是公开面,
  *   重构时不必对外兼容.
- * - 这里一律用 `export *`,不再抄一遍名字:抄一遍的代价是"新增一个件忘了导出"
- *   这种只在运行期炸的错,而 `export *` 的重名冲突在 `tsc` 就会报.
+ * - 这里尽量用 `export *`,不再抄一遍名字:抄一遍的代价是"新增一个件忘了导出"
+ *   这种只在运行期炸的错,而 `export *` 的重名冲突在 `tsc` 就会报.唯一的例外是
+ *   `./widgets/dom`(要挡住两个库内名字,见下).
  */
 
 // 响应式层:控件的值参数可以传 signal
 export * from './reactive';
 
-// DOM 原语与通用小件
-export * from './dom/root';
-export * from './widgets/dom';
+// DOM 原语与通用小件.
+//
+// 这一行是唯一的例外,**不能**写 `export *`:同一个文件里还住着库内的根上下文
+// 口径(`DomRoot` / `rootDocument`),`export *` 会把它们一起放出去.消费者手上已经
+// 有 `Document` / `ShadowRoot`,直接填进 `create_element({ tag, root })` 或
+// `CodeEditorOptions.root` 就行,不需要命名那个类型,也不需要自己换算(下游已确认
+// 零引用).逐个列名的代价是"新增一个导出件要记得补一行" -- 这是不公开根上下文
+// 必须付的账,别把这一行改回 `export *`.
+export { childNodes, create_element, nextWidgetId } from './widgets/dom';
+export type { Child, ElementAttributes, ElementSpec } from './widgets/dom';
 export * from './widgets/Button';
 export * from './widgets/Switch';
 export * from './widgets/Segmented';

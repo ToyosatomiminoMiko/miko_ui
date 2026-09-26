@@ -15,7 +15,7 @@
  *
  * 绑定/解绑严格成对:bind() 之后必须 dispose(),由调用方负责清理.
  */
-import { rootDocument, type DomRoot } from '../dom/root';
+import { rootDocument, type DomRoot } from '../widgets/dom';
 
 export interface KeyboardActions {
     /** [键盘事件]按下`home`键(焦点不在输入控件里时) */

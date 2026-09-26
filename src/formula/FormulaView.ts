@@ -6,7 +6,7 @@
  */
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-import { rootDocument, type DomRoot } from '../dom/root';
+import { rootDocument, type DomRoot } from '../widgets/dom';
 
 /**
  * @cache

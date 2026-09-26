@@ -24,8 +24,7 @@
  * 分词与槽宽下限由消费者注入:库不认识任何具体语言的词法,也不认识消费者的
  * 字号/槽宽取值.节点建在 `options.root` 上.
  */
-import type { DomRoot } from '../dom/root';
-import { create_element } from '../widgets/dom';
+import { create_element, type DomRoot } from '../widgets/dom';
 import { EditorHighlight } from './EditorHighlight';
 import { EditorLineNumbers } from './EditorLineNumbers';
 
@@ -38,7 +37,7 @@ export interface CodeEditorOptions {
     readonly highlight: (source: string) => string;
     /** 行号槽宽下限(px);由消费者给出. */
     readonly gutterMinWidth: number;
-    /** 建节点的根上下文;不传则用全局 `document`(见 `dom/root.ts`). */
+    /** 建节点的根上下文;不传则用全局 `document`(见 `widgets/dom.ts` 的 `rootDocument()`). */
     readonly root?: DomRoot;
 }
 
