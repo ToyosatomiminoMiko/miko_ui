@@ -1,4 +1,8 @@
 /prompt
+
+# 源码不含js
+/src/**/*.js
+
 # dependencies
 /node_modules
 
