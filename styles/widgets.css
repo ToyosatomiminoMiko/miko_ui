@@ -10,6 +10,7 @@
  *   .switch / .slider      开关(圆钮是 .slider 那个 span)
  *   .slider-field          系数滑块(名称 + 滑杆 + 数值框 + 重置按钮)
  *   .ui-button             按钮基线(每个 `createButton` 都带,见下)
+ *   .ui-badge              徽章基线(每个 `createBadge` 都带,见下)
  *   .menu-panel            菜单面板(`.menu-group` 分组,`.menu-item` 菜单项)
  *   .menu-anchor / .menu-popover  浮层用法的锚点与开合(直接显示只用 `.menu-panel`)
  *   .object-row / .row-main / .row-actions  行外壳三件套(`shared/rowDom.ts`)
@@ -398,6 +399,29 @@
     background: var(--color-select-bg);
     border-color: var(--color-select-border);
     color: var(--color-text-active);
+}
+
+/* ==========================================================================
+ * 徽章
+ * --------------------------------------------------------------------------
+ * `createBadge` 建的每个徽章都带 `.ui-badge`,消费方的变体类叠在它后面.
+ *
+ * 与按钮基线同一条约定:写成 `:where(...)` -- 优先级为 0,消费者的变体类
+ * (如只覆盖 `background` 的 `.kind-curve`)永远盖得住它,不必关心样式表谁先谁后.
+ *
+ * 值全部来自 token(`--radius-pill` / `--color-badge-ink` / `--color-neutral`),
+ * 库不在这里替消费者决定"哪一类是什么颜色":那是领域语义,归消费者.
+ * ========================================================================== */
+
+:where(.ui-badge) {
+    flex: 0 0 auto;
+    min-width: 40px;
+    padding: 2px 6px;
+    border-radius: var(--radius-pill);
+    font-size: 10px;
+    text-align: center;
+    color: var(--color-badge-ink);
+    background: var(--color-neutral);
 }
 
 /* ==========================================================================

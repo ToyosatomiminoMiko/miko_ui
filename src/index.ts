@@ -30,6 +30,7 @@ export * from './widgets/RangeInput';
 export * from './widgets/Slider';
 export * from './widgets/NumberField';
 export * from './widgets/Popover';
+export * from './widgets/Badge';
 export * from './widgets/MenuItem';
 export * from './widgets/Menu';
 export * from './widgets/Row';
