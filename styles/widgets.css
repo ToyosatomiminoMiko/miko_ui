@@ -145,7 +145,7 @@
 }
 
 /* 分组:组标题 + 若干菜单项;组间用细分隔线,不单独占一行留白 */
-.menu-group + .menu-group {
+.menu-group+.menu-group {
     margin-top: 6px;
     padding-top: 6px;
     border-top: 1px solid var(--color-border-group);
@@ -269,12 +269,12 @@
 }
 
 /* 选中状态:轨道变蓝 */
-.switch input:checked + .slider {
+.switch input:checked+.slider {
     background: var(--color-select-track);
 }
 
 /* 选中状态:圆钮右移并点亮 */
-.switch input:checked + .slider::before {
+.switch input:checked+.slider::before {
     transform: translateX(18px);
     background: var(--color-accent);
 }
@@ -385,7 +385,7 @@
 }
 
 .segmented button {
-    padding: 5px 0;
+    padding: 5px 7px;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-md);
     background: var(--color-fill-control);
@@ -476,4 +476,3 @@
     align-items: stretch;
     gap: 4px;
 }
-
