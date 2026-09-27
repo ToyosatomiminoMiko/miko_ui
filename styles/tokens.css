@@ -103,27 +103,15 @@
     --color-diagnostic-error-bg: rgba(255, 70, 90, 0.14);    /* 错误底 */
     --color-success: #8ee6a5;                       /* 成功文字(复制成功) */
 
-    /* -- 类型徽章图例 -----------------------------------------------------
-       一栏里要能按色相区分类型,所以这是一套独立的图例色,不跟随主色;
-       与上面同值的项写成别名,字面量仍只有一处. */
+    /* -- 徽章 -------------------------------------------------------------
+       库只给"浅底徽章上要写深色字"这一条**通用**量(消费方是
+       `styles/widgets.css` 的 `.ui-badge`).
+       **哪一类对象是什么颜色不在这里**:曲线/曲面/球体/旋转体/区域...是消费者的
+       领域图例,库不认识这些概念,库自己的样式表里也没有一条规则引用它们 --
+       放在这里就是"借住在库里的应用数据",是反过来的耦合.
+       这类 `--kind-*` 由消费者在自己的样式表里定义(应用侧见 css/base.css 的
+       `:root`,由应用侧的 `cssPalette.test.ts` 守边界). */
     --color-badge-ink: var(--color-bg-sunken);      /* 浅底徽章上的深色字,与凹陷底同值 */
-    --kind-curve: var(--color-accent);
-    --kind-surface: #ff6b8a;
-    --kind-vector: #b49cff;
-    --kind-point: var(--color-warning);
-    --kind-sphere: #7ee0c8;
-    --kind-box: #ff9f6b;
-    --kind-conic: #d08cff;
-    --kind-region: #a9e07b;
-    --kind-implicit: #9fb3ff;
-    --kind-integral: var(--color-success);
-    --kind-intersection: #ffd93d;
-    --kind-solve: #7fd8ff;                            /* 徽章底(与其它浅底深字徽章同一体系) */
-    --kind-antiderivative: #ffb3d9;                   /* 徽章底(与上一个同类,换色相区分) */
-    --kind-ode: #b8f0a0;                              /* 徽章底(第 6 类对象,再换色相) */
-    --kind-divergence-bg: rgba(142, 230, 165, 0.16); /* 徽章底(同类共用深色底体系) */
-    --kind-curl-bg: rgba(255, 194, 109, 0.18);       /* 徽章底 */
-    --kind-laplacian-bg: rgba(196, 168, 255, 0.20);  /* 徽章底 */
 
     /* -- 滚动条 -----------------------------------------------------------
        `styles/scrollbar.css` 是这条规定的**唯一**消费方;尺寸与颜色都在这里,
