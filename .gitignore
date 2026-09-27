@@ -3,6 +3,10 @@
 # 源码不含js
 /src/**/*.js
 
+# Python 字节码缓存(仓库里的 .py 被 import 时会产生,见 .githooks/pre-commit)
+__pycache__/
+*.pyc
+
 # dependencies
 /node_modules
 
@@ -22,4 +26,3 @@
 
 # npm 打包产物
 /*.tgz
-

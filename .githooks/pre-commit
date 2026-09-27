@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 # ============================================================================
 # pre-commit: 提交前把本次暂存文件里的中文全角标点转成半角
 # ----------------------------------------------------------------------------
@@ -8,78 +8,109 @@
 #
 # 流程:
 #   git diff --cached --name-only -z --diff-filter=ACM
-#     -> 取出本次暂存的新增/修改/复制文件(不含删除)
-#     -> 交给 python3 scripts/autorun.py(文件模式, 原地改写)
+#     -> 取出本次暂存的**新增/修改/复制**文件(不含删除)
+#     -> import scripts/autorun.py, 对每个文件调 fix_file()(原地改写)
 #     -> 只把**真正被改写**的文件重新 git add, 让修正进入这一次提交
 #
+# [为什么钩子是 Python 而不是 bash]
+# 转义映射表本来就在 scripts/autorun.py 里. 原来的 bash 钩子只能用
+# "python3 scripts/autorun.py <files>" 再逐行解析它 stdout 里的
+# `[fix_punctuation] fixed: <file>` 来判断哪些文件被改了 -- 那是一条隐式的
+# 字符串协议: 谁动一下那行日志的格式, "重新暂存"就会静默失效, 而且失败时不报错.
+# 现在钩子直接 import 那个模块拿返回值, 协议消失. 同时 bash 那一层也没了,
+# 不必再为"参数里有空格/中文文件名"做数组与 -z 的体操.
+#
+# 附带好处: 原 bash 版本必须把钩子自己**排到最后**处理, 因为 bash 是边读边执行,
+# 改写一个正在运行的脚本很危险. CPython 在执行前就把整个源文件编译完, 这条约束
+# 自动作废, 排序逻辑可以整块删掉.
+#
 # 注意:
-#   * 本文件自己也在修正范围内, 所以这里的注释一律只用半角标点(写全角会被它
-#     自己改掉). 为防"边执行边改写正在运行的 shell 脚本", 下面把它单独放到
-#     最后一步: 那时主逻辑已经跑完, bash 不再需要读后面的内容.
-#   * 没装 python3: 打印警告后放行, 不阻断提交.
-#   * 转换失败: 同样只警告, 不阻断提交 -- 钩子的职责是帮忙, 不是设卡.
+#   * 钩子只帮忙, 不设卡: 任何异常都只警告, 永远 exit 0.
+#   * 本文件自己也在修正范围内, 所以这里的注释一律只用半角标点.
+#   * 钩子本身是 Python: 没装 python3 的机器上 git 会直接报 "bad interpreter",
+#     比"钩子静默不生效"更容易发现; 真要停用就 `git config --unset core.hooksPath`.
 # ============================================================================
-set -u
+import os
+import subprocess
+import sys
+from pathlib import Path
 
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "[pre-commit] 警告: 未找到 python3, 跳过标点自动转换." >&2
-    exit 0
-fi
 
-# git 本来就在仓库根目录执行钩子, 这里显式 cd 一次, 不依赖那个前提
-cd "$(git rev-parse --show-toplevel)" || exit 0
+def warn(message):
+    print(f'[pre-commit] 警告: {message}', file=sys.stderr)
 
-self=".githooks/pre-commit"
 
-# 暂存区里本次新增/修改/复制的文件; -z 是为了正确处理空格与中文文件名
-staged=()
-while IFS= read -r -d '' file; do
-    staged+=("$file")
-done < <(git diff --cached --name-only -z --diff-filter=ACM)
+def git(root, args, **kwargs):
+    return subprocess.run(['git'] + args, cwd=str(root), check=True, **kwargs)
 
-if [ "${#staged[@]}" -eq 0 ]; then
-    exit 0
-fi
 
-targets=()
-self_staged=0
-for file in "${staged[@]}"; do
-    if [ "$file" = "$self" ]; then
-        self_staged=1
-    else
-        targets+=("$file")
-    fi
-done
+def staged_files(root):
+    """暂存区里本次新增/修改/复制的文件.
 
-# 对给定文件跑转换, 再把被改写过的重新加入暂存区.
-# 只 add 真正改过的文件: 否则会把暂存文件在工作区里的其他改动一起带进这次提交.
-fix_files() {
-    local output status=0
-    output=$(python3 scripts/autorun.py "$@") || status=$?
-    if [ "$status" -ne 0 ]; then
-        echo "[pre-commit] 警告: 标点转换对部分文件失败(见上面的 error 行), 已跳过." >&2
-    fi
-    if [ -z "$output" ]; then
+    `-z` 是为了正确处理空格与中文文件名: 输出以 NUL 分隔, 不走 git 的引号转义.
+    """
+    result = git(root, ['diff', '--cached', '--name-only', '-z', '--diff-filter=ACM'],
+                 capture_output=True)
+    return [os.fsdecode(chunk) for chunk in result.stdout.split(b'\0') if chunk]
+
+
+def main():
+    try:
+        root = Path(git(Path.cwd(), ['rev-parse', '--show-toplevel'],
+                        capture_output=True).stdout.decode('utf-8', 'replace').strip())
+    except (subprocess.CalledProcessError, OSError):
+        # 不在 git 工作树里(或者没装 git): 没什么可做的.
         return 0
-    fi
-    printf '%s\n' "$output"
-    local line
-    while IFS= read -r line; do
-        case "$line" in
-            "[fix_punctuation] fixed: "*)
-                git add -- "${line#\[fix_punctuation\] fixed: }"
-                ;;
-        esac
-    done <<< "$output"
-}
 
-if [ "${#targets[@]}" -gt 0 ]; then
-    fix_files "${targets[@]}"
-fi
+    try:
+        targets = staged_files(root)
+    except (subprocess.CalledProcessError, OSError) as err:
+        warn(f'读暂存区失败({err}), 跳过标点自动转换.')
+        return 0
 
-# 本文件最后处理(见上面第 1 条注意事项)
-if [ "$self_staged" -eq 1 ]; then
-    fix_files "$self"
-fi
+    if not targets:
+        return 0
 
-exit 0
+    # 钩子不该往工作树里丢东西: 不加这一行, 下面那次 import 会在 scripts/ 下生成
+    # __pycache__/*.pyc, 于是每次提交都在工作树里多出一个未跟踪目录.
+    sys.dont_write_bytecode = True
+    scripts_dir = root / 'scripts'
+    sys.path.insert(0, str(scripts_dir))
+    try:
+        import autorun
+    except Exception as err:  # noqa: BLE001 -- 钩子绝不因为自身问题阻断提交
+        warn(f'导入 scripts/autorun.py 失败({err}), 跳过标点自动转换.')
+        return 0
+    finally:
+        sys.path.pop(0)
+
+    changed = []
+    for name in targets:
+        path = root / name
+        if not path.is_file():
+            continue  # 暂存之后又在工作区被删掉的文件
+        try:
+            if autorun.fix_file(path):
+                changed.append(name)
+                print(f'[fix_punctuation] fixed: {name}')
+        except UnicodeDecodeError:
+            continue  # 二进制文件不处理
+        except OSError as err:
+            warn(f'标点转换失败: {name}: {err}')
+
+    if changed:
+        # 只 add 真正改过的文件: 否则会把暂存文件在工作区里的其他改动一起带进这次提交.
+        try:
+            git(root, ['add', '--'] + changed)
+        except (subprocess.CalledProcessError, OSError) as err:
+            warn(f'git add 失败({err}), 改过的文件没有重新暂存.')
+
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except Exception as err:  # noqa: BLE001 -- 钩子的职责是帮忙, 不是设卡
+        warn(f'未预期的错误({err}), 已放行这次提交.')
+        sys.exit(0)

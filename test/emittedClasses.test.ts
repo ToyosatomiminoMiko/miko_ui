@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
  * 下必然被违反,或者库件裸奔.
  *
  * 这条断言把"游离的类名"变成会红的测试:新增一个产出而不给样式,必须在这里
- * 显式声明它是钩子(带理由),否则 CI 失败.它与 `scripts/check_ui_boundary.mjs`
+ * 显式声明它是钩子(带理由),否则 CI 失败.它与 `scripts/check_ui_boundary.py`
  * 的八条**互补**:那八条守"库不依赖消费者",这条守"库不把自己该做的样式推给
  * 消费者".
  *

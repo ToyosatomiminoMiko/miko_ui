@@ -78,6 +78,13 @@ jobs:
           node-version: "24"
           cache: "npm"
 
+      # `npm run build` 里的边界守卫是 Python(`scripts/check_ui_boundary.py`),
+      # 提交钩子的标点转换也是.钉一个版本,不吃 runner 镜像里未钉的系统 Python.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       # `npm ci` 的 `prepare` 就是 `npm run build`,所以这一步已经把下面那条
       # 完整跑过一遍;这里显式再写一条,是因为"构建"该在 CI 里有一个自己的步骤:
       # 失败信息归到它名下,`prepare` 哪天被误删也有它兜着.

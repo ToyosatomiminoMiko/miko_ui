@@ -99,8 +99,10 @@ npm run build:dist    # 只 clean + tsc 产出 dist/(给 dev 用的裸构建)
 代价是 `prepare` = `npm run build && git config --local core.hooksPath .githooks`,
 所以 `npm ci` 会顺带跑一遍检查(本仓库自己,以及出 release 资产的 CI 都会付这份
 时间;消费侧不构建库,所以不受影响).末尾那条只做一件小事:把 `core.hooksPath`
-设成版本库里的 `.githooks/`,让提交前自动跑 `scripts/autorun.py` 转换全角标点
-(详见该文件顶部注释),它要求当前目录是 git 仓库 -- 开发 clone 与 CI 的 checkout
+设成版本库里的 `.githooks/`,让提交前自动跑 `scripts/autorun.py` 里那把转换
+(详见该文件顶部注释).钩子本身也是 Python 并直接 import 那个模块,所以不再需要
+bash 那一层,也没有"解析子进程 stdout 判断哪些文件被改过"的隐式协议.它要求当前
+目录是 git 仓库 -- 开发 clone 与 CI 的 checkout
 都满足;发布资产里没有 `scripts` 字段,消费侧根本不会跑到 `prepare`.
 
 提交前那次转换是就地改写工作区文件,再自动 `git add` 回暂存区,所以 `git status`
@@ -216,7 +218,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 ## 边界契约(有机器守,不靠自觉)
 
-`npm test` 先跑 `scripts/check_ui_boundary.mjs`(八条断言),再跑 vitest;两条
+`npm test` 先跑 `scripts/check_ui_boundary.py`(八条断言,要 python3),再跑 vitest;两条
 都写在 `test` 脚本里,不是隐式钩子.这份脚本跟着库从 `miko_graphcalc` 搬了过来
 -- 库分出去之后,那边不再有库的源码,检查必须跟着库走.前三条断言在这里恒为
 0(这个仓库里没有应用源码可引用),留着是因为 `@/` 那条同时也是"库内不许用路径

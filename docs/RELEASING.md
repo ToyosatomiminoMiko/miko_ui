@@ -103,7 +103,7 @@ git commit ... && git push origin main
 npm run release:npm -- patch     # 或 minor / major / 显式 x.y.z
 ```
 
-`scripts/release_npm.mjs` 会依次:检查前置(main 上,已跟踪文件干净,与 origin/main
+`scripts/release_npm.py` 会依次:检查前置(main 上,已跟踪文件干净,与 origin/main
 一致)-> 检查 npm 上没发过这个版本,本地/远端没有同名 tag -> 只改两个文件里的版本号
 并断言没有别的改动 -> 跑完整闸门 -> 提交并推 `main` -> 打 tag 并推 tag.任一步失败
 都当场停下,在动 git 之前失败的话版本号会**自动还原**.加 `--dry-run` 只打印计划,

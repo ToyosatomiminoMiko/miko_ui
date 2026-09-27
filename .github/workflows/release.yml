@@ -102,6 +102,12 @@ jobs:
           node-version: "24"
           package-manager-cache: false
 
+      # 闸门 `npm run build` 里有 Python 写的边界守卫(`scripts/check_ui_boundary.py`).
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       # `--ignore-scripts`:库的 `prepare` 就是 `npm run build`,不跳过的话这一步会
       # 顺手把生产构建跑一遍,下面的显式闸门又跑一遍 -- 一次发布构建两次,而且
       # 第一次失败会挂在 "Install" 名下,看不出是构建挂了.
@@ -254,6 +260,12 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           # release 构建不引入依赖缓存这条供应链攻击面(与上面 release job 同一条理由).
           package-manager-cache: false
+
+      # 闸门 `npm run build` 里有 Python 写的边界守卫(`scripts/check_ui_boundary.py`).
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       # `--ignore-scripts`:不让 `prepare` 在安装阶段顺手构建一次;构建交给下面那条
       # 显式闸门,失败信息才归得到"构建"名下.库的依赖树里唯一的安装脚本是 darwin

@@ -12,7 +12,7 @@
  * 另外两条边界断言:
  * - 公开面里**没有** `batch`:`import * as reactive` 之后按键检查;
  * - 库源码里一次都没调用 `batch(`:这是源码侧的约束检查(CI 里由
- *   `scripts/check_ui_boundary.mjs` 的 `no-batch` 规则盯着,这里再本地守一遍).
+ *   `scripts/check_ui_boundary.py` 的 `no-batch` 规则盯着,这里再本地守一遍).
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';

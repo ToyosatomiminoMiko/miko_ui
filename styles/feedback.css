@@ -5,7 +5,7 @@
  * `.diagnostic-warning` / `.diagnostic-error`,而样式属于库这一侧.在补上这份表
  * 之前,这三个类在库的样式表里**一条规则都没有**,消费者于是被迫给库的类写
  * 外观 -- 那正好是"上游定义样式,下游只能重载"的反面,也绕过了
- * `scripts/check_ui_boundary.mjs` 里 `emitted-classes` 那条守卫.
+ * `scripts/check_ui_boundary.py` 里 `emitted-classes` 那条守卫.
  *
  * 容器(列表摆在哪,占多高,能不能滚)归消费者:这里只给**条目**的默认观感.
  * 消费者要给列表排布,给自己的容器类写增量即可,不需要覆盖下面任何一条.
