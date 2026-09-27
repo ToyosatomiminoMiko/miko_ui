@@ -8,7 +8,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TEST_DESKTOP_CONFIG } from '../../test/desktopFixture';
-import { installDomStub, type StubElement } from '../../test/domStub';
+import { installDomStub, type StubElement } from '../testing/domStub';
 import { createWindowFrame, type WindowActionButton, type WindowFrameHandle } from './WindowFrame';
 import { RESIZE_DIRECTIONS } from './WindowResize';
 

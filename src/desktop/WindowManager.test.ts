@@ -13,7 +13,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TEST_DESKTOP_CONFIG, type FixtureWindowId } from '../../test/desktopFixture';
-import { installDomStub, type DomStub, type StubElement } from '../../test/domStub';
+import { installDomStub, type DomStub, type StubElement } from '../testing/domStub';
 import { WindowManager } from './WindowManager';
 
 const WINDOW = TEST_DESKTOP_CONFIG;

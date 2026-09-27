@@ -10,7 +10,7 @@
  * 失败路径改 `stub.clipboard.fail`,没有剪贴板 API 的情形删 `navigator.clipboard`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { installDomStub, type DomStub, type StubElement } from '../../test/domStub';
+import { installDomStub, type DomStub, type StubElement } from '../testing/domStub';
 import { FormulaCopyController } from './FormulaCopyController';
 
 interface Harness {

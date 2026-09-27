@@ -5,7 +5,7 @@
  * 缺结构时构造即报错(依赖不藏在"父节点里按 id 查"的实现里).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { installDomStub, type DomStub, type StubElement } from '../../test/domStub';
+import { installDomStub, type DomStub, type StubElement } from '../testing/domStub';
 import { EditorLineNumbers } from './EditorLineNumbers';
 
 /** 槽宽下限:测试自带一个值(实际由消费者传入). */

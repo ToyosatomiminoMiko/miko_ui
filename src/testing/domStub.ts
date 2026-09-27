@@ -1,15 +1,21 @@
 /**
- * 手写 DOM 桩.
+ * 手写 DOM 桩 -- 库对外提供的**测试入口**(`miko_ui/testing`).
  *
- * 库的测试自带 DOM 桩,不引用任何消费者的测试基建:桩是测试的一部分,
- * 跟着被测代码一起演进,库能不能独立跑绿只取决于这个仓库.
+ * 这个文件以前只在 `test/` 里服务库自己的测试.它现在同时服务消费者,理由是
+ * **两份复制品已经真的漂移过**:应用那份加了 `document.execCommand` 模拟,
+ * 库这份加了 `navigator.clipboard` 模拟,两边都不知道对方缺什么 -- 直到把
+ * 应用那份的测试搬过来才暴露.桩随库发布,消费者 import 同一份,谁缺什么就往
+ * 这里加一处.
+ *
+ * 它**不**从 `index.ts` 导出,而是走 `package.json` 的 `exports["./testing"]`
+ * 独立子路径:测试基建不属于主入口的公开面(见 README "边界契约"第 4、7 条).
  */
 /**
  * 测试用最小 DOM 桩(node 环境,不引入 jsdom).
  *
  * 为什么不用 jsdom:项目没有该依赖,且这里要锁的是**控制器自己的不变量**
  * (事件 -> 状态 -> DOM 写入),不是浏览器排版/事件冒泡的完整语义.桩只实现
- * 库真正用到的 API,并刻意复刻真 DOM 里踩过的坑:
+ * 库与消费者真正用到的 API,并刻意复刻真 DOM 里踩过的坑:
  * - 节点只有一个父节点(`append`/`replaceChildren` 会先把节点从旧父节点摘除),
  *   否则"搬运模板子节点搬空缓存"这类回归会被遮住;
  * - `textContent` 取值拼接子文本节点,设置时清空子节点;
@@ -706,6 +712,16 @@ export interface DomStub {
     /** 写入剪贴板的文本(按调用顺序);`fail` 置 true 让 `writeText` reject. */
     readonly clipboard: { texts: string[]; fail: boolean };
     /**
+     * 执行过的 `document.execCommand`:命令名序列,每次调用的完整参数,以及
+     * 下一次调用的返回值(默认 true).
+     *
+     * 消费者侧要用它:`CodeEditor` 的 textarea 要整段换掉源码,必须走
+     * `select()` + `execCommand('insertText')` 才进浏览器原生撤销栈(见
+     * `editor/replaceEditorSource.ts`);直接赋 `.value` 会把撤销历史整段清掉.
+     * 桩给这条通道一个可断言的替身,`result` 置 false 模拟命令被拒.
+     */
+    readonly execCommand: { calls: string[]; args: unknown[][]; result: boolean };
+    /**
      * 排队中的 `requestAnimationFrame` 回调数(测试用).
      *
      * rAF 在 Node 里不存在,但"把重绘合并到一帧"这类行为必须能断言 -- 只看
@@ -833,6 +849,7 @@ export function installDomStub(): DomStub {
     const resizeObservers: StubResizeObserver[] = [];
     const rootVariables = new Map<string, string>();
     const clipboard = { texts: [] as string[], fail: false };
+    const execCommand = { calls: [] as string[], args: [] as unknown[][], result: true };
 
     // documentElement 上的变量写入便于断言 CSS 变量的默认写入目标.
     documentElement.style.setProperty = (name: string, value: string): void => {
@@ -937,12 +954,25 @@ export function installDomStub(): DomStub {
         writable: true,
     });
 
+    // `document.execCommand` 在真浏览器里已弃用但仍可用,且**不受 SecureContext
+    // 门禁**(与上面的异步剪贴板不同);这里给一条可断言的替身,调用记录与返回值
+    // 都由 `execCommand` 句柄控制.
+    (document as unknown as Record<string, unknown>).execCommand = (
+        command: string,
+        ...rest: unknown[]
+    ) => {
+        execCommand.calls.push(command);
+        execCommand.args.push([command, ...rest]);
+        return execCommand.result;
+    };
+
     return {
         document,
         window,
         resizeObservers,
         rootVariables,
         clipboard,
+        execCommand,
         pendingFrameCount: () => frames.size,
         flushFrames: () => {
             // 先取出再执行:回调里新排的帧留到下一次 flush,与浏览器"一帧一次"一致.

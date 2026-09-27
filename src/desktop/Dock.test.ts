@@ -4,7 +4,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TEST_DESKTOP_CONFIG, type FixtureWindowId } from '../../test/desktopFixture';
-import { installDomStub, type StubElement } from '../../test/domStub';
+import { installDomStub, type StubElement } from '../testing/domStub';
 import { createDock, type DockHandle } from './Dock';
 
 interface Fixture {

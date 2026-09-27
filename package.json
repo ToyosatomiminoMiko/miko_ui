@@ -34,6 +34,11 @@
     "./styles/editor.css": "./styles/editor.css",
     "./styles/feedback.css": "./styles/feedback.css",
     "./styles/scrollbar.css": "./styles/scrollbar.css",
+    "./testing": {
+      "types": "./dist/testing/domStub.d.ts",
+      "import": "./dist/testing/domStub.js",
+      "default": "./dist/testing/domStub.js"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.js",

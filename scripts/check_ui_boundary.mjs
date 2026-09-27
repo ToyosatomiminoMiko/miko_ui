@@ -9,10 +9,10 @@
  * | domain-imports | 库不认识 `@/contract` `@/compiler` `@/math` `@/render` `@/config/renderConfig` |
  * | app-config-imports | 库不认识 `@/config/uiConfig`(配置改成注入) |
  * | app-source-imports | 库不认识任何 `@/` 别名(分词器/测试桩等一律注入或自带) |
- * | global-dom | 库(会被打包的那部分)不按 id 查节点,也不直接摸全局 `document` / `window`;不看注释与 `*.test.ts` |
+ * | global-dom | 库(会被打包的那部分)不按 id 查节点,也不直接摸全局 `document` / `window`;不看注释,`*.test.ts` 与 `src/testing/` |
  * | css-ids | 库的样式只有类名(排除十六进制颜色与注释);id 选择器会变成消费者的公开 API |
  * | deps | `dependencies` 只允许 `@preact/signals-core`;`peerDependencies` 只允许 `katex` |
- * | exports-surface | `exports` 只有根入口(构建产物 `dist/index.*`)与 `styles/`,内部路径不进公开面 |
+ * | exports-surface | `exports` 只有根入口(构建产物 `dist/index.*`),`styles/` 与测试入口 `./testing`,内部路径不进公开面 |
  * | no-batch | 库里一次都不用 `batch()`:用了就等于在更新路径上引入调度器,手写 DOM 桩立刻失真 |
  *
  * 前三条在这里恒为 0:本仓库没有应用源码可引用,`@/` 别名只属于消费者那一侧.
@@ -103,8 +103,18 @@ function aliasBuckets() {
 }
 
 const LIB_FILES = walk(PKG_SRC, ['.ts']);
-/** 会被消费者打包进去的那部分:不含 `*.test.ts`(测试必然操作全局桩). */
-const LIB_SHIPPED_FILES = LIB_FILES.filter((file) => !file.endsWith('.test.ts'));
+/**
+ * 会被消费者打包进去的那部分.
+ *
+ * 排除两类,都是**测试基建**而不是库代码:
+ * - `*.test.ts`;
+ * - `src/testing/` -- 那份 DOM 桩的职责就是造 `document` / `window`,不排除
+ *   它等于要求测试夹具不碰全局,规则会变成一句做不到的话.
+ */
+const LIB_TEST_SUPPORT = join(PKG_SRC, 'testing');
+const LIB_SHIPPED_FILES = LIB_FILES.filter(
+    (file) => !file.endsWith('.test.ts') && !file.startsWith(LIB_TEST_SUPPORT),
+);
 const STYLE_FILES = walk(PKG_STYLES, ['.css']);
 
 /** 整行注释(含 JSDoc 的 `*` 行):断言守的是代码,不是文字里的提法. */
@@ -178,10 +188,12 @@ function checkDeps() {
 /**
  * 形态断言:内部路径不进 `exports`.
  *
- * 公开面**只有**三类,多一类都要在这里显式加:
+ * 公开面**只有**四类,多一类都要在这里显式加:
  * 1. 根入口的构建产物 -- `./dist/index.js` 与 `./dist/index.d.ts`;
  * 2. 样式表 -- `./styles/` 下的任意 CSS(消费者按分组引);
- * 3. `./package.json` 自引用 -- 工具链(打包器,包管理器)读元数据要用的标准出口.
+ * 3. **测试入口** -- `./dist/testing/domStub.js`(唯一一个非组件的公开子路径:
+ *    DOM 桩必须能被消费者 import,否则两边各养一份,必然漂移);
+ * 4. `./package.json` 自引用 -- 工具链(打包器,包管理器)读元数据要用的标准出口.
  *
  * 这条规则守的是"**唯一**出口"这个约定,所以它比"路径合法"更严:把
  * `./dist/widgets/Button.js` 挂成 `miko_ui/widgets/Button` 会被它拦下 --
@@ -190,6 +202,9 @@ function checkDeps() {
 const ALLOWED_EXPORT_EXACT = new Set([
     './dist/index.js',
     './dist/index.d.ts',
+    // 唯一的非组件公开子路径:测试入口(见上面的说明).
+    './dist/testing/domStub.js',
+    './dist/testing/domStub.d.ts',
     './package.json',
 ]);
 

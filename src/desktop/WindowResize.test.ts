@@ -6,7 +6,7 @@
  * `canStart` 在非 normal 态返回 false 这一条.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { installDomStub, type StubElement } from '../../test/domStub';
+import { installDomStub, type StubElement } from '../testing/domStub';
 import type { AbsoluteGeometry } from './WindowGeometry';
 import type { WindowState } from './WindowManager';
 import { applyResize, bindWindowResize, RESIZE_DIRECTIONS } from './WindowResize';

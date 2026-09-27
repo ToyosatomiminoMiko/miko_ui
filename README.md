@@ -71,8 +71,8 @@ import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
 >
 > Vite / webpack / Next / Rollup 都没问题(它们既解析无扩展名,又把 CSS 当资源).
 > 要在 Node 侧做 SSR 或单元测试,请让测试环境带 CSS 处理(如 Vitest).**没有**
-> "在 Node 里只引具体子模块"这条路:`exports` 只暴露根入口与 `styles/`,内部路径
-> 不是公开面(见下面的"边界契约"第 7 条).
+> "在 Node 里只引具体子模块"这条路:`exports` 只暴露根入口,`styles/` 与测试入口
+> `./testing`,内部路径不是公开面(见下面的"边界契约"第 7 条).
 
 ## 开发这个库
 
@@ -197,8 +197,8 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 ## 公开面
 
-`src/index.ts` 是**唯一**出口(`package.json` 的 `exports` 也只放它和
-`./styles*`).按目录分组:
+`src/index.ts` 是**唯一**的组件出口(`package.json` 的 `exports` 只放它,
+`./styles*` 与测试入口 `./testing`).按目录分组:
 
 | 分组 | 内容 |
 | --- | --- |
@@ -207,10 +207,11 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | `widgets/` | `Button` `Switch` `Segmented` `RangeInput`(裸滑杆),`Slider`(系数滑块:名称 + 滑杆 + 数值框 + 重置按钮),`NumberField` `Popover`,`MenuItem`(菜单项)与 `Menu`(菜单:分组 + 当前项 + 开合;常驻显示或任意按钮触发),以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
 | `shared/` | 键盘唯一出口 `KeyboardController`,唯一拖拽实现 `bindDragGesture`,行缓存 `KeyedRowList`,`numberText`,行外壳 `rowDom` |
 | `desktop/` | `mountDesktop`,`WindowManager` / `WindowFrame` / `WindowGeometry` / `WindowResize` / `Dock` / `SnapPreview`,`windowSlotsProvider`,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
-| `editor/` | `CodeEditor`(建整套编辑器外壳),`EditorLineNumbers` / `EditorHighlight`(分词与槽宽由消费者注入),`HIGHLIGHT_ENABLED_CLASS` |
+| `editor/` | `CodeEditor`(建整套编辑器外壳),`EditorLineNumbers` / `EditorHighlight`(分词与槽宽由消费者注入),`HIGHLIGHT_ENABLED_CLASS`,`replaceTextareaSource` / `seedTextareaSource`(程序化写入源码并保住原生撤销栈) |
 | `feedback/` | `MessageList`(错误/警告列表,零领域依赖) |
 | `formula/` | `createFormulaElement`(KaTeX;`katex` 是**可选** peer),`FormulaCopyController` |
 | `theme/` | `applyTheme(root, tokens)`,`DEFAULT_THEME_TOKENS` |
+| `testing/` | **测试入口**(独立子路径 `miko_ui/testing`,不进主入口):手写 DOM 桩 `installDomStub`,复刻了真 DOM 里踩过的坑,并给出 `document.execCommand` / `navigator.clipboard` 两条可断言通道 |
 | `styles/` | `tokens.css`(默认主题,最先加载),`scrollbar.css`(独立的滚动条规定:滚动容器挂 `.ui-scrollbar`),`widgets.css`(含行外壳 `.object-row`/`.row-main`/`.row-actions`),`desktop.css`,`editor.css`,`feedback.css`(`.diagnostic*`,复制反馈的 `.is-copied`/`.is-error`),`styles.css`(总入口) |
 
 ## 边界契约(有机器守,不靠自觉)
@@ -226,12 +227,12 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 2. 库源码与样式里没有 `@/config/uiConfig`(配置靠注入);
 3. 库不引用应用源码的任何其它路径(`@/...` 一律不许);
 4. 会被打包的库代码里没有 `getElementById`,也没有裸的 `document.` / `window.`
-   (root 注入);
+   (root 注入;`src/testing/` 的测试桩除外 -- 它的职责就是造这些全局);
 5. `styles/` 里没有 id 选择器(排除十六进制颜色与注释);
 6. `dependencies` 只允许 `@preact/signals-core`;`peerDependencies` 只允许
    `katex`;
-7. `exports` 只指向构建产物(`dist/index.js` + `dist/index.d.ts`)与 `styles/`,
-   内部路径不进公开面;
+7. `exports` 只指向构建产物(`dist/index.js` + `dist/index.d.ts`),`styles/` 与
+   测试入口(`dist/testing/domStub.js`),内部路径不进公开面;
 8. 库里一次都没调用上游的批处理入口(更新路径不引调度器,见下).
 
 八条都是硬断言,全部必须为 0:任何一条出现违例,`npm test` 直接失败,没有

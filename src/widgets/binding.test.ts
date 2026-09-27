@@ -10,7 +10,7 @@
  * 4. **dispose 解绑**:销毁之后写 signal 不再碰 DOM(没有泄漏的回调).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { installDomStub, StubElement } from '../../test/domStub';
+import { installDomStub, StubElement } from '../testing/domStub';
 import { signal } from '../reactive';
 import { createNumberField } from './NumberField';
 import { createSegmented } from './Segmented';

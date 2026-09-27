@@ -8,7 +8,7 @@
  * 4. 库不读全局 `document`(节点建在 `root.ownerDocument` 上).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { installDomStub, type DomStub, type StubElement } from '../../test/domStub';
+import { installDomStub, type DomStub, type StubElement } from '../testing/domStub';
 import { DEFAULT_DESKTOP_CONFIG, type WindowConfigEntry } from './types';
 import { mountDesktop } from './mountDesktop';
 

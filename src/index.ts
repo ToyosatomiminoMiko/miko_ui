@@ -59,6 +59,7 @@ export * from './feedback/MessageList';
 export * from './editor/EditorLineNumbers';
 export * from './editor/CodeEditor';
 export * from './editor/EditorHighlight';
+export * from './editor/replaceEditorSource';
 
 // 主题与公式件(公式件用 KaTeX,是可选 peer)
 export * from './theme/tokens';

@@ -9,7 +9,10 @@ import { defineConfig } from 'vitest/config';
  * 测试文件有两处,都是库自己的:
  *   - `src/**` 下的 `*.test.ts`   组件/模块测试,挨着被测代码;
  *   - `test/**` 下的 `*.test.ts`  跨模块的契约测试(如"库产出的类名都有默认样式"),
- *                                 与 `test/` 下的夹具(`domStub` / `desktopFixture`)同处.
+ *                                 与 `test/desktopFixture.ts` 同处;
+ *   - `src/testing/`              **对消费者发布**的测试入口(DOM 桩):它由
+ *                                 `exports["./testing"]` 暴露,不属于上面的公开面,
+ *                                 所以放在 `src/` 下而不是 `test/` 下.
  *
  * 别名一个都不配:库内一律包内相对路径.
  */

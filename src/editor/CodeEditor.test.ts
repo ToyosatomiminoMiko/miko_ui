@@ -9,10 +9,10 @@
  * 4. **无全局**:两个编辑器可以共存于同一棵树上 -- 库不占用任何 id,
  *    同页两个实例不串味.
  *
- * 用库自带的 DOM 桩(`test/domStub.ts`).
+ * 用库自带的 DOM 桩(`src/testing/domStub.ts`).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { installDomStub, type StubElement } from '../../test/domStub';
+import { installDomStub, type StubElement } from '../testing/domStub';
 import { createCodeEditor, type CodeEditorHandle } from './CodeEditor';
 
 /** 桩分词器:把整份源码包一层,便于断言"注入的函数被用上了". */
