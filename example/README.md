@@ -54,8 +54,12 @@ example/
   index.html      只有一个 #app 的页面
   main.ts         全部示例代码(状态 -> 两条滑块/一个按钮/三条读数/两处菜单 -> 三个窗口)
   example.css     页面级规则 + 窗口正文的排布与读数字形(菜单外观在库的 widgets.css)
-  vite_env.d.ts   CSS import 的类型声明
 ```
+
+CSS 导入的类型不在这里声明:库自己的 `src/css_modules.d.ts` 有一条全局的
+`declare module '*.css'`,而 `tsconfig.json` 把 `src/**` 与 `example/**` 放进
+同一个检查程序,所以示例的 `import 'miko_ui/styles.css'` / `import './example.css'`
+由库那一侧兜住 -- 示例这一层不需要 `vite/client`.
 
 ## 它验证了什么
 
