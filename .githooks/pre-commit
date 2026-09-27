@@ -37,11 +37,11 @@ from pathlib import Path
 
 
 def warn(message):
-    print(f'[pre-commit] 警告: {message}', file=sys.stderr)
+    print(f"[pre-commit] 警告: {message}", file=sys.stderr)
 
 
 def git(root, args, **kwargs):
-    return subprocess.run(['git'] + args, cwd=str(root), check=True, **kwargs)
+    return subprocess.run(["git"] + args, cwd=str(root), check=True, **kwargs)
 
 
 def staged_files(root):
@@ -49,15 +49,21 @@ def staged_files(root):
 
     `-z` 是为了正确处理空格与中文文件名: 输出以 NUL 分隔, 不走 git 的引号转义.
     """
-    result = git(root, ['diff', '--cached', '--name-only', '-z', '--diff-filter=ACM'],
-                 capture_output=True)
-    return [os.fsdecode(chunk) for chunk in result.stdout.split(b'\0') if chunk]
+    result = git(
+        root,
+        ["diff", "--cached", "--name-only", "-z", "--diff-filter=ACM"],
+        capture_output=True,
+    )
+    return [os.fsdecode(chunk) for chunk in result.stdout.split(b"\0") if chunk]
 
 
 def main():
     try:
-        root = Path(git(Path.cwd(), ['rev-parse', '--show-toplevel'],
-                        capture_output=True).stdout.decode('utf-8', 'replace').strip())
+        root = Path(
+            git(Path.cwd(), ["rev-parse", "--show-toplevel"], capture_output=True)
+            .stdout.decode("utf-8", "replace")
+            .strip()
+        )
     except (subprocess.CalledProcessError, OSError):
         # 不在 git 工作树里(或者没装 git): 没什么可做的.
         return 0
@@ -65,7 +71,7 @@ def main():
     try:
         targets = staged_files(root)
     except (subprocess.CalledProcessError, OSError) as err:
-        warn(f'读暂存区失败({err}), 跳过标点自动转换.')
+        warn(f"读暂存区失败({err}), 跳过标点自动转换.")
         return 0
 
     if not targets:
@@ -74,12 +80,12 @@ def main():
     # 钩子不该往工作树里丢东西: 不加这一行, 下面那次 import 会在 scripts/ 下生成
     # __pycache__/*.pyc, 于是每次提交都在工作树里多出一个未跟踪目录.
     sys.dont_write_bytecode = True
-    scripts_dir = root / 'scripts'
+    scripts_dir = root / "scripts"
     sys.path.insert(0, str(scripts_dir))
     try:
         import autorun
     except Exception as err:  # noqa: BLE001 -- 钩子绝不因为自身问题阻断提交
-        warn(f'导入 scripts/autorun.py 失败({err}), 跳过标点自动转换.')
+        warn(f"导入 scripts/autorun.py 失败({err}), 跳过标点自动转换.")
         return 0
     finally:
         sys.path.pop(0)
@@ -92,25 +98,25 @@ def main():
         try:
             if autorun.fix_file(path):
                 changed.append(name)
-                print(f'[fix_punctuation] fixed: {name}')
+                print(f"[fix_punctuation] fixed: {name}")
         except UnicodeDecodeError:
             continue  # 二进制文件不处理
         except OSError as err:
-            warn(f'标点转换失败: {name}: {err}')
+            warn(f"标点转换失败: {name}: {err}")
 
     if changed:
         # 只 add 真正改过的文件: 否则会把暂存文件在工作区里的其他改动一起带进这次提交.
         try:
-            git(root, ['add', '--'] + changed)
+            git(root, ["add", "--"] + changed)
         except (subprocess.CalledProcessError, OSError) as err:
-            warn(f'git add 失败({err}), 改过的文件没有重新暂存.')
+            warn(f"git add 失败({err}), 改过的文件没有重新暂存.")
 
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as err:  # noqa: BLE001 -- 钩子的职责是帮忙, 不是设卡
-        warn(f'未预期的错误({err}), 已放行这次提交.')
+        warn(f"未预期的错误({err}), 已放行这次提交.")
         sys.exit(0)
