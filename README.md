@@ -206,9 +206,9 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | --- | --- |
 | `widgets/dom.ts` | `create_element({ tag, root }, attributes, ...children)` / `childNodes`(`Child` 类型) / `nextWidgetId`,`ElementSpec` 与 `ElementAttributes`(创建层与属性层分开);同在这一个文件里的 `DomRoot` / `rootDocument`(root 注入)是**库内口径**,不从 `miko_ui` 导出 |
 | `reactive/` | `signal` / `computed` / `effect` / `derivedSignal` / `onValueChange` / `isSignal` / `ValueSource` 工具 |
-| `widgets/` | `Button` `Switch` `Segmented` `RangeInput`(裸滑杆),`Slider`(系数滑块:名称 + 滑杆 + 数值框 + 重置按钮),`NumberField` `Popover`,`MenuItem`(菜单项)与 `Menu`(菜单:分组 + 当前项 + 开合;常驻显示或任意按钮触发),以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
+| `widgets/` | `Button` `Switch` `Segmented` `RangeInput`(裸滑杆),`Slider`(系数滑块:名称 + 滑杆 + 数值框 + 重置按钮),`NumberField` `Popover`,`MenuItem`(菜单项)与 `Menu`(菜单:分组 + 当前项 + 开合;常驻显示或任意按钮触发),`Panel`(带标题栏的静态框体:应用里的"卡片";桌面窗口复用同一组 `.ui-panel*` 基类),以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
 | `shared/` | 键盘唯一出口 `KeyboardController`,唯一拖拽实现 `bindDragGesture`,行缓存 `KeyedRowList`,`numberText`,行外壳 `rowDom` |
-| `desktop/` | `mountDesktop`,`WindowManager` / `WindowFrame` / `WindowGeometry` / `WindowResize` / `Dock` / `SnapPreview`,`windowSlotsProvider`,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
+| `desktop/` | `mountDesktop`,`WindowManager` / `WindowFrame` / `WindowGeometry` / `WindowResize` / `Dock` / `SnapPreview`,`windowSlotsProvider`,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG`.窗口外壳的公共外观复用 `widgets/Panel` 的 `.ui-panel*` 基类(`window = panel + 几何/拖动`),桌面只叠差异 |
 | `editor/` | `CodeEditor`(建整套编辑器外壳),`EditorLineNumbers` / `EditorHighlight`(分词与槽宽由消费者注入),`HIGHLIGHT_ENABLED_CLASS`,`replaceTextareaSource` / `seedTextareaSource`(程序化写入源码并保住原生撤销栈) |
 | `feedback/` | `MessageList`(错误/警告列表,零领域依赖) |
 | `formula/` | `createFormulaElement`(KaTeX;`katex` 是**可选** peer),`FormulaCopyController` |

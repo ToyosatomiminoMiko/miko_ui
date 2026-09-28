@@ -5,6 +5,11 @@
  * 按钮语义都由 `WindowManager` 在建完之后接线,所以建外壳与挂手柄是同一时序里
  * 的两件事.
  *
+ * **框体外观复用面板**:每个元素都先带 `.ui-panel*` 基类(`widgets/Panel.ts`
+ * 那一套),再叠 `.window*`.公共底色 / 描边 / 圆角 / 标题栏排布因此只有一份
+ * (`styles/widgets.css`),窗口自己的差异(绝对定位,固定标题栏高度,拖动光标,
+ * 正文不内边距)在 `styles/desktop.css` 里以 `.window ...` 覆盖.
+ *
  * `spec.slots` 里的节点是**搬过来的,不是重建的**:消费者的监听,浮层状态与
  * 文本回显都在那些节点上,不能丢,所以只 `append` 现成节点,不按 innerHTML
  * 重做一份.
@@ -77,14 +82,15 @@ export function clearGeometry(element: HTMLElement): void {
 
 export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     const element = create_element({ tag: 'section' }, {
-        class: 'window',
+        // 基类在前:窗口 = 面板框体 + 桌面差异(见文件头).
+        class: 'ui-panel window',
         'data-window': spec.id,
         role: 'region',
     });
     // 可脚本聚焦(`reveal()` 的落点)但不进 Tab 序.
     element.tabIndex = -1;
 
-    const title = create_element({ tag: 'span' }, { class: 'window-title' });
+    const title = create_element({ tag: 'span' }, { class: 'ui-panel-title window-title' });
     // 读屏名指向标题文本;id 由窗口 id 派生,一个窗口只有一个标题.
     title.id = `window-title-${spec.id}`;
     const label = create_element({ tag: 'span' }, {}, spec.title);
@@ -115,13 +121,13 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     // 也必须在 .window-body 之外,否则会被正文的裁切切掉.
     const header = create_element(
         { tag: 'header' },
-        { class: 'window-header' },
+        { class: 'ui-panel-header window-header' },
         title,
         actions,
         controls,
         ...childNodes(spec.slots.overlays ?? [], element.ownerDocument),
     );
-    const body = create_element({ tag: 'div' }, { class: 'window-body' });
+    const body = create_element({ tag: 'div' }, { class: 'ui-panel-body window-body' });
 
     const handles = RESIZE_DIRECTIONS.map((direction) => ({
         direction,

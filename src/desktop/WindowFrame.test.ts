@@ -66,15 +66,16 @@ describe('createWindowFrame 的结构契约', () => {
         });
 
         expect(frame.element.tagName).toBe('section');
-        expect(frame.element.className).toBe('window');
+        // 基类在前:窗口 = 面板框体(`.ui-panel*`)+ 桌面差异(`.window*`).
+        expect(frame.element.className).toBe('ui-panel window');
         expect(frame.element.dataset.window).toBe('source');
         expect(frame.element.getAttribute('role')).toBe('region');
         expect(frame.element.tabIndex).toBe(-1);
         expect(frame.element.getAttribute('aria-labelledby')).toBe('window-title-source');
 
-        expect(headerOf(frame).className).toBe('window-header');
-        expect(frame.title.className).toBe('window-title');
-        expect(frame.body.className).toBe('window-body');
+        expect(headerOf(frame).className).toBe('ui-panel-header window-header');
+        expect(frame.title.className).toBe('ui-panel-title window-title');
+        expect(frame.body.className).toBe('ui-panel-body window-body');
         expect(headerOf(frame).contains(frame.title as unknown as StubElement)).toBe(true);
         // 正文与标题栏是兄弟:正文必须在 header 之外(浮层在 header 里,反过来会被裁).
         expect(headerOf(frame).contains(frame.body as unknown as StubElement)).toBe(false);

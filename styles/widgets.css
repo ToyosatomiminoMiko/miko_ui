@@ -11,6 +11,7 @@
  *   .slider-field          系数滑块(名称 + 滑杆 + 数值框 + 重置按钮)
  *   .ui-button             按钮基线(每个 `createButton` 都带,见下)
  *   .ui-badge              徽章基线(每个 `createBadge` 都带,见下)
+ *   .ui-panel / -header / -title / -body  面板框体(`widgets/Panel.ts`;桌面窗口复用同组基类)
  *   .menu-panel            菜单面板(`.menu-group` 分组,`.menu-item` 菜单项)
  *   .menu-anchor / .menu-popover  浮层用法的锚点与开合(直接显示只用 `.menu-panel`)
  *   .object-row / .row-main / .row-actions  行外壳三件套(`shared/rowDom.ts`)
@@ -475,4 +476,59 @@
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
+}
+
+/* ==========================================================================
+ * 面板:带标题栏的框体(应用里的"卡片")
+ * --------------------------------------------------------------------------
+ * 结构由 `widgets/Panel.ts` 的 `createPanel` 建:
+ *
+ *   .ui-panel          框体(底色 / 描边 / 圆角 / 列排布)
+ *   .ui-panel-header   标题栏(横排;标题在左,消费方追加的节点接在它后面)
+ *   .ui-panel-title    标题文本(吃掉剩余宽度,超长省略号)
+ *   .ui-panel-body     正文容器(面板唯一带内边距的一层)
+ *
+ * 桌面窗口复用同一组基类:`desktop/WindowFrame.ts` 在它们后面再叠
+ * `.window` / `.window-header` / `.window-title` / `.window-body`,窗口的差异
+ * (绝对定位 / 固定标题栏高度 / 拖动光标 / 正文不内边距)在 `desktop.css` 里以
+ * `.window ...` 覆盖.所以这里是"框体"的公共外观,窗口与面板的观感不会各写一份.
+ *
+ * 内边距是 token(`--panel-header-padding` / `--panel-body-padding`),默认值在
+ * `tokens.css`;窗口**必须**显式覆盖 `padding`,否则正文会平白多出一圈内边距.
+ * ========================================================================== */
+
+.ui-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    color: var(--color-text);
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border-panel);
+    border-radius: var(--radius-md);
+}
+
+.ui-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    padding: var(--panel-header-padding);
+    background: var(--color-bg-header);
+    border-bottom: 1px solid var(--color-border-panel);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.ui-panel-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ui-panel-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: var(--panel-body-padding);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
 }

@@ -154,6 +154,12 @@
     --params-panel-min-height: 120px;
     --view-controls-min-height: 120px;
 
+    /* 静态面板(`.ui-panel`)的两个内边距.窗口复用面板的框体,但它的标题栏是
+       固定高度,正文不留内边距(见 `desktop.css` 的 `.window ...` 覆盖),所以
+       这两个值只服务面板. */
+    --panel-header-padding: 8px 16px;
+    --panel-body-padding: 16px;
+
     /* 窗口外壳的两个样式常量.窗口几何(left/top/width/height)不进 CSS:窗口由
        JS 建,几何由 WindowManager 写成行内样式,不存在"CSS 首帧"这回事.
 

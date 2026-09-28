@@ -4,7 +4,8 @@
  * 负责:
  *   - 三层容器与桌面背景的堆叠(背景归消费者;.window-layer / .snap-preview / .dock 归本层)
  *   - 窗口外壳(.window / .window-header / .window-title / .window-actions /
- *     .window-controls / .window-body)
+ *     .window-controls / .window-body):外壳的公共外观在 `widgets.css` 的
+ *     `.ui-panel*`(面板与窗口共用同一框体),这里只写窗口的差异
  *   - 八向缩放手柄(.resize-handle + [data-window-resize])
  *   - Dock(顶部任务栏)与吸附高亮
  *
@@ -93,7 +94,12 @@
     pointer-events: none;
 }
 
-.window-header {
+/* 窗口的标题栏/标题/正文都**复用面板的框体基类**(`.ui-panel-header` 等,见
+   `widgets.css`),所以下面每一条都带 `.window` 限定,把特异性提到基类之上:
+   这些差异(固定标题栏高度,拖动光标,正文不内边距)必须压过面板的默认值,
+   而这个文件的加载顺序不保证在 `widgets.css` 之后(消费方可以只引这一份).
+   窗口正文尤其要显式写 `padding: 0`:面板正文的 token 内边距不能漏进窗口. */
+.window > .window-header {
     /* 浮层的定位锚点就是这一层(浮层是 header 的直接子节点). */
     position: relative;
     display: flex;
@@ -110,7 +116,7 @@
 /* 标题本身是拖动起手区:光标与"不可选中"都在这里表达.
    它与 .window-actions / .window-controls 是**兄弟**,所以按钮天然不在拖动
    区内,不需要运行期 closest('button') 判断. */
-.window-title {
+.window .window-title {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -173,12 +179,14 @@
 }
 
 /* 窗口正文:确定高度 + 裁切都归它;里面的宿主由 `.window-body > *` 拉满.
-   漏掉 flex/min-height 不会报错,只是内容高度变成 0. */
-.window-body {
+   漏掉 flex/min-height 不会报错,只是内容高度变成 0.
+   `padding: 0` 压掉面板正文的 token 内边距(窗口正文由消费者自己排布). */
+.window > .window-body {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    padding: 0;
     overflow: hidden;
     border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
