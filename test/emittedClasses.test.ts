@@ -4,24 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
- * 类名契约:库**产出的**每个类名,库的样式表里要么给它默认观感,要么在下面
- * 那份白名单里明确声明"它只是定位钩子".
+ * 类名契约:库**产出的**每个类名,库的样式表里要么有默认观感,要么在
+ * `INTENTIONAL_HOOKS` 里声明它只是定位钩子.
  *
- * 为什么需要这条断言:`MessageList` 产出 `.diagnostic*`,`rowDom` 产出
- * `.object-row` / `.row-main` / `.row-actions`,`FormulaCopyController` 产出
- * `.is-copied` / `.is-error` -- 而这三组在补上默认样式之前,库的样式表里一条
- * 规则都没有.症状不是"库坏了",而是**消费者被迫给库的类写外观**,正好是
- * "上游定义样式,下游只能重载"的反面;更糟的是消费侧的
- * `styleLayers.test.ts` 明令禁止应用给库的类写样式,于是那条契约在多消费者
- * 下必然被违反,或者库件裸奔.
+ * 判据用**源码里的类名字面量**而不是运行期 DOM:静态可判定,不需要 DOM 桩,也不会
+ * 漏掉只在某个分支里挂上的状态类(如 `is-copied`).
  *
- * 这条断言把"游离的类名"变成会红的测试:新增一个产出而不给样式,必须在这里
- * 显式声明它是钩子(带理由),否则 CI 失败.它与 `scripts/check_ui_boundary.py`
- * 的八条**互补**:那八条守"库不依赖消费者",这条守"库不把自己该做的样式推给
- * 消费者".
- *
- * 判据刻意用**源码里的类名字面量**而不是运行期 DOM:静态可判定,不需要 DOM 桩,
- * 也不会漏掉那些只在某个分支里才挂上的状态类(如 `is-copied`).
+ * 漏掉的症状:消费者被迫给库的类写外观(消费侧的 `styleLayers.test.ts` 明令禁止),
+ * 或者库件裸奔.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -49,17 +39,14 @@ function stripTsComments(source: string): string {
 }
 
 /**
- * 源码里被**当成类名**写出来的字面量.三类写法:
- *   - `class: 'a b'` / `class: \`a\``  (create_element / createButton 等)
+ * 源码里被**当成类名**写出来的字面量,三类写法:
+ *   - `class: 'a b'` / `class: \`a\``
  *   - `classList.add/toggle/remove('a')`
- *   - `const X_CLASS = 'a'`(常量类名,如 `MenuItem` 的 active)
+ *   - `const X_CLASS = 'a'`
  *
- * 模板插值要**先取整串再去掉插值段**:`class: \`diagnostic diagnostic-${level}\``
- * 去掉 `${level}` 之后只剩 `diagnostic `,而 `diagnostic-<level>` 的具名类
- * (`diagnostic-warning` / `diagnostic-error`)由下面显式补上.
- *
- * 注意不能写成 `` `([^`$]*)` ``:插值里的 `$` 会让那条模式永远匹配不到收尾的
- * 反引号,整条 `class:` 就被静默跳过 -- 那正是"守卫假绿"的写法.
+ * 模板插值**先取整串再去掉插值段**,具名类由 `EXPANDED_TEMPLATE_CLASSES` 补上.
+ * 不能写成 `` `([^`$]*)` ``:插值里的 `$` 会让那条模式匹配不到收尾反引号,整条
+ * `class:` 被静默跳过 -- 那正是"守卫假绿".
  */
 function emittedClasses(source: string): Map<string, string> {
     const found = new Map<string, string>();
@@ -89,14 +76,10 @@ function emittedClasses(source: string): Map<string, string> {
 }
 
 /**
- * 由模板拼出来的**具名**状态类:静态扫不到,但库确实会产出,所以必须一起守.
- *
- * `MessageList` 产出 `` `diagnostic diagnostic-${level}` ``,而 `MessageLevel` 只有
- * `warning` / `error` 两种.这里是"源码里那句模板的展开结果",不是白名单 --
- * 少写一个就等于这个类没有默认样式(Consumer 又要自己写).
+ * 由模板拼出来的**具名**状态类:静态扫不到但库确实会产出,少写一个就等于这个类
+ * 没有默认样式.
  */
 const EXPANDED_TEMPLATE_CLASSES = ['diagnostic-warning', 'diagnostic-error'] as const;
-
 
 /** 样式表里出现过的类名(含 `:where(.ui-button)` 这类). */
 function styledClasses(css: string): Set<string> {
@@ -105,9 +88,8 @@ function styledClasses(css: string): Set<string> {
 }
 
 /**
- * 有意不给外观的**定位钩子**:它们只用来在 DOM 里认出某个节点(测试与语义),
- * 外观来自 `.ui-button` 基线或消费者.新增条目必须在这里说明理由 -- 这份白名单
- * 就是"故意留白"与"忘了写样式"之间的分界,不允许悄悄扩大.
+ * 有意不给外观的**定位钩子**:只用来在 DOM 里认出某个节点(测试与语义),外观来自
+ * `.ui-button` 基线或消费者.新增条目必须写明理由.
  */
 const INTENTIONAL_HOOKS = new Map<string, string>([
     ['window-control-btn', '窗口标题栏控制按钮:外观全来自 .ui-button 基线,这里只是定位钩子(见 desktop.css)'],
@@ -134,7 +116,7 @@ describe('类名契约:库产出的类名都有默认样式', () => {
     }
 
     it('扫到的类名不是空的(断言本身没写坏)', () => {
-        // 正控:解析器真的读到了东西.否则下面那条会因为"两边都空"而假绿.
+        // 正控:否则下面那条会因"两边都空"而假绿.
         expect(emitted.size).toBeGreaterThan(30);
         expect(styled.size).toBeGreaterThan(30);
     });
@@ -159,8 +141,7 @@ describe('类名契约:库产出的类名都有默认样式', () => {
     });
 
     it('白名单里的定位钩子确实没有样式(删了样式就把白名单一起删)', () => {
-        // 反向断言:钩子一旦被补上样式,就该从白名单移走 -- 免得名单变成
-        // "没人再看的豁免表",下次真漏了样式时被它静默盖住.
+        // 反向断言:钩子补上样式后必须从白名单移走,否则名单会变成没人看的豁免表.
         const stale = [...INTENTIONAL_HOOKS.keys()].filter((name) => styled.has(name));
         expect(stale, `这些钩子已经有了样式,请从 INTENTIONAL_HOOKS 里删掉:\n${stale.join('\n')}`).toEqual([]);
     });

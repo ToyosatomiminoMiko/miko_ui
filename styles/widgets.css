@@ -18,12 +18,6 @@
  *   .diagnostic*           反馈条目的默认观感在 `feedback.css`
  *   .is-copied / .is-error 复制反馈的状态(见 `formula/FormulaCopyController.ts`)
  *
- * 按钮**有基线**:`createButton` 一律带 `.ui-button`,消费方的类名叠在它后面
- * (`.slider-field-reset` / `.window-control-btn` 这类只是定位钩子;真要加外观
- * 增量的目前有 `.row-visibility-btn` 与 `.menu-item`).
- * 基线写成 `:where(.ui-button)` 的零优先级规则,任何变体类都能盖住它,与样式表
- * 加载顺序无关(见下"按钮基线"一节).
- *
  * 只写**结构与交互**,不写主题:颜色/圆角/间距一律 var(--...),默认值在
  * `tokens.css`,消费者可以整份覆盖.
  *
@@ -125,7 +119,6 @@
 }
 
 /* 菜单面板:**菜单外观的另一半**(`.menu-item` 给"一行",这里给"表面与分组").
-   与 `.menu-item` 一样,这份也只有库里一条:消费者只给数据与行为.
 
    表面与位置分开:面板长什么样写在 `.menu-panel` 上,摆在哪由下面两条决定 --
    - **直接显示**:只用 `.menu-panel`(它一直显示);
@@ -152,7 +145,6 @@
     border-top: 1px solid var(--color-border-group);
 }
 
-/* 分组标题 */
 .menu-group-title {
     padding: 4px 8px;
     font-size: 11px;
@@ -190,7 +182,6 @@
     gap: 8px;
 }
 
-/* 小节标题 */
 .control-title {
     font-size: 12px;
     color: var(--color-text-active);
@@ -349,7 +340,6 @@
     white-space: nowrap;
 }
 
-/* 数值框:固定宽,数字右对齐 */
 .slider-field-value {
     flex: none;
     width: var(--slider-field-value-width, 76px);
@@ -435,9 +425,8 @@
  *   .row-main       主内容包装:吃掉除行末动作外的全部宽度
  *   .row-actions    行末动作容器:整组贴右,按钮竖排
  *
- * 补上之前这三个类在库的样式表里**一条规则都没有**,消费者只能自己写 -- 而那
- * 恰恰是 `test/emittedClasses.test.ts` 那条类名契约要禁止的事.现在默认观感
- * 归库,消费者仍然可以:
+ * 默认观感归库(消费者自己给库的类写外观,正是 `test/emittedClasses.test.ts`
+ * 那条类名契约要禁止的事),消费者仍然可以:
  *   - 用 `.entity-row` 这类**自己的**行类名写增量(推荐,不需要覆盖);
  *   - 或直接重载下面任意一条(库不改这些选择器的优先级,后加载的消费者样式赢).
  *

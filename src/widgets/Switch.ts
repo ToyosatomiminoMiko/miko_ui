@@ -10,13 +10,12 @@
  * </label>
  * ```
  *
- * 状态归属:控件自己持有勾选态(`input.checked` 就是状态),`get()` 读它,
- * `set()` 程序化写它,`onChange` 通知外部.外部(控制器)**不反向持有**一份
- * 布尔值再同步回来 -- 两个状态源会互相覆盖;控制器只在需要按配置打初值时
+ * 状态归属:控件自己持有勾选态(`input.checked` 就是状态).外部(控制器)**不反向
+ * 持有**一份布尔值再同步回来 -- 两个状态源会互相覆盖;控制器只在需要按配置打初值时
  * `set()` 一次.
  *
- * `value` 也可以直接给一个 **signal**:那时控件由绑定驱动 -- 值变了自己更新
- * DOM,用户切换写回 signal,调用方不必再写 `onChange` + `set()` 的手工回路.
+ * `value` 给 signal 时控件由绑定驱动:值变了自己更新 DOM,用户切换写回 signal,
+ * 调用方不必再写 `onChange` + `set()` 的手工回路.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
 import { create_element, nextWidgetId } from './dom';

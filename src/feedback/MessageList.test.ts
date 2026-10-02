@@ -1,9 +1,3 @@
-/**
- * 消息列表单测.
- *
- * 消费者的提示容器通常带 `aria-live="polite"`,所以"内容没变"必须意味着
- * **零 DOM 操作**;变了才替换,并尽量复用同键节点.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub, type StubElement } from '../testing/domStub';
 import { MessageList } from './MessageList';

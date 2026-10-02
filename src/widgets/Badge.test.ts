@@ -1,12 +1,7 @@
 /**
  * 徽章件单测.
  *
- * 锁三件事:结构(span + 文案),类名组合(基线在前,消费者变体类在后),以及
- * "没有变体类时不留下尾随空格".
- *
- * 没有交互与 dispose 可测:徽章是静态件(见 `Badge.ts` 的文件头).至于"基线
- * 真的在样式表里"这一条,由 `test/emittedClasses.test.ts` 的类名契约守着,
- * 不在本文件重复.
+ * 结构(span + 文案)与类名组合:基线在前,消费者变体类在后;没有变体类时不留尾随空格.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type StubElement } from '../testing/domStub';

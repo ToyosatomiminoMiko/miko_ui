@@ -11,8 +11,7 @@
  *
  * 也就是"窗口 = 面板 + 几何与拖动".公共外观(底色 / 描边 / 圆角 / 标题栏)只在
  * `styles/widgets.css` 里写一份;窗口的差异(绝对定位,固定标题栏高度,拖动光标,
- * 正文不留内边距)由 `styles/desktop.css` 以 `.window ...` 覆盖.这条分层的收益是
- * "带标题栏的块"以后只需要长在面板这一层上(对话框,提示条,侧栏都是它).
+ * 正文不留内边距)由 `styles/desktop.css` 以 `.window ...` 覆盖.
  *
  * 本件只建结构:不订阅状态,不绑事件,不读全局 `document` -- root 走
  * `create_element` 的既有约定(不传就用调用方所在文档).
@@ -22,7 +21,7 @@
  */
 import { childNodes, create_element, nextWidgetId, type Child } from './dom';
 
-/** 框体基类:面板与窗口共用(见文件头的分层). */
+/** 框体基类:面板与窗口共用. */
 const PANEL_CLASS = 'ui-panel';
 /** 标题栏:横向一行,标题在左,消费方追加的节点接在它后面. */
 const PANEL_HEADER_CLASS = 'ui-panel-header';
@@ -36,12 +35,12 @@ export interface PanelOptions {
      * 标题栏文案.
      *
      * 它同时是面板的可访问名:根节点是 `role="region"` 并用 `aria-labelledby`
-     * 指向这段文字(与 `WindowFrame` 同一条做法),读屏可以按面板跳转.
+     * 指向这段文字,读屏可以按面板跳转.
      */
     readonly title: string;
     /**
      * 追加在 `.ui-panel` 上的类名,给消费方的作用域类用(如 `oled-card` 定宽).
-     * 基线在前,它在外,与 `createBadge` 的 `class` 同一条约定.
+     * 基线在前,它在外.
      */
     readonly class?: string;
     /** 正文节点;顺序即显示顺序.省略 = 空正文(之后往 `handle.body` 里加). */
@@ -90,8 +89,7 @@ export function createPanel(options: PanelOptions): PanelHandle {
     element.setAttribute('aria-labelledby', titleId);
 
     const header = create_element({ tag: 'header' }, { class: PANEL_HEADER_CLASS }, title);
-    // 正文里的现成节点可能是别的 document 造的,统一按本面板的文档落成真节点
-    // (与 `WindowFrame` 搬槽位节点同一条 `childNodes` 规则).
+    // 正文里的现成节点可能是别的 document 造的,统一按本面板的文档落成真节点.
     const body = create_element(
         { tag: 'div' },
         { class: PANEL_BODY_CLASS },

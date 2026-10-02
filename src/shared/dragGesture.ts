@@ -1,13 +1,10 @@
 /**
  * 指针拖动:按下起手 / 移动累计 / 松开收尾,收尾时复位光标与拖动标记.
  *
- * 这是库内**唯一一份**拖动实现,两个消费者:
- * - `desktop/WindowManager`:窗口标题栏的拖动(移动整个窗口);
- * - `desktop/WindowResize`:八根 `[data-window-resize]` 手柄的八向缩放.
- *
- * 为什么必须共用:按下起手 / 累计位移 / 收尾复位 `document.body.style.cursor`
- * 这套流程写两份,就会在细节上分叉(收尾监听绑在谁身上,光标写死还是读计算
- * 样式),分叉处就是理解偏差的藏身处.收成一份之后,光标只有一个来源(CSS),
+ * 库内**唯一一份**拖动实现,两个消费者:`desktop/WindowManager`(窗口标题栏拖动)
+ * 与 `desktop/WindowResize`(八根 `[data-window-resize]` 手柄的八向缩放).按下起手 /
+ * 累计位移 / 收尾复位 `document.body.style.cursor` 这套流程写两份,就会在细节上
+ * 分叉(收尾监听绑在谁身上,光标写死还是读计算样式),所以光标只有一个来源(CSS),
  * 收尾只有一条路径(signal).
  *
  * 两个刻意的设计点:
@@ -16,8 +13,7 @@
  * - **位移是像素原始值**,怎么解释(加到宽度上还是减到宽度上,除以容器高度
  *   变成比例)由 `onDelta` 的实现决定,本模块不认识"宽/高/比例"任何一个概念.
  *
- * 收尾方式:pointerup / pointercancel 绑在 handle 自己身上,靠起手时的
- * `setPointerCapture` 收事件(指针可能已经离开 handle 甚至离开窗口),并给
+ * 收尾:pointerup / pointercancel 绑在 handle 自己身上(见下方监听说明),并给
  * handle 加 `is-dragging` 类供 CSS 表达拖动中状态.
  */
 

@@ -6,13 +6,6 @@
  * `addEventListener('keydown')`,所以"哪些键,命中什么目标,命中后做什么"
  * 只需看这一个文件,监听也天然成对(一次 bind / 一次 dispose).
  *
- * 内置绑定(动作由构造时的 `actions` 注入):
- * - Home           -> `onHome`;焦点在输入控件里时让位给控件
- * - Ctrl/Cmd+Enter -> `onRun`(仅当事件目标是构造时传入的编辑器)
- *
- * 组件绑定(经 register 注入):
- * - 公式的 Enter/Space 复制(FormulaCopyController.keyboardBinding())
- *
  * 绑定/解绑严格成对:bind() 之后必须 dispose(),由调用方负责清理.
  */
 import { rootDocument, type DomRoot } from '../widgets/dom';

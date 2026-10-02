@@ -50,7 +50,6 @@ export function createPopover(options: PopoverOptions): PopoverHandle {
 
     if (panel.id) trigger.setAttribute('aria-controls', panel.id);
 
-    /** 开合态的唯一写入点:状态,类名,aria 一起刷新. */
     const apply = (next: boolean): void => {
         opened = next;
         panel.classList.toggle('is-open', next);

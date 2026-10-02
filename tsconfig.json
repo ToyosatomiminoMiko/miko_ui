@@ -7,9 +7,9 @@
    * "找不到 node:fs""参数隐式 any"的假错误 -- 看起来像代码有问题,实际是配置
    * 没读到.所以这里把用到的选项写全.
    *
-   * 没有 `paths`:库内一律用包内相对路径,别名只属于消费者那一侧.这不是图省事,
-   * 是"库不假设消费者怎么解析模块"的一半(另一半是不引 `vite/client` 的类型,
-   * 见 `src/css_modules.d.ts`).
+   * 没有 `paths`:库内一律用包内相对路径,别名只属于消费者那一侧.这是"库不假设
+   * 消费者怎么解析模块"的一半(另一半是不引 `vite/client` 的类型,见
+   * `src/css_modules.d.ts`).
    */
   "compilerOptions": {
     "target": "ES2020",
@@ -35,8 +35,7 @@
    * `example/**` 也进类型检查:示例是"公开面够不够用"唯一的实测点.代价是
    * example 通过**包名自引用** `miko_ui`,类型只能来自 `dist/index.d.ts`
    * (exports 指向产物),所以 `npm run typecheck` 要求 `dist/` 已经构建好 --
-   * 这正是 `package.json` 里 `prepare: npm run build` 必须留着的原因(那条规则
-   * 的执行点与失败症状写在 `.github/workflows/ci.yml` 顶部第 2 条).
+   * 这正是 `package.json` 里 `prepare: npm run build` 必须留着的原因.
    */
   "include": ["src/**/*.ts", "test/**/*.ts", "example/**/*.ts"],
   "exclude": ["node_modules", "dist"]

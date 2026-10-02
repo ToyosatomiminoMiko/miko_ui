@@ -1,13 +1,9 @@
 /**
  * 控件词表的单测(最小 DOM 桩,见 `src/testing/domStub.ts`,不引入 jsdom).
  *
- * 锁三件事:
- * 1. **DOM 与手写 HTML 同构** -- 类名/结构是 CSS 的公开契约,控件一旦改了
- *    类名,`styles/widgets.css` 的样式就静默失效;
- * 2. **状态只有一处** -- `get()` 读的就是控件自己的 DOM 状态,`set()` 不触发
- *    回调(那是"用户操作"的语义);
- * 3. **dispose 真解绑** -- 桩复刻了 `{ signal }` 语义,控件漏掉 signal 接线
- *    会让"dispose 后仍响应事件"的回归暴露出来.
+ * 类名 / 结构与 `styles/widgets.css` 是同一份契约:控件改了类名,样式就静默失效,
+ * 所以这里按产出的 HTML 断言;`set()` 不触发回调(那是"用户操作"的语义);桩复刻了
+ * `{ signal }` 语义,控件漏掉信号接线会让"dispose 后仍响应事件"的回归暴露出来.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub, StubElement } from '../testing/domStub';
@@ -99,7 +95,6 @@ describe('createSegmented', () => {
         });
 
         expect(handle.element.className).toBe('segmented');
-        // 列数由控件给,CSS 通过 --segmented-columns 消费
         expect(handle.element.style.getPropertyValue('--segmented-columns')).toBe('2');
         expect(handle.element.getAttribute('aria-label')).toBe('点的显示方式');
         const buttons = stub(handle.element).children as StubElement[];
@@ -282,7 +277,6 @@ describe('createRangeInput(裸滑杆)', () => {
 describe('createSlider(系数滑块)', () => {
     const BASE = { value: 1, min: 0, max: 5, step: 0.1, label: 'a' } as const;
 
-    /** 根 -> [滑杆, meta];meta -> [名称, 数值框, 重置]. */
     function parts(handle: ReturnType<typeof createSlider>): {
         range: StubElement;
         meta: StubElement;
@@ -305,7 +299,6 @@ describe('createSlider(系数滑块)', () => {
         expect(range.className).toBe('slider-field-range');
         expect(meta.className).toBe('slider-field-meta');
         expect(label.className).toBe('slider-field-label');
-        // 普通参数没有 cyclic 徽章
         expect(handle.label.querySelector('.slider-field-tag')).toBeNull();
         expect(numberInput.type).toBe('number');
         expect(numberInput.className).toBe('slider-field-value');
@@ -495,7 +488,6 @@ describe('createMenuItem', () => {
         expect(handle.element.tagName).toBe('button');
         expect(handle.element.type).toBe('button');
         expect(handle.element.getAttribute('role')).toBe('menuitem');
-        // 与 createButton 同款:基线类在前,菜单项外观类在后(见 widgets.css)
         expect(handle.element.className).toBe('ui-button menu-item');
         expect(handle.element.textContent).toBe('显示网格G');
     });
@@ -575,7 +567,6 @@ describe('createMenu', () => {
         },
     ] as const;
 
-    /** 直接显示的面板:没有 trigger,没有开合. */
     it('摆出 role=menu 的面板 / role=group 的分组 / 组标题与菜单项', () => {
         const menu = createMenu({ groups: GROUPS, ariaLabel: '视图菜单' });
 

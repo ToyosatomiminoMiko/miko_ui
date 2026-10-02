@@ -2,12 +2,7 @@
  * 行 DOM 的通用件:行外壳,行末动作容器,显隐按钮,展开态搬运.
  *
  * 建元素本身不在这里 -- 统一走 `widgets/dom.ts` 的 {@link create_element},
- * 与其它控件同一套原语.这里只剩真正共用的**行结构**:
- *
- * - {@link createObjectRow}:行外壳(`<article>` + `.row-main` + 行末动作容器);
- * - {@link createRowActions}:行末动作容器;
- * - {@link createVisibilityButton}:行末**显隐按钮**;
- * - {@link carryDetailsOpen}:行被替换时带走 `<details>` 展开态.
+ * 与其它控件同一套原语.这里只剩真正共用的**行结构**.
  *
  * 开合与显隐分工明确,不要混在一起:
  * - **开合**由 `<details>/<summary>` 原生行为承担,行里没有自建开合按钮;
@@ -36,8 +31,7 @@ import { create_element } from '../widgets/dom';
  * "主内容 + 动作"两个:
  * - 动作容器在 DOM 里就是**最后一个**直接子节点(不做 `order` 之类的视觉错位,
  *   读屏/键盘顺序与视觉一致);
- * - 主内容占住行内其余宽度,动作区自然被推到右端;
- * - 动作容器与 `.row-main` 平级,因此仍在 `<summary>` 之外,点按钮只触发动作.
+ * - 主内容占住行内其余宽度,动作区自然被推到右端.
  *
  * 动作容器由 {@link createRowActions} 生成;`actions` 为 null(调用方不需要任何
  * 行末动作)时不挂容器,`.row-main` 独占整行.
@@ -80,9 +74,7 @@ export function createRowActions(
  *
  * 这不是折叠按钮(开合交给 `<summary>`):文案给的是**下一步动作**,当前状态由
  * 消费者在行/容器上表达;`aria-label` 拼上传入的 `label`,读屏不必靠上下文猜
- * 操作的是哪一条.经 {@link createRowActions} 收进行末动作容器(通常放末位),
- * 与主内容包装 `.row-main` 同级,不在 `<summary>` 里,因此点按钮只切换显隐,
- * 不会顺手开合细节.
+ * 操作的是哪一条.
  *
  * 每次重建行都会新建一个按钮(调用方按内容键复用/替换整行),它随被丢弃的行
  * 一起消失,所以这里只返回元素,不返回句柄 -- 生命周期跟行绑定,没有需要

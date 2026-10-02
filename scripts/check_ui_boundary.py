@@ -16,7 +16,7 @@
 | no-batch | 库里一次都不用 `batch()`:用了就等于在更新路径上引入调度器,手写 DOM 桩立刻失真 |
 
 前三条在这里恒为 0:本仓库没有应用源码可引用,`@/` 别名只属于消费者那一侧.
-留着不是凑数:`@/` 这条同时也是"库内不许用路径别名"的机器保证,而那正是
+`@/` 这条同时也是"库内不许用路径别名"的机器保证,而那正是
 "换消费者不用改 import"的前提.
 
 八条都是硬断言:任何一条出现违例即非零退出.没有 baseline,也没有"允许的
@@ -99,7 +99,7 @@ def scan(files, patterns, allow=None):
     return hits
 
 
-# `@/` 引用按"最贵的那一类"归类:domain > uiConfig > 其余.
+# `@/` 引用按优先级归类:domain > uiConfig > 其余.
 DOMAIN = re.compile(r'@/(?:contract|compiler|math|render)/|@/config/renderConfig')
 APP_CONFIG = re.compile(r'@/config/uiConfig')
 ANY_ALIAS = re.compile(r'@/')
@@ -222,7 +222,6 @@ def check_deps(pkg):
 ALLOWED_EXPORT_EXACT = {
     './dist/index.js',
     './dist/index.d.ts',
-    # 唯一的非组件公开子路径:测试入口(见上面的说明).
     './dist/testing/domStub.js',
     './dist/testing/domStub.d.ts',
     './package.json',

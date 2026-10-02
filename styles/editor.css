@@ -74,7 +74,7 @@
     font-family: var(--code-font-family);
     font-size: var(--code-font-size);
     line-height: var(--code-line-height);
-    tab-size: var(--code-tab-size, 4);
+    tab-size: var(--code-tab-size);
     white-space: pre;
     color: var(--color-text-strong);
 }
@@ -126,7 +126,7 @@
     line-height: var(--code-line-height);
     white-space: pre;
     overflow-wrap: normal;
-    tab-size: var(--code-tab-size, 4);
+    tab-size: var(--code-tab-size);
 }
 
 /* 高亮层就位:文字让位(只留光标色),着色完全由背景层显示 */

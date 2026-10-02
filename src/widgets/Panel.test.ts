@@ -1,12 +1,9 @@
 /**
  * 面板件单测.
  *
- * 锁三件事:结构(`section.ui-panel > header.ui-panel-header > span.ui-panel-title`
- * 与 `div.ui-panel-body`),标题经 `aria-labelledby` 成为 `role="region"` 的
+ * 结构(`section.ui-panel > header.ui-panel-header > span.ui-panel-title` 与
+ * `div.ui-panel-body`),标题经 `aria-labelledby` 成为 `role="region"` 的
  * 可访问名,以及"消费方作用域类叠在基线后面,正文按声明顺序落进去".
- *
- * 面板是静态件:没有状态,没有监听,也就没有 dispose 可测.至于"每个基类在样式表
- * 里都有默认规则"这一条,由 `test/emittedClasses.test.ts` 守着,不在本文件重复.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type StubElement } from '../testing/domStub';

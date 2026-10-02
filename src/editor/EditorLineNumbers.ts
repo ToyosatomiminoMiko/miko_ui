@@ -1,7 +1,7 @@
 /**
  * 编辑器行号栏.
  *
- * 为什么"textarea 加行号"听起来简单却难实现:
+ * 为什么"textarea 加行号"难实现:
  * 原生 textarea 的内部滚动区无法再渲染"每行一个数字",行号只能做在
  * 旁边的独立元素里,于是难点变成数字必须与文本**逐像素对齐**,三个坑:
  * 1. 软换行:textarea 默认把长行折成多个视觉行,行号(按 \n 计)就无法
@@ -51,7 +51,6 @@ export class EditorLineNumbers {
     private readonly resizeObserver: ResizeObserver;
     /** 度量数字宽度用的离屏 2D context;取不到时为 null,保持 CSS 兜底宽度 */
     private readonly measureContext: CanvasRenderingContext2D | null;
-    /** 槽宽下限,来自构造参数(见 `EditorLineNumberOptions`). */
     private readonly gutterMinWidth: number;
     /**
      * 上次量槽宽时用的"最大行号位数".
@@ -78,8 +77,6 @@ export class EditorLineNumbers {
         // 离屏 canvas 建在编辑器所属的 document 上:库不读全局 document.
         this.measureContext = editor.ownerDocument.createElement('canvas').getContext('2d');
 
-        // 输入(含粘贴/撤销/IME 组字)只改行数,重绘行号;
-        // 内部滚动只改偏移,平移即可.
         editor.addEventListener('input', this.update);
         editor.addEventListener('scroll', this.sync, { passive: true });
 
@@ -99,7 +96,6 @@ export class EditorLineNumbers {
         this.update();
     }
 
-    /** input / 初始化:按 \n 重算行数并重绘,同步槽宽,再校准一次平移. */
     private readonly update = (): void => {
         const lineCount = this.editor.value.split('\n').length;
         const buffer: string[] = [];

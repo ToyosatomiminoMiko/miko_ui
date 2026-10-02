@@ -1,9 +1,5 @@
 /**
  * 八向缩放的几何解释.
- *
- * 纯函数部分逐个方向断言(最容易写错的是西/北:只改尺寸不改坐标会让窗口
- * "看着不动,右边却在跑");绑定部分走共用拖动件在 DOM 桩里跑一遍,包括
- * `canStart` 在非 normal 态返回 false 这一条.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type StubElement } from '../testing/domStub';

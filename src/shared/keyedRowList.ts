@@ -57,7 +57,6 @@ export class KeyedRowList<TItem, THandles extends KeyedRowHandles> {
         container.setAttribute('role', 'list');
     }
 
-    /** 按 hooks 增量刷新:删消失的,复用键相同的,重建键变了的. */
     sync(items: readonly TItem[], hooks: KeyedRowHooks<TItem, THandles>): void {
         const nextNames = new Set(items.map((item) => hooks.name(item)));
 
@@ -88,15 +87,10 @@ export class KeyedRowList<TItem, THandles extends KeyedRowHandles> {
         appendInOrder(this.container, ordered);
     }
 
-    /**
-     * 取当前同名条目的缓存项:`handles` 通常是行对象本身,异步回填直接调它的
-     * 方法,不必另存一份句柄表.
-     */
     entry(name: string): KeyedRowEntry<THandles> | undefined {
         return this.rows.get(name);
     }
 
-    /** 清空容器与全部行缓存. */
     clear(): void {
         this.container.replaceChildren();
         this.rows.clear();

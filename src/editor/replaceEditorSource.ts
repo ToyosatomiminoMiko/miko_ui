@@ -61,9 +61,9 @@ function insertTextPreservingUndo(
         return false;
     }
 
-    // 已弃用的 execCommand(全应用只剩这一处;不受 SecureContext 门禁,代价是要用户手势):
+    // 已弃用的 execCommand(不受 SecureContext 门禁,代价是要用户手势):
     // focus + select 之后调用,文本才会落在「整段替换」的位置上.局部类型断言
-    // 也是为了让 `@deprecated` 的删除线只留在这一行.
+    // 是为了让 `@deprecated` 的删除线只留在这一行.
     const doc = editor.ownerDocument;
     const exec = (doc as {
         execCommand?: (id: string, showUI?: boolean, value?: string) => boolean;

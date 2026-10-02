@@ -11,8 +11,6 @@
  *
  * 产出的是裸 `<input type="range" min max step>`;本件不设类名,外观完全由
  * 调用方的容器样式决定.
- *
- * `value` 可以是普通值或 signal:给 signal 时滑杆由绑定驱动,拖动写回它.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
 import { create_element, nextWidgetId } from './dom';
@@ -42,7 +40,7 @@ export interface RangeInputOptions {
     ariaLabel?: string;
 }
 
-/** 滑杆句柄:根节点就是那个 `<input>`;外部一律拿句柄,不按 id 查节点. */
+/** 滑杆句柄:根节点就是那个 `<input>`;外部一律拿句柄. */
 export interface RangeInputHandle {
     /** 根节点,插到容器里用这个.本控件的根就是那个 `<input>`,与 `input` 同节点. */
     readonly element: HTMLInputElement;

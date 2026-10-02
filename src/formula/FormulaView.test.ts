@@ -1,15 +1,3 @@
-/**
- * 公式 DOM 工具单测.
- *
- * 锁三件事:
- * 1. 可复制公式带 `data-tex` + `tabindex="0"` + `role="button"` + `aria-label`
- *    (键盘入口的 DOM 契约);
- * 2. 不可复制公式一个都不带(落在 `<summary>` 等原生开合热区内,不能塞嵌套
- *    交互元素);
- * 3. 模板缓存必须 **clone 而不是搬运**:同一串 LaTeX 渲染两次都还有内容.
- *
- * KaTeX 用写回 textContent 的假实现,断言只看结构与属性,不看排版.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub } from '../testing/domStub';
 

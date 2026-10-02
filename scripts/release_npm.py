@@ -31,7 +31,7 @@
 
 为什么**不用 `npm version` 命令**:
   它在改完 `package.json` 后会顺手重建 `package-lock.json`(走
-  `--package-lock-only`).`ci.yml` 顶部第 3 条记着这件事的后果:那样重算出来的锁
+  `--package-lock-only`).那样重算出来的锁
   只按**当前平台**解析,会丢掉跨平台可选依赖(`lightningcss-*`,
   `@rolldown/binding-*` 那一批),随后 CI 的 `npm ci` 直接 EUSAGE.所以这里只做
   "解析 -> 只改版本字段 -> 原样序列化回去",再用行级 diff 断言没有别的东西被改动.
@@ -83,7 +83,7 @@ def die(message):
 
 
 class CommandFailed(Exception):
-    """子进程非零退出. 与 JS 版的 `execFileSync` 抛出对应."""
+    """子进程非零退出."""
 
 
 def run(cmd, args):
@@ -389,8 +389,8 @@ def main(argv):
 
     try:
         run('git', ['add', 'package.json', 'package-lock.json'])
-        # 不绕过 `core.hooksPath` 指向的提交钩子(见 ci.yml 顶部第 2.1 条):这个 commit
-        # 只动两个 JSON,钩子在这里通常什么都不做,但它要是坏了就该当场红,而不是被跳过.
+        # 不绕过 `core.hooksPath` 指向的提交钩子:这个 commit 只动两个 JSON,钩子在
+        # 这里通常什么都不做,但它要是坏了就该当场红,而不是被跳过.
         run('git', ['commit', '-m', tag])
     except CommandFailed:
         restore()

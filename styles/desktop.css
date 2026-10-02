@@ -72,8 +72,7 @@
     inset: var(--dock-reserve) 0 0 0;
 }
 
-/* 隐藏态(最小化):保留布局与尺寸,只做视觉与交互上的"消失".
-   必须 opacity 而不是 display: none--见文件头第 3 条. */
+/* 隐藏态(最小化):保留布局与尺寸,只做视觉与交互上的"消失". */
 .window.is-hidden {
     opacity: 0;
     pointer-events: none;
@@ -167,10 +166,9 @@
 
 /* 窗口控制按钮(`min` / `max`).
    容器只管排布;按钮本身**不另设外观** -- 它就是 `.ui-button` 基线,与示例里
-   `createButton({ text: '计数 +1' })` 建出来的按钮长得一模一样.位置(在标题栏
-   里)已经说明这两枚是什么,按钮之间真正的差别是行为(点下去改哪份状态),不是
-   长相.`.window-control-btn` 只作为定位钩子留在 DOM 上(库自己不给它任何
-   声明,消费者要另眼相看再自己盖). */
+   `createButton({ text: '计数 +1' })` 建出来的按钮长得一模一样.
+   `.window-control-btn` 只作为定位钩子留在 DOM 上(库自己不给它任何声明,
+   消费者要另眼相看再自己盖). */
 .window-controls {
     display: flex;
     align-items: center;
@@ -318,9 +316,9 @@
 }
 
 /* Dock 里的按钮(`dock-btn` = 每个窗口一枚,`dock-action` = 桌面动作)**不另设
-   外观**:它们都是 `createButton` 建的,吃 `.ui-button` 基线,与示例里任何一个
-   按钮同款.下面只写"这个按钮代表的东西"的状态 -- 当前聚焦的窗口亮起,最小化的
-   窗口淡化;两个类名本身只是定位 / 状态钩子. */
+   外观**:它们都是 `createButton` 建的,吃 `.ui-button` 基线.下面只写"这个按钮
+   代表的东西"的状态 -- 当前聚焦的窗口亮起,最小化的窗口淡化;两个类名本身只是
+   定位 / 状态钩子. */
 .dock-btn.is-active {
     color: var(--color-text-active);
     border-color: var(--color-accent-border);

@@ -1,21 +1,13 @@
 /**
  * 手写 DOM 桩 -- 库对外提供的**测试入口**(`miko_ui/testing`).
  *
- * 这个文件以前只在 `test/` 里服务库自己的测试.它现在同时服务消费者,理由是
- * **两份复制品已经真的漂移过**:应用那份加了 `document.execCommand` 模拟,
- * 库这份加了 `navigator.clipboard` 模拟,两边都不知道对方缺什么 -- 直到把
- * 应用那份的测试搬过来才暴露.桩随库发布,消费者 import 同一份,谁缺什么就往
- * 这里加一处.
- *
  * 它**不**从 `index.ts` 导出,而是走 `package.json` 的 `exports["./testing"]`
- * 独立子路径:测试基建不属于主入口的公开面(见 README "边界契约"第 4、7 条).
- */
-/**
- * 测试用最小 DOM 桩(node 环境,不引入 jsdom).
+ * 独立子路径:测试基建不属于主入口的公开面.
  *
- * 为什么不用 jsdom:项目没有该依赖,且这里要锁的是**控制器自己的不变量**
- * (事件 -> 状态 -> DOM 写入),不是浏览器排版/事件冒泡的完整语义.桩只实现
- * 库与消费者真正用到的 API,并刻意复刻真 DOM 里踩过的坑:
+ * 测试用最小 DOM 桩(node 环境,不引入 jsdom).为什么不用 jsdom:项目没有该依赖,
+ * 且这里要锁的是**控制器自己的不变量**(事件 -> 状态 -> DOM 写入),不是浏览器
+ * 排版/事件冒泡的完整语义.桩只实现库与消费者真正用到的 API,并刻意复刻真 DOM
+ * 里踩过的坑:
  * - 节点只有一个父节点(`append`/`replaceChildren` 会先把节点从旧父节点摘除),
  *   否则"搬运模板子节点搬空缓存"这类回归会被遮住;
  * - `textContent` 取值拼接子文本节点,设置时清空子节点;
@@ -338,7 +330,6 @@ export class StubElement {
         return this.parent;
     }
 
-    /** 桩的 textContent 是真 DOM 语义:取值时拼接全部子文本节点. */
     get textContent(): string {
         return this.children
             .map((child) => (child instanceof StubText ? child.data : child.textContent))
@@ -354,13 +345,9 @@ export class StubElement {
         }
     }
 
-    /**
-     * 真 DOM 语义:节点只有一个父节点,插入前先从旧父节点摘除.
-     */
     append(...nodes: Array<StubElement | StubText | null>): void {
         for (const node of nodes) {
             if (node === null) continue;
-            // DocumentFragment 插入的是它的子节点,不是 fragment 自己.
             if (node instanceof StubElement && node.tagName === '#fragment') {
                 const inner = [...node.children];
                 for (const child of inner) detachNode(child);
@@ -385,7 +372,6 @@ export class StubElement {
         this.children.unshift(...nodes);
     }
 
-    /** 真 DOM 的 replaceWith:用新节点顶替自己在父节点中的位置. */
     replaceWith(...nodes: Array<StubElement | StubText>): void {
         const parent = this.parent;
         if (!parent) return;
@@ -427,7 +413,6 @@ export class StubElement {
         return found as unknown as T[];
     }
 
-    /** 从自身向上找第一个匹配的祖先(与真 DOM 的 closest 同义). */
     closest<T>(selector: string): T | null {
         let node: StubElement | null = this;
         while (node !== null) {
@@ -547,7 +532,6 @@ export class StubElement {
         this.attributes.set('title', value);
     }
 
-    /** `hidden` 与 `[hidden]` 是同一份数据(真 DOM 的布尔反射属性). */
     get hidden(): boolean {
         return this.attributes.has('hidden');
     }
@@ -556,7 +540,7 @@ export class StubElement {
         this.toggleAttribute('hidden', value);
     }
 
-    /** `inert` 同上:窗口隐藏态靠它挡 Tab 序与点击. */
+    /** `inert`:窗口隐藏态靠它挡 Tab 序与点击. */
     get inert(): boolean {
         return this.attributes.has('inert');
     }
@@ -598,7 +582,6 @@ export class StubElement {
         };
     }
 
-    /** 指针捕获:真 DOM 里 pointerup 只在捕获元素上触发,桩按同一语义记录. */
     setPointerCapture(pointerId: number): void {
         this.capturedPointers.add(pointerId);
     }
@@ -619,7 +602,6 @@ export class StubElement {
         };
     }
 
-    /** 真 DOM 的表单控件方法(桩里为空实现). */
     select(): void {}
 
     focus(): void {}
@@ -696,7 +678,6 @@ export class StubResizeObserver {
         this.targets.length = 0;
     }
 
-    /** 测试用:手动触发一次尺寸变化回调. */
     trigger(): void {
         this.callback();
     }
@@ -740,7 +721,6 @@ export interface StubWindow {
         options?: { signal?: AbortSignal },
     ): void;
     removeEventListener(type: string, handler: (event: StubEvent) => void): void;
-    /** 测试用:触发 window 上的监听(分隔条的拖动/收尾绑在这里). */
     dispatch(type: string, event?: Partial<StubEvent>): void;
     setTimeout(handler: () => void, delay?: number): number;
     clearTimeout(id: number): void;

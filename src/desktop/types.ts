@@ -10,7 +10,6 @@
  * 库的公开面.
  */
 
-/** 窗口 id:库不解释的字符串;应用侧用自己的字面量联合收窄. */
 export type WindowId = string;
 
 /**
@@ -18,7 +17,7 @@ export type WindowId = string;
  *
  * 这是窗口标题栏的**唯一一套位置词汇**:配置用 `slot` 声明节点进哪里,
  * `createWindowFrame` 按同一个键装配,DOM 契约(`.window-title` /
- * `.window-actions` / `.window-header`)与测试断言说同一个词.
+ * `.window-actions` / `.window-header`)说同一个词.
  */
 export type WindowSlot = 'title' | 'actions' | 'overlays';
 
@@ -99,7 +98,7 @@ export type AxisSpec =
  * `AbsoluteGeometry`,**不认识锚点**:相对定位不会漏进窗口.
  *
  * 四个轴都是必填:没有"这个轴不用写"的字段.某个锚点会盖掉同轴的另一项时,
- * 照旧写一个**占位值**并在注释里注明(现有两处:`y` 给 `after` 时写 `y: { at: 0 }`,
+ * 照旧写一个**占位值**(现有两处:`y` 给 `after` 时写 `y: { at: 0 }`,
  * 并排的 `split` 里写 `x: 'center'`)-- 占位值不会被读到,但类型上不存在
  * `undefined` 分支,解析器也就不需要"先判断有没有"这一步.
  */
@@ -142,7 +141,6 @@ export interface RelativeGeometry {
  */
 export interface WindowAction {
     readonly id: WindowActionId;
-    /** 按钮文案;不随状态变(`min` / `max`). */
     readonly text: string;
 }
 
@@ -169,8 +167,8 @@ export interface WindowConfigEntry {
 }
 
 /**
- * 桌面窗口系统的全部配置:数组顺序即 z 初始序,Dock 顺序与默认几何的
- * 依赖顺序(`after`),不能随意调.
+ * 桌面窗口系统的全部配置:数组顺序即 Dock 顺序与 z 初始序,不能随意调;
+ * 几何依赖(`after`)由 `resolveRelativeGeometries` 内部解,与顺序无关.
  */
 export interface DesktopConfig {
     readonly windows: readonly WindowConfigEntry[];

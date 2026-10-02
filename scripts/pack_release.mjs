@@ -62,10 +62,10 @@ const ASSET_NAME = 'miko_ui_dist.tar.gz';
 const ASSET_PATH = join(OUT_DIR, ASSET_NAME);
 
 /**
- * 进资产的字段(消费者侧包管理器 / 打包器真的会读的).
+ * 进资产清单的字段(消费者侧包管理器 / 打包器真的会读的),从 `package.json` 原样拷贝.
  *
- * `version` 在表里但库里现在没有版本号(库不打 tag,不写版本号,理由见
- * `RELEASING.md`):将来真写进去时会自动带上,不需要改这里.
+ * `version` 也在其中:版本号由 npm 那条交付链路维护(见 `RELEASING.md` §0),资产只
+ * 原样带上它,不额外处理.
  */
 const RUNTIME_FIELDS = [
     'name',

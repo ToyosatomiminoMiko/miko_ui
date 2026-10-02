@@ -1,14 +1,3 @@
-/**
- * 编辑器程序化写入的单测.
- *
- * 这里锁的是"保留撤销栈"这条路径的调用契约:全选 + `execCommand('insertText')`,
- * 以及命令不可用/被拒绝时的兜底赋值.
- *
- * "按 Ctrl+Z 真的能退回"属于浏览器编辑管线的语义,node 里的 DOM 桩无法覆盖,
- * 已在 Chromium 152 与 Firefox 155 实测:走 execCommand 覆盖后一次 Ctrl+Z
- * 整段退回;直接 `.value =` 覆盖则撤销栈被清空,连按 10 次也回不去--这正是
- * 本模块存在的理由.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub, type DomStub, type StubElement } from '../testing/domStub';
 import { replaceTextareaSource, seedTextareaSource } from './replaceEditorSource';

@@ -1,8 +1,7 @@
 /**
  * 消息列表:只保留错误与警告的紧凑提示件.
  *
- * 它不依赖任何领域概念,只吃一个容器与 `MessageEntry[]`:不认识"编译错误"
- * "降采样"是什么 -- 那些是消费者传入的 `level`/文案.
+ * 它不依赖任何领域概念,只吃一个容器与 `MessageEntry[]`.
  *
  * 容器通常带 `aria-live="polite"`:任何 DOM 变动都会被读屏播报,所以渲染层走
  * `render(next)`(整体替换,内容一致时**一次 DOM 操作都不做**),而不是每帧
@@ -51,9 +50,8 @@ export class MessageList {
     /**
      * 用一批消息整体替换当前内容.
      *
-     * 键序列与当前一致时直接返回:内容没变就不碰 DOM,live region 不会重复播报.
-     * 变了才重建:按 key 复用旧节点,只新建真正新增的条目,再用一次
-     * `replaceChildren` 落位.
+     * 键序列与当前一致时直接返回,不碰 DOM.变了才重建:按 key 复用旧节点,
+     * 只新建真正新增的条目,再用一次 `replaceChildren` 落位.
      */
     render(next: readonly MessageEntry[]): void {
         const nextKeys = next.map((entry) => messageKey(entry.level, entry.message));

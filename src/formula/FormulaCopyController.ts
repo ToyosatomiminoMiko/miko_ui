@@ -14,13 +14,6 @@
  * 文字淹没.但**提示可以不止一处**:同一个列表被拆成两个窗口(或同一屏上有两处
  * 可复制公式的列表)时,每处标题栏都该有这句提示.所以构造参数收一个**数组**,
  * 一次回显写全部节点 -- 它们表达的是同一个状态,不该各说各话.
- *
- * 键盘入口:可复制公式由 FormulaView 加了 `tabindex="0"` 与 `role="button"`,
- * 所以除鼠标外还有一条键盘路径.
- *
- * 键盘监听不在这里绑:KeyboardController 对 document 统一绑一次 keydown,
- * 本控制器用 `keyboardBinding()` 把"Enter/Space + 目标是可复制公式"这条规则
- * 注册进去,由它统一分发.
  */
 import type { KeyboardBinding } from '../shared/KeyboardController';
 
@@ -65,15 +58,11 @@ export class FormulaCopyController {
     private resetTimer: number | null = null;
 
     /**
-     * @param hint 提示节点:传**一个**(单处提示)或**一组**(多处提示,如列表被
-     *             拆成两个窗口)都行.传数组时它们表达同一个状态,每次回显一起写,
-     *             不会只更新一半.
+     * @param hint 提示节点:一个或一组(多处提示,如列表被拆成两个窗口)都行.传数组时
+     *             它们表达同一个状态,每次回显一起写,不会只更新一半.
      *
-     *             至少要有一个节点,空数组会抛错 -- 没有提示节点就没有"复制成功
-     *             了"的回显,把这种配置错误留在构造期比留到运行期好.
-     *
-     *             恢复用的原文案取**第一个**节点的初始文本,所有节点共用同一份;
-     *             节点初始文案不一致时以第一个为准(它们本就该是同一句话).
+     *             至少要有一个节点,空数组会抛错 -- 没有提示节点就没有"复制成功了"的
+     *             回显.恢复用的原文案取**第一个**节点的初始文本,所有节点共用同一份.
      */
     constructor(hint: HTMLElement | readonly HTMLElement[]) {
         this.hints = Array.isArray(hint) ? hint : [hint as HTMLElement];

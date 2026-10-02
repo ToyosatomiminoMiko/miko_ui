@@ -1,11 +1,6 @@
 /**
  * 菜单:分组 + 菜单项 + 当前项 + 开合.
  *
- * **为什么在库里**:下游的「示例」菜单在分家前是手写的 -- 把数据摆成
- * `role="menu"` 的树,按分组套 `role="group"` 与组标题,记一个"当前项".
- * `Popover` 只吃掉开合 / aria / 点外部关闭,`MenuItem` 只吃掉"一行",夹在中间
- * 的这一层于是每个消费者都要重写一遍:写第二遍必错,所以也收进来.
- *
  * 它**不认识**的:菜单业务(选中之后干什么,由 `onSelect` 给出),面板长什么样
  * (样式在 `styles/widgets.css` 的 `.menu-panel*`),以及"谁把面板搬进窗口标题栏"
  * (`WindowFrame` 的 overlays 槽位 / `windowSlotsProvider`;下游正是这么挂的).
@@ -25,8 +20,7 @@
  * 本件**不注册任何键盘规则**,也不做上下键导航:菜单的键盘行为不是这个库
  * 负责的事(`KeyboardController` 只是给应用用的路由出口,库自己不往里塞行为).
  * 菜单项本身是 `<button>`:可聚焦,Enter/Space 触发是浏览器给的.要上下键回绕 /
- * Esc 收焦点这类行为,由应用侧自己接;移除前的实现(含 Esc)留在库仓库根的
- * `parked/menuKeyboard.ts`(不进产物,没有调用点),只作留档.
+ * Esc 收焦点这类行为,由应用侧自己接.
  */
 import { createMenuItem, type MenuItemHandle } from './MenuItem';
 import { createPopover, type PopoverHandle } from './Popover';
@@ -94,7 +88,7 @@ export function createMenu<T>(options: MenuOptions<T>): MenuHandle<T> {
     panel.setAttribute('role', 'menu');
     if (options.ariaLabel !== undefined) panel.setAttribute('aria-label', options.ariaLabel);
     // `Popover` 靠面板 id 建立 `aria-controls`,而它在构造时就写死;id 因此必须
-    // 在**建 Popover 之前**就有.没给就自己发一个(只服务标签关联,见 `nextWidgetId`).
+    // 在**建 Popover 之前**就有.没给就自己发一个.
     if (panel.id === '') panel.id = nextWidgetId('menu');
 
     const selectListeners = new Set<(value: T) => void>();

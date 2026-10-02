@@ -1,8 +1,6 @@
 /**
- * 数字输入控件(页面上所有 `<input type="number">` 的统一件).
- *
- * 消费者用它做参数行的精调框(与滑块共用同一个 `signal<number>`),以及线宽,
- * 大小这类单值输入.
+ * 数字输入控件(页面上所有 `<input type="number">` 的统一件):参数行的精调框
+ * (与滑块共用同一个 `signal<number>`),以及线宽 / 大小这类单值输入.
  *
  * 控件只负责"读文本 / 写文本 / 通知",**不替调用方决定非法输入怎么办**:
  * 解析失败时 `onInput` / `onCommit` 收到 `null`,想即时回退就在回调里调
@@ -33,7 +31,7 @@ export interface NumberFieldOptions {
      */
     step?: ValueSource<number>;
     /**
-     * 可访问名.放进带可见 `<label for>` 的行里时省略(见 `SwitchOptions`).
+     * 可访问名.放进带可见 `<label for>` 的行里时省略.
      */
     ariaLabel?: string;
     /** 值 -> 文本;默认 `String()`.写回时用. */
@@ -56,7 +54,7 @@ export interface NumberFieldOptions {
  * 数字框句柄.
  *
  * 与其它控件同一个句柄形状:`element` = 插进行里的根节点,`input` = 原生输入框.
- * 本控件的根就是那个 `<input>`,所以两者同节点 -- `RangeInputHandle` 也是这样.
+ * 本控件的根就是那个 `<input>`,所以两者同节点.
  */
 export interface NumberFieldHandle {
     /** 根节点,插到行里用这个.与 `input` 同节点. */

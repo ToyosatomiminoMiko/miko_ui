@@ -83,7 +83,6 @@ export function createDock(
         group.append(button.element);
     }
 
-    // 创建靠右的还原按钮
     const restoreAll = createButton({ class: 'dock-action', text: '全部还原' });
     restoreAll.element.setAttribute('data-dock-action', 'restore-all');
     restoreAll.onClick(() => handlers.onRestoreAll());

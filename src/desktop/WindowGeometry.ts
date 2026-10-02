@@ -2,8 +2,7 @@
  * 窗口几何:锚点换算 / 夹取 / 吸附判定的**纯函数**.
  *
  * 本文件不引用任何 DOM(不 import `document`,`getComputedStyle`,也不认识
- * 元素):夹取边界,锚点默认值,吸附候选全部能在单测里穷举.
- * 真正把结果写进页面的是 `WindowManager` + `WindowFrame.writeGeometry`.
+ * 元素);真正把结果写进页面的是 `WindowManager` + `WindowFrame.writeGeometry`.
  *
  * **本文件就是那条"相对 -> 绝对"的纯函数边界**(类型见 `RelativeGeometry`):
  *
@@ -207,18 +206,12 @@ export interface RelativeGeometryEntry {
 /**
  * **相对 -> 绝对**的唯一入口:把整张窗口几何声明换算成每个窗口的绝对坐标.
  *
- * 这是那条两阶段流水线的第一段(见 `RelativeGeometry` 的文件头):
- *
- * ```text
- *   RelativeGeometry[]  ──本函数(纯)──▶  Map<id, AbsoluteGeometry>  ──▶  createWindowFrame
- * ```
- *
  * 纯函数:同输入同输出,不读 DOM,不碰时间与全局状态.窗口那一侧只吃返回值里的
  * 四个绝对值,锚点不会漏进窗口.
  *
  * **依赖在函数内部解**:`after` 指向的窗口先解析(DFS),所以调用方**不需要**把
- * 数组按依赖序排好 -- 顺序不再是一条只写在注释里的隐式契约.成环或指向不存在的
- * 窗口都会在这里抛一条能读懂的错,而不是算出一个错坐标.
+ * 数组按依赖序排好.成环或指向不存在的窗口都会在这里抛一条能读懂的错,而不是
+ * 算出一个错坐标.
  */
 export function resolveRelativeGeometries(
     windows: readonly RelativeGeometryEntry[],
@@ -268,9 +261,6 @@ export function resolveRelativeGeometries(
 /**
  * 解**一个**窗口:相对声明 -> 绝对像素(纯函数,{@link resolveRelativeGeometries}
  * 内部的单步).
- *
- * 单独导出是因为它是最小原语:大量测试只想验证"一个锚点算出什么",不必凑一张
- * 完整窗口清单.
  *
  * 注意它要求调用方**自己按依赖序**喂 `resolved`(给 `after` 查依赖用),而顺序
  * 不是签名的一部分.组装真实桌面请用 {@link resolveRelativeGeometries}:依赖由它
@@ -378,7 +368,7 @@ export type SnapKind = 'left' | 'right' | 'maximize';
  * 边缘吸附的判据(三者互斥,按此顺序判);`null` = 不吸附.
  *
  * 判据只用到指针与桌面:被拖窗口自身的几何与"吸不吸附"无关(窗口间磁吸另有
- * `magnetize`),所以这里不接收它--不为"将来可能用得上"多留一个参数.
+ * `magnetize`).
  *
  * 顶部判据的口径是"指针进到任务栏下沿附近":窗口被夹在工作区上沿时,指针还在
  * 任务栏上(甚至更上面),拿 `snap.edge` 直接比 `0` 就永远触发不了最大化.

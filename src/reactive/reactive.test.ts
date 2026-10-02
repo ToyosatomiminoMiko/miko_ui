@@ -1,19 +1,3 @@
-/**
- * 响应式层的语义测试.
- *
- * 锁四件事:
- * 1. **同值不通知**(`Object.is` 短路) -- "不抖动"的来源,也是"写回同一个值
- *    不会打转"的保证;
- * 2. `effect` 的**卸载**:退订之后不再重跑,回调返回的清理函数在重跑/销毁前执行;
- * 3. `computed` 从依赖算出值,依赖没变不重算;
- * 4. **更新是同步的**(不排队,不等帧):写值返回时订阅者已经跑完.
- *    这条是手写 DOM 桩还能用的前提.
- *
- * 另外两条边界断言:
- * - 公开面里**没有** `batch`:`import * as reactive` 之后按键检查;
- * - 库源码里一次都没调用 `batch(`:这是源码侧的约束检查(CI 里由
- *   `scripts/check_ui_boundary.py` 的 `no-batch` 规则盯着,这里再本地守一遍).
- */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +25,6 @@ describe('signal', () => {
         stop();
         count.value = 4;
 
-        // 订阅时立刻给一次当前值,之后每次变化再给.
         expect(seen).toEqual([1, 2, 3]);
         expect(count.value).toBe(4);
     });
@@ -53,7 +36,6 @@ describe('signal', () => {
 
         value.value = 'a';
 
-        // 只有订阅时那一次立刻回调;同值写入不再通知.
         expect(listener).toHaveBeenCalledTimes(1);
         expect(listener).toHaveBeenCalledWith('a');
     });
@@ -62,7 +44,6 @@ describe('signal', () => {
         const source = signal(1);
         const doubled = signal(0);
         effect(() => {
-            // 只 peek:这个 effect 不该因为 source 变化而重跑.
             doubled.value = source.peek() * 2;
         });
 
@@ -93,7 +74,6 @@ describe('effect', () => {
         effect(() => seen.push(value.value));
         value.value = 2;
 
-        // 写值返回时订阅者已经跑完(没有排队/微任务).
         expect(seen).toEqual([1, 2]);
     });
 
@@ -153,7 +133,7 @@ describe('值源工具(ValueSource)', () => {
         const seen: number[] = [];
         const stop = onValueChange(source, (value) => seen.push(value));
 
-        setValue(source, 1); // 同值:不通知
+        setValue(source, 1);
         setValue(source, 2);
         stop();
         setValue(source, 3);
@@ -167,7 +147,7 @@ describe('值源工具(ValueSource)', () => {
         const stop = watchValue(source, (value) => seen.push(value));
 
         setValue(source, 2);
-        setValue(source, 2); // 同值:不通知
+        setValue(source, 2);
         stop();
         setValue(source, 3);
 

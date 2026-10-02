@@ -34,9 +34,6 @@ import { clearGeometry, createWindowFrame, writeGeometry, type WindowActionButto
 import { bindWindowResize } from './WindowResize';
 import { createSnapPreview, type SnapPreviewHandle } from './SnapPreview';
 
-/**
- * 窗口状态.
- */
 export type WindowState = 'normal' | 'maximized' | 'minimized';
 
 /**
@@ -169,8 +166,7 @@ export class WindowManager {
         this.z = this.config.z.first;
 
         // 1) 默认几何:一次纯函数调用,把整张声明表换成每个窗口的绝对坐标.
-        //    依赖(各窗口的 `after`)由 `resolveRelativeGeometries` 在内部解,所以不再
-        //    需要"数组顺序即依赖顺序"这条隐式契约.
+        //    几何依赖(`after`)由 `resolveRelativeGeometries` 内部解,与数组顺序无关.
         const resolved = resolveRelativeGeometries(this.config.windows, this.desktop);
 
         // 2) 逐个建窗口.
@@ -326,8 +322,7 @@ export class WindowManager {
         if (maximized) {
             if (entry.state === 'maximized') return;
             // 无条件记下当前几何:用 `??=` 会把上一次最大化前的旧值留到下一次
-            // (用户中途挪过的位置在还原时被丢掉,见 WindowManager.test.ts 的
-            // "最大化/还原走两轮"用例).
+            // (用户中途挪过的位置在还原时被丢掉).
             entry.restore = entry.geometry;
             entry.state = 'maximized';
         } else {
@@ -347,7 +342,7 @@ export class WindowManager {
 
     /** 把所有窗口复位到默认几何并回到 normal 态. */
     restoreAll(): void {
-        // 与 `bind()` 共用同一条解析路径:这里以前抄了一份一模一样的循环.
+        // 与 `bind()` 共用同一条解析路径.
         const resolved = resolveRelativeGeometries(this.config.windows, this.desktop);
         for (const entry of this.entries.values()) {
             entry.state = 'normal';
@@ -368,7 +363,7 @@ export class WindowManager {
         this._applyGeometry(id);
     }
 
-    /** 桌面尺寸变化的公开入口(`bind()` 已把它挂到所属 document 的 window.resize;测试也直接调它). */
+    /** 桌面尺寸变化的公开入口(`bind()` 已把它挂到所属 document 的 window.resize). */
     onDesktopResize = (): void => {
         if (!this.root) return;
         this.desktop = this._measureDesktop();
@@ -685,10 +680,6 @@ export class WindowManager {
         element.classList.toggle('is-hidden', hidden);
         element.toggleAttribute('inert', hidden);
         element.setAttribute('aria-hidden', String(hidden));
-
-        // 窗口按钮的文案不做状态切换:actions 是**静态**配置,按钮一直显示自己
-        // 那一个词(`min` / `max`);"已最大化"由窗口本身的尺寸与
-        // `.is-maximized` 类表达.
 
         const button = this.dock?.buttons.get(id);
         button?.setState(entry.state);

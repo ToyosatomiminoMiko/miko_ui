@@ -20,7 +20,7 @@ import type { WindowState } from './WindowManager';
 export type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 /**
- * 八根手柄的方向清单:顺序即 DOM 顺序,`WindowFrame` 与 DOM 契约测试共用.
+ * 八根手柄的方向清单:顺序即 DOM 顺序.
  *
  * 角 = 两轴并集,所以下面的判断用 `includes`:一个 `se` 同时命中 `e` 与 `s`.
  */

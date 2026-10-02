@@ -12,8 +12,8 @@
  * </div>
  * ```
  *
- * - **列数**走 `--segmented-columns`(自定义属性由 TS 给值,CSS 只消费,与
- *   `--object-color` 同一手法),不在 CSS 里为每个调用点写一条规则;
+ * - **列数**走 `--segmented-columns`(自定义属性由 TS 给值,CSS 只消费),
+ *   不在 CSS 里为每个调用点写一条规则;
  * - **行内撑满**这类布局差异走 `modifier`(`segmented--inline`),样式仍归 CSS.
  *
  * 为什么是 `role="group"` + `aria-pressed` 而不是 `role="radiogroup"` +

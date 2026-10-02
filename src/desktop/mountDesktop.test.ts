@@ -1,11 +1,5 @@
 /**
  * `mountDesktop` 的装配契约.
- *
- * 库的职责是"自己建容器,把消费者给的内容搬进去":这一层要守住的是
- * 1. 三层容器与每个窗口的正文容器都由库建,消费者不需要写任何带 id 的宿主;
- * 2. 消费者给的正文节点是**搬进去的**,不是重建的(节点身份不变);
- * 3. `dispose()` 把正文节点还回桌面根,不随外壳一起丢;
- * 4. 库不读全局 `document`(节点建在 `root.ownerDocument` 上).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type DomStub, type StubElement } from '../testing/domStub';
@@ -14,13 +8,6 @@ import { mountDesktop } from './mountDesktop';
 
 let stub: DomStub;
 
-/**
- * 这一层测的是"库怎么装配",窗口清单是输入的一部分,所以由测试自己给.
- *
- * 不借用 `DEFAULT_DESKTOP_CONFIG.windows`:库的默认配置**不带任何消费者窗口**
- * (窗口标题 / dock 文案 / 几何锚点都是消费者特有的,见 `types.ts`),那份空清单
- * 在这里什么也测不出来.
- */
 const WINDOWS: readonly WindowConfigEntry[] = [
     {
         id: 'source',

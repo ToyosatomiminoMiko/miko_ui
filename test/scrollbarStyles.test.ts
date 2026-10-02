@@ -4,19 +4,15 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
- * 滚动条是**单独的一条规定**,这里守的就是"单独"两个字.
+ * 滚动条是**单独的一条规定**:
  *
- * 1. **自足**:`styles/scrollbar.css` 的每条选择器都只挂在 `.ui-scrollbar`
- *    上(允许伪元素),不引用元素,id 或别的组件类;取值只来自 token,没有
- *    颜色字面量.把其余样式表全删掉,这一份仍然成立.
- * 2. **不耦合**:库的其他样式表里没有任何 `.ui-scrollbar` 规则,库的组件也
- *    不产出这个类 -- 唯一的接触面是消费方自己往滚动容器上加的类名.
+ * 1. **自足**:`styles/scrollbar.css` 的每条选择器都只挂在 `.ui-scrollbar` 上
+ *    (允许伪元素),取值只来自 token;把其余样式表全删掉,这一份仍然成立.
+ * 2. **不耦合**:库的其它样式表里没有 `.ui-scrollbar` 规则,库的组件也不产出这个
+ *    类 -- 唯一的接触面是消费方自己往滚动容器上加的类名.
  *
- * 另有两条形式断言:`exports` 能单独引到它,总入口 `styles.css` 也带它.
- *
- * 为什么值得一条测试:这条规定的价值全在"独立"上.一旦有人把它的规则挪进
- * `widgets.css`,或让某个组件顺手引用 `.ui-scrollbar`,它就从"库提供的一种
- * 规定"退化成"某个组件的附属样式",消费方要么被迫接受组件耦合,要么抄一份.
+ * 另有两条形式断言:`exports` 能单独引到它,总入口 `styles.css` 也带它.独立一旦
+ * 破了,消费方要么接受组件耦合,要么自己抄一份.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));

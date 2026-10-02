@@ -1,12 +1,6 @@
 /**
  * 声明式建 DOM 的最小原语 + 库内的 DOM 根上下文口径.
  *
- * ## 建节点
- *
- * 这一层只干一件事:把"造什么节点 + 属性 + 子节点"写成一次函数调用,让上层可以用
- * 嵌套的表达式声明一棵树,而不是 `createElement` / `setAttribute` / `append`
- * 三行样板排成一片.
- *
  * 一次调用分三层,彼此不同级,所以参数也分开:
  * 1. `ElementSpec`(**创建层**):`tag` 与 `root` -- 造什么标签,由哪个 document
  *    的 `createElement` 造出来.这两件都是"造"的时候的事,一个都不进 DOM;
@@ -23,11 +17,8 @@
  * 产出的 DOM 必须与手写 HTML 完全同构,类名沿用现有 CSS(见
  * `styles/widgets.css`),所以样式一个字符都不用改.
  *
- * ## 根上下文
- *
- * `DomRoot` / `rootDocument` 也在本文件:原先单独占 `dom/root.ts`,删掉 `rootWindow`
- * 之后只剩两个名字,再开一个目录不值得,就搬到建节点的地方 -- 它俩本来就是
- * `create_element()` / `childNodes()` 的 `root` 参数要用的东西.
+ * `DomRoot` / `rootDocument` 与建节点放在一起:它俩本来就是 `create_element()` /
+ * `childNodes()` 的 `root` 参数要用的东西.
  *
  * 为什么要有这一层:组件如果直接读全局 `document` / `window`,就默认了"页面上只有
  * 我一个实例,我拥有整个页面".这一个假设同时挡住三件事:同页两个实例,嵌进别人的
@@ -50,9 +41,8 @@ export type DomRoot = Document | ShadowRoot;
 /**
  * 取 root 所属的 `Document`.
  *
- * 不传 root 时返回全局 `document`(唯一的裸 `document` 引用,只此一处).
- * Document 有 `body` -> 原样返回;
- * ShadowRoot 没有 `body`,也不该有 -> 取它的 ownerDocument.
+ * 不传 root 时返回全局 `document`;Document 有 `body` -> 原样返回,
+ * ShadowRoot 没有 -> 取它的 ownerDocument.
  */
 export function rootDocument(root: DomRoot | undefined = undefined): Document {
     return root === undefined ? document : ('body' in root ? root : root.ownerDocument);
@@ -89,10 +79,8 @@ export interface ElementSpec<K extends keyof HTMLElementTagNameMap = keyof HTMLE
 }
 
 /**
- * 建一个元素.
- *
- * 一次调用 = 创建层(`tag` + `root`)+ 属性层 + 子节点.属性表的键就是 HTML 属性名;
- * 文本也是子节点.产出的 DOM 与手写 HTML 同构,所以下面每个例子都写出它生成的 HTML.
+ * 建一个元素:创建层(`tag` + `root`)+ 属性层 + 子节点,属性表的键就是 HTML 属性名,
+ * 文本也是子节点.
  *
  * ```ts
  * create_element(
@@ -112,16 +100,6 @@ export interface ElementSpec<K extends keyof HTMLElementTagNameMap = keyof HTMLE
  *
  * ```html
  * <div class="control-row" role="group" aria-label="半径">半径<span class="unit"></span></div>
- * ```
- *
- * 真实调用点就是这个形状:`widgets/Switch.ts` 的 `createSwitch()` 把 `<input>`
- * 与 `<span class="slider">` 嵌进 `<label class="switch">`;`widgets/Row.ts` 的
- * `createFieldLabel()` 是最短的一版:
- *
- * ```ts
- * const label = create_element({ tag: 'label' }, {}, '半径');
- * label.htmlFor = 'ui-number-1';
- * // -> <label for="ui-number-1">半径</label>
  * ```
  *
  * HTML 上看不出来的有两件:
@@ -173,9 +151,6 @@ export function create_element<K extends keyof HTMLElementTagNameMap>(
  * `create_element()` 内部走同一套规则;"先建容器,稍后再搬节点"的场景
  * (`mountDesktop` 的背景节点,`WindowManager` 的窗口正文)也要用它,所以单独
  * 导出,避免各写一份过滤逻辑而漏掉字符串/假值中的一种.
- *
- * 这里的 `root` 是位置参数而不是 spec:它没有属性表要分开,也没有变长子节点
- * 造成的歧义,没有合成对象的理由.
  */
 export function childNodes(children: readonly Child[], root?: DomRoot): Node[] {
     const doc = rootDocument(root);

@@ -2,10 +2,12 @@
   /**
    * 构建 `dist/` 用的配置:在 `tsconfig.json` 之上只改"要不要产出文件"这件事.
    *
-   * 产物**不是给 npm 发布的**(库不发 npm,见 RELEASING.md),而是要进 GitHub
-   * Release 资产(`ui-latest` 上的 `miko_ui_dist.tar.gz`)的:消费者下载 -> 解开到
-   * `.cache/miko_ui/current` -> 用 `"@miko/ui": "file:.cache/miko_ui/current"`
-   * 链接,再经 `exports` 解析到 `dist/index.js` / `dist/index.d.ts`.所以"产物
+   * 产物同时服务两条交付链路(见 RELEASING.md §0):
+   * - **npm 包**(主链路):`files` 里的 `dist/` + `styles/` 直接进 tarball;
+   * - **GitHub Release 资产**(当前无消费者):`ui-latest` 上的
+   *   `miko_ui_dist.tar.gz`,接它的人下载 -> 解开到 `.cache/miko_ui/current`
+   *   -> 用 `"@miko/ui": "file:.cache/miko_ui/current"` 链接.
+   * 两条都经 `exports` 解析到 `dist/index.js` / `dist/index.d.ts`,所以"产物
    * 干不干净"的判据是**那些消费者认不认**,不是"发布出去别人能不能用".
    *
    * 为什么不复用同一份配置:开发配置里 `noEmit: true`(类型检查专用,不落盘),
@@ -13,7 +15,7 @@
    * 也不该有 example,所以这里必须换一份 `include`/`exclude`.
    *
    * 为什么不把 `noEmit` 反过来写进 `tsconfig.json`:那样 `npm run typecheck`
-   * 会顺手往工作区里丢一堆 JS;两者目标不同,分开两份最省解释.
+   * 会顺手往工作区里丢一堆 JS.
    */
   "extends": "./tsconfig.json",
   "compilerOptions": {

@@ -3,18 +3,19 @@
 这份文件讲"库怎么交到消费者手里".库的形态与不变量见 `README.md`,抽取过程见原
 仓库 `miko_graphcalc` 的 `docs/ui-library-extraction-plan.md`.
 
-> 这份文件在 2026-09 重新包含 npm:库现在同时走"滚动资产"(主,服务两个应用仓库)
-> 与"npm 包"(对外,服务想 `npm install` 的人)两条链路.§6 保留的是"当年为什么
-> 放弃 npm"的归档 ---- 那是历史,不是现状;现状见 §0 与 §9.
+> 这份文件在 2026-09 重新包含 npm:两个应用仓库与外部消费者现在都走"npm 包"
+> (主链路);"滚动资产"仍在每次推 `main` 时产出,但**当前没有消费者**(§0 与
+> §9 末尾都记着这件事).§6 保留的是"当年为什么放弃 npm"的归档 ---- 那是历史,
+> 不是现状;现状见 §0 与 §9.
 
 ## 0. 结论:两条交付链路
 
 | 链路 | 触发 | 形态 | 谁在用 |
 | --- | --- | --- | --- |
-| **A. 滚动 release 资产**(主) | 推到 `main` | tag `ui-latest` 上的 `miko_ui_dist.tar.gz`,内容被覆盖 | 两个应用仓库(`miko_graphcalc`,`ToyosatomiminoMiko.github.io`) |
-| **B. npm 包**(对外) | 推 `v*` tag | `registry.npmjs.org` 上的 `miko_ui@<version>` | 想 `npm install` 的外部消费者 |
+| **A. 滚动 release 资产** | 推到 `main` | tag `ui-latest` 上的 `miko_ui_dist.tar.gz`,内容被覆盖 | **当前没有消费者**:两个应用仓库都走 B(留着给将来接这条链路的消费者) |
+| **B. npm 包**(主链路) | 推 `v*` tag | `registry.npmjs.org` 上的 `miko_ui@<version>` | 两个应用仓库(`miko_graphcalc`,`ToyosatomiminoMiko.github.io`)+ 外部消费者 |
 
-### 链路 A(§1–§5 讲的就是它)
+### 链路 A(§1–§5 讲的就是它;**当前无消费者**)
 
 - 每一次 main 的构建都覆盖同一个资产,发布不是"版本发布":
   - release tag:`ui-latest`(**滚动**,只是"最新一份产物"的稳定下载地址);

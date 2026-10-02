@@ -5,19 +5,15 @@
  * 底色来自 token.它只给**基线与定位**;"哪一类是什么颜色"是消费者的语义
  * (由消费者自己的变体类给,如 `.kind-curve`).
  *
- * 为什么基线属于库而不是消费者:这 8 条声明的值**全部**出自库的 token
- * (`--radius-pill` / `--color-badge-ink` / `--color-neutral`).消费者自己写,
- * 就是把库的 token 重拼一遍;而消费者的样式契约又禁止应用给库的类写样式
- * (应用侧 `styleLayers.test.ts`),于是"上游给 token,下游拼外观"这种反过来
- * 的一遍必然分叉 -- 这正是 `test/emittedClasses.test.ts` 要禁止的事,只是
- * 换了个方向.
+ * 基线属于库而不是消费者:这 8 条声明的值**全部**出自库的 token
+ * (`--radius-pill` / `--color-badge-ink` / `--color-neutral`),消费者自己写,
+ * 就是把库的 token 重拼一遍.
  *
  * 默认观感写成零优先级的 `:where(.ui-badge)`(见 `styles/widgets.css`):
  * 消费者的变体类永远盖得住它,与样式表加载顺序无关(与 `.ui-button` 同一条约定).
  *
  * 返回元素而不是句柄:徽章是**静态**件 -- 文案与类名在构造时定死,之后不更新,
- * 也没有需要 `dispose` 的监听,生命周期跟着所在的那一行(与
- * `createVisibilityButton` 同类;与 `createButton` 那种带交互状态的件不同).
+ * 也没有需要 `dispose` 的监听,生命周期跟着所在的那一行.
  */
 import { create_element } from './dom';
 

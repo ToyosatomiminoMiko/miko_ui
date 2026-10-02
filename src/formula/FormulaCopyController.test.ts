@@ -1,14 +1,3 @@
-/**
- * 公式复制控制器单测.
- *
- * 复制必须有键盘入口:可复制公式由 FormulaView 加了 `tabindex`/`role`,
- * 本控制器提供 `keyboardBinding()` 供 KeyboardController 分发,自己只绑 click.
- * 这里覆盖:binding 的键名与目标放行规则,click 委托,成功/失败两条回显路径.
- * `preventDefault` 归 KeyboardController 管,所以断言在 KeyboardController.test.ts.
- *
- * 剪贴板只有异步通道:桩默认安全上下文 + 可写成功的 `navigator.clipboard`;
- * 失败路径改 `stub.clipboard.fail`,没有剪贴板 API 的情形删 `navigator.clipboard`.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub, type DomStub, type StubElement } from '../testing/domStub';
 import { FormulaCopyController } from './FormulaCopyController';
@@ -59,7 +48,6 @@ describe('鼠标与键盘两条复制入口(UI-P3.6)', () => {
     it('Enter 命中可复制公式时返回处理器并复制', async () => {
         const { stub, controller, hint, formula } = setup();
 
-        // 键盘监听已上收到 KeyboardController;这里只验证本控制器给出的规则.
         const run = controller.keyboardBinding()
             .resolve({ target: formula } as unknown as KeyboardEvent);
 
@@ -143,7 +131,6 @@ describe('dispose 复位提示', () => {
 });
 
 describe('一组提示节点(列表被拆成多个窗口时,每处标题栏各有一句提示)', () => {
-    /** 两个提示节点:代表"实体"与"求值"两个窗口标题栏上的那一句. */
     function setupPair(): {
         stub: DomStub;
         controller: FormulaCopyController;

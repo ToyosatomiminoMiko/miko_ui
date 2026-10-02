@@ -2,27 +2,19 @@
 # ============================================================================
 # pre-commit: 提交前把本次暂存文件里的中文全角标点转成半角
 # ----------------------------------------------------------------------------
-# 由 git 通过 core.hooksPath=.githooks 调用(启用方式见 scripts/autorun.py 顶部
-# 那段长注释). 这个文件跟随仓库一起被提交, 所以换机器或重新 clone 之后不会像
-# .git/hooks 里的东西那样静默失效.
+# 由 git 通过 core.hooksPath=.githooks 调用(启用方式见 scripts/autorun.py 顶部).
+# 文件随仓库一起提交, 所以换机器或重新 clone 之后不会像 .git/hooks 里的东西那样
+# 静默失效.
 #
-# 流程:
-#   git diff --cached --name-only -z --diff-filter=ACM
-#     -> 取出本次暂存的**新增/修改/复制**文件(不含删除)
-#     -> import scripts/autorun.py, 对每个文件调 fix_file()(原地改写)
-#     -> 只把**真正被改写**的文件重新 git add, 让修正进入这一次提交
+# 流程: `git diff --cached --name-only -z --diff-filter=ACM` 取出暂存的新增/修改/
+# 复制文件 -> 逐个调 `scripts/autorun.py` 的 fix_file() 原地改写 -> 只把真正被
+# 改写的文件重新 git add, 让修正进入这一次提交.
 #
-# [为什么钩子是 Python 而不是 bash]
-# 转义映射表本来就在 scripts/autorun.py 里. 原来的 bash 钩子只能用
-# "python3 scripts/autorun.py <files>" 再逐行解析它 stdout 里的
-# `[fix_punctuation] fixed: <file>` 来判断哪些文件被改了 -- 那是一条隐式的
-# 字符串协议: 谁动一下那行日志的格式, "重新暂存"就会静默失效, 而且失败时不报错.
-# 现在钩子直接 import 那个模块拿返回值, 协议消失. 同时 bash 那一层也没了,
-# 不必再为"参数里有空格/中文文件名"做数组与 -z 的体操.
-#
-# 附带好处: 原 bash 版本必须把钩子自己**排到最后**处理, 因为 bash 是边读边执行,
-# 改写一个正在运行的脚本很危险. CPython 在执行前就把整个源文件编译完, 这条约束
-# 自动作废, 排序逻辑可以整块删掉.
+# 为什么是 Python 而不是 bash: 转义映射表本来就在 scripts/autorun.py 里, import
+# 它拿返回值即可; bash 那层只能解析 stdout 里的 `[fix_punctuation] fixed: <file>`
+# 来判断哪个文件被改了, 那是一条隐式字符串协议 -- 谁动一下日志格式, "重新暂存"
+# 就会静默失效, 而且失败时不报错. 顺带 bash 那层也没了, 不必再为"参数里有空格/
+# 中文文件名"做数组与 -z 的体操.
 #
 # 注意:
 #   * 钩子只帮忙, 不设卡: 任何异常都只警告, 永远 exit 0.

@@ -1,21 +1,7 @@
-/**
- * `CodeEditor` 的装配契约.
- *
- * 锁四件事:
- * 1. **结构**:`.code-editor*` 那套类名,以及"高亮层紧跟 textarea"这条会被
- *    相邻兄弟选择器依赖的顺序;
- * 2. **注入**:分词由消费者给(库不认识任何具体语言的词法),初值进 textarea;
- * 3. **`refresh()`**:程序化改写 `textarea.value` 之后行号与高亮一起跟上;
- * 4. **无全局**:两个编辑器可以共存于同一棵树上 -- 库不占用任何 id,
- *    同页两个实例不串味.
- *
- * 用库自带的 DOM 桩(`src/testing/domStub.ts`).
- */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type StubElement } from '../testing/domStub';
 import { createCodeEditor, type CodeEditorHandle } from './CodeEditor';
 
-/** 桩分词器:把整份源码包一层,便于断言"注入的函数被用上了". */
 const wrap = (source: string): string => `<span class="hl">${source}</span>`;
 
 function stub(element: unknown): StubElement {
@@ -77,7 +63,6 @@ describe('注入与刷新', () => {
     it('高亮用注入的分词器渲染(库不认识 DSL)', () => {
         const { editor } = setup();
         expect(stub(editor.highlightCode).innerHTML).toBe('<span class="hl">curve c1 = 1;</span>');
-        // 库这边不认识任何词法类名.
         expect(stub(editor.highlightCode).innerHTML).not.toContain('dsl-');
     });
 
@@ -101,7 +86,6 @@ describe('生命周期与"无全局"', () => {
         editor.textarea.value = 'changed';
         stub(editor.textarea).dispatch('input');
 
-        // 高亮停在 dispose 前的内容上.
         expect(stub(editor.highlightCode).innerHTML).toBe('<span class="hl">curve c1 = 1;</span>');
     });
 
@@ -116,7 +100,6 @@ describe('生命周期与"无全局"', () => {
 
         expect(first.textarea.value).toBe('first');
         expect(second.textarea.value).toBe('second');
-        // 两棵树里同名的节点各归各的:没有 id 可以撞.
         expect(stub(first.textarea).id).toBe('');
         expect(stub(second.textarea).id).toBe('');
         expect(root.querySelectorAll('.code-editor')).toHaveLength(2);

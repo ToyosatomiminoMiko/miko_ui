@@ -10,60 +10,22 @@ permissions:
   contents: read
 
 jobs:
-  # 库自己的 CI. 这个 job 只需要 Node -- "能独立跑绿"就是"UI 与计算真的解耦了"
-  # 最直接的证据:检查跟着库走,不依赖任何消费者仓库.
+  # 库自己的 CI:只需要 Node,不依赖任何消费者仓库 -- "能独立跑绿"就是"UI 与计算
+  # 真的解耦了"最直接的证据.
   #
-  # ==========================================================================
-  # 库侧的依赖/交付契约(这段注释是真身;消费者那半由消费侧脚本自己维护)
-  # --------------------------------------------------------------------------
-  # 为什么写在这里而不是写进 package.json:package.json 是严格 JSON,放不了注释;
-  # 而这个 workflow 正是下面每一条的**执行点** -- 违反哪条,红的就是这个 job.
-  #
-  # 1. 有两条交付链路,互不干扰:
-  #    1a. **npm 包**(两个应用的主链路):`release.yml` 的 publish job 在推 `v*`
-  #        tag 时用 **OIDC 信任发布**把同名包发到 registry.npmjs.org;两个应用
-  #        仓库 `npm ci` 装它(`sync_miko_ui` 再对齐到 npm latest).这条链路需要
-  #        `package.json` 的 `version`(tag 与它必须一致).
-  #    1b. **滚动资产**(当前无消费者):`release.yml` 的 release job 把包根打成
-  #        `miko_ui_dist.tar.gz` 挂到滚动 release `ui-latest` 上,取件方只拿**产物**
-  #        (不 clone 源码,不本地构建).这条链路**不读也不写版本号**.
-  #        npm 的 Trusted Publisher **只认 workflow 文件名**,所以两条链路共用
-  #        `release.yml`;那份配置在 npm 包设置页,保存时不校验,填错发布时才报错.
-  # 1.1 两条链路的"执行点"都在 `release.yml` 顶部;这里管的是**资产**那条的
-  #    dry-run,所以打包本身在这里也跑一遍(下面的 "Pack release asset"):让
-  #    "清单漏进 scripts"/"资产打不出来"在合入前就红,而不是等发布时才发现.
-  # 1.2 资产必须**自证 commit**:清单里的 `gitHead` = 构建它的那个 commit(打包
-  #    脚本写入;本地工作树脏时是 `<sha>-dirty`).这是写给**取件方**的契约(当前
-  #    无人取件):取件脚本靠它比 `ui-latest` tag 指向的 commit 判断缓存新旧.下面
-  #    的 dry-run 断言它等于本次构建的 commit,`release.yml` 的交付验收还会从公开
-  #    URL 下回来的那份里再核一次.
-  # 2. `scripts.prepare` 必须以 `npm run build` 开头,不能删.这个 job 的顺序是
-  #    `npm ci`(prepare -> `npm run build`)-> `npm run build` -> 产物检查,
-  #    而 `tsconfig.json` 把 `example/**` 也收进类型检查,example 又通过
-  #    **包名自引用** `miko_ui`;那份类型只来自 `dist/index.d.ts`(exports 指向
-  #    产物).fresh clone 里 `dist/` 还不存在,只能靠 `prepare` 在 `npm ci` 阶段
-  #    先构建一次.删掉它的症状是一串
-  #    `example/main.ts(...): error TS7006: Parameter 'value' implicitly has an
-  #    'any' type` -- 看起来像 example 写错了,其实是产物没构建.
-  # 2.1 `prepare` 末尾跟的 `&& git config --local core.hooksPath .githooks` 只服务
-  #    本机开发体验:提交前自动转换全角标点(见 `scripts/autorun.py` 顶部).它要求
-  #    当前目录是 git 仓库 -- 开发 clone 与这里的 checkout 都满足;发布资产里没有
-  #    `scripts` 字段(见 `scripts/pack_release.mjs`),取件方根本跑不到 `prepare`,
-  #    所以这条不会外溢.
-  # 3. `package-lock.json` 只允许用**完整** `npm install` 重建.
-  #    `npm install --package-lock-only` 只按**当前平台**算理想树,会把跨平台可选
-  #    依赖(`lightningcss-*`,`@rolldown/binding-*` 等一批平台专用包)从锁里丢掉.
-  #    后果有两个,而且总是一起发生:这个 job 的 `npm ci` 直接 EUSAGE(`Missing: ...
-  #    from lock file`),以及任何按 lock 安装该版本的下游一起失败.依赖没变,只是要
-  #    重写元数据时,别重新解析,从历史里取回完整的那份即可.
-  # 4. 本地与 CI 的 npm 不是同一个版本(本地 Node 22 带 npm 10,CI Node 24 带
-  #    npm 11),对锁的校验严格程度不同:第 3 条只有 npm 11 会拒,本地 npm 10 一路
-  #    绿.所以动过锁或依赖之后,交付前跑一次:
-  #        npx --yes npm@11 ci --no-audit --no-fund
-  # ==========================================================================
-  #
-  # 这里没有"发布"步骤:发布只在 `release.yml`(main)里做.这个 job 的职责是
-  # 保证 main 上永远是"能装,能查,能测,能构建,能把资产打出来"的形态.
+  # 三条只在交付时才炸的坑(交付链路本身见 RELEASING.md):
+  # 1. `scripts.prepare` 必须以 `npm run build` 开头.`tsconfig.json` 把 example
+  #    收进类型检查,example 又按包名自引用 `miko_ui`,而那份类型只来自
+  #    `dist/index.d.ts`;fresh clone 里 `dist/` 不存在,`npm ci` 阶段不先构建,
+  #    症状是一串 `TS7006: Parameter 'value' implicitly has an 'any' type`,
+  #    看起来像 example 写错了.
+  # 2. `package-lock.json` 只能用**完整** `npm install` 重建.
+  #    `--package-lock-only` 只按当前平台算理想树,会丢掉 `lightningcss-*` /
+  #    `@rolldown/binding-*` 这类跨平台可选依赖,于是这个 job 的 `npm ci` 与所有
+  #    按这份锁安装的下游一起 EUSAGE(`Missing: ... from lock file`).
+  # 3. 本地 Node 22 带 npm 10,CI Node 24 带 npm 11,对锁的校验严格程度不同:
+  #    第 2 条只有 npm 11 会拒.动过锁或依赖之后跑一次
+  #    `npx --yes npm@11 ci --no-audit --no-fund`.
   test:
     runs-on: ubuntu-latest
 
@@ -77,43 +39,31 @@ jobs:
           node-version: "24"
           cache: "npm"
 
-      # `npm run build` 里的边界守卫是 Python(`scripts/check_ui_boundary.py`),
-      # 提交钩子的标点转换也是.钉一个版本,不吃 runner 镜像里未钉的系统 Python.
+      # 边界守卫与提交钩子都是 Python,钉版本不吃 runner 镜像里的系统 Python.
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      # `npm ci` 的 `prepare` 就是 `npm run build`,所以这一步已经把下面那条
-      # 完整跑过一遍;这里显式再写一条,是因为"构建"该在 CI 里有一个自己的步骤:
-      # 失败信息归到它名下,`prepare` 哪天被误删也有它兜着.
+      # `npm ci` 的 `prepare` 就是 `npm run build`;这里显式再跑一条,让失败信息
+      # 归到"构建"名下.
       - name: Install pinned dependencies
         run: npm ci --no-audit --no-fund
 
-      # 一条命令 = package.json 里 `build` 的全部内容:
-      #   build:dist(clean -> tsc 产出 dist/) -> typecheck(src + test + example)
-      #   -> 边界守卫八条断言 -> vitest.
-      # 本地,消费者,CI 跑的是同一条,不会出现"CI 绿了,但本地 build 不带检查".
-      # typecheck 过了同时说明:库内没有任何路径别名,换任何消费者都不用改 import.
+      # 一条命令 = package.json 的 build:`build:dist` -> typecheck(src + test +
+      # example)-> 边界守卫 -> vitest;本地 / 消费者 / CI 跑的是同一条.
       - name: Build, typecheck and test
         run: npm run build
 
-      # `dist/` 就是消费者真正 import 的东西(`dist/index.js` + `index.d.ts`),
-      # 所以每次 push 都要验一次"它构建得出来":交付失败最早能在这里被发现.
+      # 消费者真正 import 的是 `dist/`,每次 push 都验一次它构建得出来.
       - name: Check build output
         run: |
           test -f dist/index.js
           test -f dist/index.d.ts
 
-      # 上面那条查的是**资产**(链路 A,1a)长什么样;这一条查**npm 包**(链路 B,1b)
-      # 的清单前提.三样缺一不可,而且缺了的症状都不出现在这个 job 里,只出现在
-      # `npm publish` 那一刻:
-      #   - `private` 还在   -> npm 直接拒绝发布;
-      #   - 没有 `version`   -> npm 包必须有版本号(且 tag 要跟它一致);
-      #   - 没有 `files`,或 `files` 里没有 `dist` -> `.gitignore` 里写着 `/dist`,
-      #     npm 会照它排除,于是发出去一个**没有代码的空包**.
-      #   最后一条只有 `npm pack --dry-run` 看得见,所以在这里把前提断言掉.
-      # `publishConfig.registry` 一并钉死:本机/CI 的默认源可能是镜像,镜像只读.
+      # npm 包(链路 B)的清单前提:`private` / `version` / `files` 含 `dist`
+      # (`.gitignore` 写着 `/dist`,npm 会照它排除,缺了发出去是空包).
+      # 缺了的症状都只出现在 `npm publish` 那一刻.
       - name: Check npm publish prerequisites
         run: |
           node -e '
@@ -129,14 +79,9 @@ jobs:
             console.log(`npm 发布前提就绪:miko_ui@${p.version}`);
           '
 
-      # 资产链路的交付形态是 release 资产(`miko_ui_dist.tar.gz`),不是 `dist/`
-      # 目录本身(两个应用走 npm,所以这条 dry-run 守的是**资产本身**不会坏).
-      # 这里在**每个 PR/推送**上先打一遍(不发布,发布只在 main 的 release.yml),
-      # 把两类只在取件方那边才炸的问题挡在合入前:
-      #   1. 资产打不出来(缺 dist/styles/LICENSE,tar 挂了);
-      #   2. 清单漏进 `scripts` -- npm 装 `file:` 依赖时会跑它的 `prepare`,必炸.
-      # `scripts/pack_release.mjs` 自己会为第 2 条断言一次,这里再从**打出来的
-      # tar** 里验一次包根形状(防"脚本绿了但 tar 多套了一层目录").
+      # 资产链路(当前无消费者)在每个 PR/推送先打一遍,把两类只在取件方那边才炸的
+      # 问题挡在合入前:资产打不出来(缺 dist/styles/LICENSE);清单漏进 `scripts`
+      # (npm 装 `file:` 依赖时会跑它的 prepare).
       - name: Pack release asset (dry run)
         run: |
           npm run release:pack

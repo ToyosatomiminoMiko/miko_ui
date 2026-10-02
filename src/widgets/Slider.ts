@@ -17,8 +17,7 @@
  * ## 一份状态
  *
  * `value` 是滑杆与数值框**共同的唯一值源**:拖动写它,输入框归一化后写它,
- * 重置也写它;两个子控件各自订阅它更新自己.控件之间没有第二条同步回路,
- * 调用方也不需要再存一份"当前值".
+ * 重置也写它;两个子控件各自订阅它更新自己.控件之间没有第二条同步回路.
  *
  * `Slider` 只是 `RangeInput` 的一种封装:**只**要一条裸滑杆时直接用
  * `createRangeInput`,不必为了一个 range 拖上名称与重置.
@@ -149,8 +148,7 @@ export function createSlider(options: SliderOptions): SliderHandle {
         ariaLabel: `重置 ${options.label} 为 ${format(resetValue)}`,
     });
 
-    // 循环参数在名字后挂一枚 `cyclic` 徽章:让"这个量在圆周上"看得见,
-    // 但**不**给名字本身换颜色.
+    // 循环参数在名字后挂一枚 `cyclic` 徽章.
     // 名字与徽章之间那个空格只进可访问名(`<label for>` 的文本);flex 布局里
     // 纯空白文本节点不渲染,视觉间距仍由 CSS 的 gap 给.
     const tag = options.cyclic
@@ -177,8 +175,7 @@ export function createSlider(options: SliderOptions): SliderHandle {
     /**
      * 是否已停在目标值上:值取自值源,文本取自数值框.
      *
-     * 文本必须一起比(见文件头"重置按钮"):清空 / `1.` 这类文本态下值没变,
-     * 但用户正需要重置把文本恢复回去.
+     * 文本必须一起比:清空 / `1.` 这类文本态下值没变,但用户正需要重置把文本恢复回去.
      */
     const isAtResetValue = (): boolean =>
         value.peek() === resetValue && number.readText() === format(resetValue);

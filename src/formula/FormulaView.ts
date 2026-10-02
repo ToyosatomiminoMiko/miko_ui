@@ -19,11 +19,8 @@ import { rootDocument, type DomRoot } from '../widgets/dom';
 const formulaTemplateCache = new Map<string, HTMLElement>();
 
 /**
- * 模板缓存上限.
- *
- * 常见公式的键是有限集合,但 LaTeX 里可能拼进任意数值,键不是有限集合;
- * 不设上限就是只增不回收的泄漏.命中缓存就不必重建,所以容量取一个
- * 远大于单屏公式数的值即可.
+ * 模板缓存上限:LaTeX 里可能拼进任意数值,键不是有限集合,不设上限就是只增不回收的
+ * 泄漏;命中缓存就不必重建,容量取一个远大于单屏公式数的值即可.
  */
 const FORMULA_TEMPLATE_CACHE_LIMIT = 512;
 

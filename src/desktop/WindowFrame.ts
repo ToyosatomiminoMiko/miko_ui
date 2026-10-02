@@ -61,12 +61,7 @@ export interface WindowFrameHandle {
     dispose(): void;
 }
 
-/**
- * 逐条写四条几何属性:窗口几何**唯一允许的写入形状**.
- *
- * 不要用 `element.style.cssText = ...`:`cssText` 赋值会清空整个行内声明块,
- * 把 `focus()` 写的 `z-index` 一起清掉,被拖的窗口会当场掉到其它窗口后面.
- */
+/** 逐条写四条几何属性:窗口几何**唯一允许的写入形状**. */
 export function writeGeometry(element: HTMLElement, g: AbsoluteGeometry): void {
     for (const [name, value] of Object.entries(geometryStyle(g))) {
         element.style.setProperty(name, value);

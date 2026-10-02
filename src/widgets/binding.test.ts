@@ -1,11 +1,11 @@
 /**
  * 控件与 signal 的绑定测试.
  *
- * `value: T | Signal<T>` 这条联合:传普通值只在建控件时读一次
- * (上面 `widgets.test.ts` 覆盖),传 signal 才订阅.这里锁的是 signal 一侧:
+ * `value: T | Signal<T>` 这条联合:传普通值只在建控件时读一次,传 signal 才订阅.
+ * 这里锁的是 signal 一侧:
  *
  * 1. **signal -> DOM**:写 signal,控件自己更新,调用方不需要 `set()`;
- * 2. **DOM -> signal**:用户操作写回 signal(除控件自身回调之外的那条线);
+ * 2. **DOM -> signal**:用户操作写回 signal;
  * 3. **不打架**:用户输入的中途文本不会被镜像更新格式化掉(数字框的 `1.`);
  * 4. **dispose 解绑**:销毁之后写 signal 不再碰 DOM(没有泄漏的回调).
  */

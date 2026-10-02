@@ -59,7 +59,6 @@ export class EditorHighlight {
     private readonly scroller: HTMLElement;
     private readonly code: HTMLElement;
     private readonly resizeObserver: ResizeObserver;
-    /** 源码 -> 高亮 HTML;由消费者注入(见 `EditorHighlightOptions`). */
     private readonly highlight: (source: string) => string;
     /** 待执行的重绘帧(见 `onInput`);null 表示没有排队中的重绘. */
     private pendingUpdate: number | null = null;
@@ -78,7 +77,6 @@ export class EditorHighlight {
         this.code = code;
         this.highlight = options.highlight;
 
-        // 输入:重新分词并重绘(合并到帧,见 onInput);滚动:只同步偏移.
         // 组字(IME)期间不做特殊处理:这一层从不写 `editor.value` 或选区,
         // 重绘背景不会打断浏览器自己的组字过程,只是把组字中的文字一并着色.
         editor.addEventListener('input', this.onInput);

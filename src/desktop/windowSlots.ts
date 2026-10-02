@@ -7,9 +7,6 @@
  *
  * 表只读一次并按窗口分组,于是"哪个节点进哪个窗口的哪个槽"没有分支:加一个
  * 标题栏节点 = 加一行配置 + 建一个节点.
- *
- * 泛型 `Node` 由消费者给(应用侧是它自己的 `ChromeNodeId`):采用表里的名字与
- * 节点表的键由同一份类型锁死,少建一个节点即编译不过.
  */
 import type { WindowContent } from './WindowManager';
 import type { AdoptedNodeSpec, WindowId } from './types';

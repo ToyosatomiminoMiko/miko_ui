@@ -1,12 +1,6 @@
 /**
  * 浮层菜单项(`<button type="button" role="menuitem">`).
  *
- * **为什么在库里**:`Popover` 只负责开合 / aria / 点外部关闭,面板内容归消费者
- * (见 `widgets/Popover.ts` 的"不负责的").可"菜单项长什么样"于是每个消费者都要
- * 重写一遍,而它本来就是**按钮** -- 可聚焦,Enter/Space 触发,要禁用态,要按钮
- * 基线 -- 写第二遍必错.这一份把它收进来:外观只有库里这一份
- * (`styles/widgets.css` 的 `.menu-item`),消费者只给内容,位置与"点了干什么".
- *
  * 一个菜单项 = 主文案 + **可选**的右侧注记(如示例页的文件名).主文案是按钮
  * 自己的文本节点,注记才需要一个盒子(它要贴右,用弱色小字),所以只有它是
  * 单独的 `<span class="menu-item-hint">`.
@@ -14,16 +8,15 @@
  * **放在哪由消费者决定**,本件不认识任何具体触发点:
  * - **直接显示**:摆进一个常驻的 `role="menu"` 面板;
  * - **浮层触发**:塞进 `createPopover` 的面板,触发按钮可以是任意元素(库示例页
- *   用的就是一颗普通按钮).下游拿它做的"窗口标题栏按钮触发"只是后一种的一个
- *   调用点,不是它的前提.
+ *   用的就是一颗普通按钮).
  *
  * `role="menuitem"` 假定它被放在 `role="menu"` 的面板里.面板与分组的外观也在
  * 库里,本件只管"一行":`styles/widgets.css` 的 `.menu-panel`(表面)/ `.menu-group`
  * 与 `.menu-group-title`(分组)/ `.menu-item` 与 `.menu-item-hint`(行).摆在哪则
  * 由消费者的两条类名决定 -- `.menu-panel` 单独用是常驻,`.menu-anchor` +
- * `.menu-popover`(开合是 `Popover` 写的 `.is-open`)是浮层.键盘也不在这里,
- * 而且不在库里:菜单不做上下键 / Esc,本件只保证自己是一颗可聚焦的按钮
- * (Enter/Space 由浏览器给);要键盘行为由应用侧自己接.
+ * `.menu-popover`(开合是 `Popover` 写的 `.is-open`)是浮层.键盘也不在这里:
+ * 本件只保证自己是一颗可聚焦的按钮(Enter/Space 由浏览器给);要键盘行为由
+ * 应用侧自己接.
  *
  * 与 `createButton` 一致:选项只描述**外观**,点击回调在拿到句柄后用
  * `onClick(listener)` 注册;`data-*` 之类的消费者标记直接写在 `element` 上.
@@ -58,8 +51,7 @@ const ACTIVE_CLASS = 'is-active';
 export function createMenuItem(options: MenuItemOptions): MenuItemHandle {
     // 走 `createButton` 而不是自己 `create_element({ tag: 'button' })`:基线类
     // `.ui-button`,`type="button"`,点击分发与 `dispose` 都复用同一套,菜单项
-    // 只是在它上面叠一个外观变体类 `.menu-item`(基线是零优先级的
-    // `:where(.ui-button)`,所以加载顺序不影响谁赢).
+    // 只是在它上面叠一个外观变体类 `.menu-item`.
     const button: ButtonHandle = createButton({
         class: 'menu-item',
         text: options.text,

@@ -6,12 +6,13 @@ import { defineConfig } from 'vitest/config';
  * 库的测试只在 Node 环境里跑,不引任何应用级 setup -- 这份配置只需指定测试
  * 文件范围与运行环境,这也是 CI 里 `test` job 的依据.
  *
- * 测试文件有两处,都是库自己的:
+ * 测试文件有两处(`src/**` 与 `test/**`,见下面的 include),另有一个**对消费者
+ * 发布**的测试入口:
  *   - `src/**` 下的 `*.test.ts`   组件/模块测试,挨着被测代码;
  *   - `test/**` 下的 `*.test.ts`  跨模块的契约测试(如"库产出的类名都有默认样式"),
  *                                 与 `test/desktopFixture.ts` 同处;
  *   - `src/testing/`              **对消费者发布**的测试入口(DOM 桩):它由
- *                                 `exports["./testing"]` 暴露,不属于上面的公开面,
+ *                                 `exports["./testing"]` 暴露,不进主入口,
  *                                 所以放在 `src/` 下而不是 `test/` 下.
  *
  * 别名一个都不配:库内一律包内相对路径.

@@ -18,11 +18,7 @@ import { create_element, nextWidgetId, type Child } from './dom';
 import type { NumberFieldHandle } from './NumberField';
 import type { SwitchHandle } from './Switch';
 
-/**
- * 建一个与控件关联的可见标签.
- *
- * 关联走 `htmlFor` 属性(真 DOM 会把它反射成 `for` 属性).
- */
+/** 建一个与控件关联的可见标签(关联走 `htmlFor`). */
 export function createFieldLabel(text: string, forId: string): HTMLLabelElement {
     const label = create_element({ tag: 'label' }, {}, text);
     label.htmlFor = forId;

@@ -216,45 +216,41 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 | 分组 | 内容 |
 | --- | --- |
-| `widgets/dom.ts` | `create_element({ tag, root }, attributes, ...children)` / `childNodes`(`Child` 类型) / `nextWidgetId`,`ElementSpec` 与 `ElementAttributes`(创建层与属性层分开);同在这一个文件里的 `DomRoot` / `rootDocument`(root 注入)是**库内口径**,不从 `miko_ui` 导出 |
-| `reactive/` | `signal` / `computed` / `effect` / `derivedSignal` / `onValueChange` / `isSignal` / `ValueSource` 工具 |
-| `widgets/` | `Button` `Switch` `Segmented` `RangeInput`(裸滑杆),`Slider`(系数滑块:名称 + 滑杆 + 数值框 + 重置按钮),`NumberField` `Popover`,`MenuItem`(菜单项)与 `Menu`(菜单:分组 + 当前项 + 开合;常驻显示或任意按钮触发),`Panel`(带标题栏的静态框体:应用里的"卡片";桌面窗口复用同一组 `.ui-panel*` 基类),以及行级布局件 `Row`(`createRow` / `createNumberRow` / `createSwitchRow` / `createControlGroup` / `createInlineToggle` / `createFieldLabel`) |
-| `shared/` | 键盘唯一出口 `KeyboardController`,唯一拖拽实现 `bindDragGesture`,行缓存 `KeyedRowList`,`numberText`,行外壳 `rowDom` |
-| `desktop/` | `mountDesktop`,`WindowManager` / `WindowFrame` / `WindowGeometry` / `WindowResize` / `Dock` / `SnapPreview`,`windowSlotsProvider`,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG`.窗口外壳的公共外观复用 `widgets/Panel` 的 `.ui-panel*` 基类(`window = panel + 几何/拖动`),桌面只叠差异 |
-| `editor/` | `CodeEditor`(建整套编辑器外壳),`EditorLineNumbers` / `EditorHighlight`(分词与槽宽由消费者注入),`HIGHLIGHT_ENABLED_CLASS`,`replaceTextareaSource` / `seedTextareaSource`(程序化写入源码并保住原生撤销栈) |
-| `feedback/` | `MessageList`(错误/警告列表,零领域依赖) |
-| `formula/` | `createFormulaElement`(KaTeX;`katex` 是**可选** peer),`FormulaCopyController` |
-| `theme/` | `applyTheme(root, tokens)`(把一组 CSS 变量写到根元素上;库的默认主题只有 `styles/tokens.css` 一份,JS 侧不留镜像) |
-| `testing/` | **测试入口**(独立子路径 `miko_ui/testing`,不进主入口):手写 DOM 桩 `installDomStub`,复刻了真 DOM 里踩过的坑,并给出 `document.execCommand` / `navigator.clipboard` 两条可断言通道 |
-| `styles/` | `tokens.css`(默认主题,最先加载),`scrollbar.css`(独立的滚动条规定:滚动容器挂 `.ui-scrollbar`),`widgets.css`(含行外壳 `.object-row`/`.row-main`/`.row-actions`),`desktop.css`,`editor.css`,`feedback.css`(`.diagnostic*`,复制反馈的 `.is-copied`/`.is-error`),`styles.css`(总入口) |
+| `widgets/dom.ts` | DOM 创建层:`create_element({ tag, root }, attributes, ...children)` / `childNodes` / `nextWidgetId`,创建层与属性层的类型分开;同在这一个文件里的 `DomRoot` / `rootDocument`(root 注入)是**库内口径**,不从 `miko_ui` 导出 |
+| `reactive/` | 值源与派生值(`signal` / `computed` / `effect` / `onValueChange` 一族):控件的值参数可以直接传这一层的东西 |
+| `widgets/` | 控件与行级布局件:按钮 / 开关 / 分段 / 滑杆(裸滑杆与系数滑块)/ 数值框 / 浮层 / 徽章 / 带标题栏的框体(桌面窗口复用同一组 `.ui-panel*` 基类)/ 菜单,以及 `create*Row` 一族行外壳 |
+| `shared/` | 跨组件共用的交互与行外壳:键盘唯一出口,唯一拖拽实现,行缓存,数值文本,行外壳 |
+| `desktop/` | 桌面窗口系统:装配入口(`mountDesktop` / 窗口槽位),窗口管理器与几何 / 拖动 / 吸附 / 停靠件,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
+| `editor/` | 编辑器外壳:整套结构装配,行号栏,高亮层(分词与槽宽由消费者注入),以及保住原生撤销栈的程序化写入 |
+| `feedback/` | 消息 / 诊断列表(零领域依赖) |
+| `formula/` | KaTeX 公式件与复制反馈(`katex` 是**可选** peer) |
+| `theme/` | `applyTheme(root, tokens)`:把一组 CSS 变量写到根元素上(库的默认主题只有 `styles/tokens.css` 一份,JS 侧不留镜像) |
+| `testing/` | **测试入口**(独立子路径 `miko_ui/testing`,不进主入口):手写 DOM 桩,复刻了真 DOM 里踩过的坑,并给出 `document.execCommand` / `navigator.clipboard` 两条可断言通道 |
+| `styles/` | 分组样式表 + 总入口:逐份入口,加载顺序,每份读哪些 token 写在 `styles/styles.css` 的文件头,这里不抄第二份 |
+
+上表的"内容"列只说明**每个目录负责什么**;具体导出了哪些符号,`src/index.ts` 是唯一
+清单(它按文件 `export *` 重导出,所以那份文件本身就是公开面).
 
 ## 边界契约(有机器守,不靠自觉)
 
 `npm test` 先跑 `scripts/check_ui_boundary.py`(八条断言,要 python3),再跑 vitest;两条
 都写在 `test` 脚本里,不是隐式钩子.这份脚本跟着库从 `miko_graphcalc` 搬了过来
--- 库分出去之后,那边不再有库的源码,检查必须跟着库走.前三条断言在这里恒为
-0(这个仓库里没有应用源码可引用),留着是因为 `@/` 那条同时也是"库内不许用路径
-别名"的机器保证:
+-- 库分出去之后,那边不再有库的源码,检查必须跟着库走.
 
-1. 库源码里没有 `@/contract` / `@/compiler` / `@/math` / `@/render` /
-   `@/config/renderConfig`(库不认识领域模型);
-2. 库源码与样式里没有 `@/config/uiConfig`(配置靠注入);
-3. 库不引用应用源码的任何其它路径(`@/...` 一律不许);
-4. 会被打包的库代码里没有 `getElementById`,也没有裸的 `document.` / `window.`
-   (root 注入;`src/testing/` 的测试桩除外 -- 它的职责就是造这些全局);
-5. `styles/` 里没有 id 选择器(排除十六进制颜色与注释);
-6. `dependencies` 只允许 `@preact/signals-core`;`peerDependencies` 只允许
-   `katex`;
-7. `exports` 只指向构建产物(`dist/index.js` + `dist/index.d.ts`),`styles/` 与
-   测试入口(`dist/testing/domStub.js`),内部路径不进公开面;
-8. 库里一次都没调用上游的批处理入口(更新路径不引调度器,见下).
+八条的**定义**只有一处:`scripts/check_ui_boundary.py` 的文件头那张表.要看明细就
+`python3 scripts/check_ui_boundary.py --list`(逐条打印违例与行号).这里不抄第二份
+-- 抄一份的下场是"脚本加了第九条,README 还写着八条".值得记住的只有两点:
 
-八条都是硬断言,全部必须为 0:任何一条出现违例,`npm test` 直接失败,没有
-baseline,也没有"允许的例外".
+- 前三条在这个仓库里恒为 0(本仓库没有应用源码可引用),留着是因为 `@/` 那条
+  同时也是"库内不许用路径别名"的机器保证;
+- 八条都是硬断言,任何一条违例 `npm test` 直接失败,没有 baseline,也没有
+  "允许的例外".
 
-另有一条**测试级**契约,守的是样式归属而不是耦合:`test/emittedClasses.test.ts`
-断言"库**产出的每个类名**,库的样式表里要么有默认规则,要么在
-`INTENTIONAL_HOOKS` 里显式声明它只是定位钩子(带理由)".背景是
+另有一组**测试级**契约,都在 `test/` 下,每条的文件头写着它守什么,为什么值得守
+-- 已覆盖的主题包括样式归属,默认值只有一处,编辑器外壳的对齐算术,样式表的分发
+闭环(以各文件头为准,这里只是让你知道有这么几类).其中一条值得展开:
+`test/emittedClasses.test.ts` 断言"库**产出的每个类名**,库的样式表里要么有默认
+规则,要么在 `INTENTIONAL_HOOKS` 里显式声明它只是定位钩子(带理由)".背景是
 `MessageList` / `rowDom` / `FormulaCopyController` 曾经产出
 `.diagnostic*` / `.object-row` / `.row-main` / `.row-actions` /
 `.is-copied` / `.is-error` 却没有配套样式,消费者于是被迫给库的类写外观 --

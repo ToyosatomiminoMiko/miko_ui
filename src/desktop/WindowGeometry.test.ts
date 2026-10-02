@@ -1,8 +1,5 @@
 /**
  * 窗口几何纯函数的边界穷举.
- *
- * 这里不碰 DOM:夹取,移动,吸附判定,以及五个窗口在两组目标视口下的
- * 默认几何都能在单测里钉死.真机上"CSS 有没有让窗口填满"是另一回事.
  */
 import { describe, expect, it } from 'vitest';
 import { TEST_DESKTOP_CONFIG } from '../../test/desktopFixture';
@@ -209,8 +206,6 @@ describe('resolveRelativeGeometries:相对声明 -> 绝对坐标(纯函数批量
     });
 
     it('**不依赖调用方排序**:清单倒过来喂,结果逐字段相同', () => {
-        // 这条就是重构的收益:`after` 的先后以前是"数组顺序即依赖顺序"这条
-        // 只写在注释里的契约,现在由函数内部解,倒序喂也解得对.
         const forward = resolveAll(desktop);
         const reversed = resolveAllReversed(desktop);
         for (const id of forward.keys()) {
@@ -257,7 +252,7 @@ describe('resolveRelativeGeometry:split(把居中区域等分成并排的几块)
     const desktop = desktopOf(1280, 800);
 
     /**
-     * 一个宽窗口拆成并排两块:典型的"原来一个 objects,现在实体 / 求值".
+     * 一个宽窗口拆成并排两块.
      *
      * `x` 是占位值(`'center'`):并排的一排里,宽度与 x 由同一份"第几块"信息一起
      * 算出,`resolveX` 走 `split` 分支时根本不读它.类型上仍然必填,免得"相对"
@@ -529,7 +524,6 @@ describe('窗口配置自洽', () => {
         let seen = 0;
         for (const spec of WINDOW.windows) {
             for (const axis of [spec.defaultGeometry.y, spec.defaultGeometry.h, spec.defaultGeometry.x]) {
-                // `x` 可省(横向 after 时由被依赖窗口算出),滤掉 undefined.
                 if (axis === undefined) continue;
                 if (typeof axis !== 'string' && 'from' in axis && axis.from === 'bottom') {
                     expect(axis.inset, spec.id).toBe(WINDOW.edgeGap);

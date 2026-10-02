@@ -1,15 +1,5 @@
 /**
  * `WindowManager` 的状态机 / 焦点 / z-order / 几何写入.
- *
- * 几条"只在真机上很难定位"的回归被钉在这里:
- * - 拖动一帧之后 `z-index` 仍在(几何写入用了 `cssText` 就会把它清掉);
- * - 进入最大化会清掉四条行内几何(不清就是"点了没反应");
- * - 还原按 `restore` 逐像素写回;
- * - 隐藏态用 `inert` + `aria-hidden` 而不是 `display: none`;
- * - `focus()` 默认不夺 DOM 焦点,`reveal()` 才夺(否则编辑器光标会丢).
- *
- * 拖动路径能在桩里完整跑:桩实现了 `setPointerCapture` 的重定向语义,
- * `getComputedStyle` 也给得出 `cursor`(桩不解析样式表,取行内值或默认值).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TEST_DESKTOP_CONFIG, type FixtureWindowId } from '../../test/desktopFixture';
@@ -173,8 +163,7 @@ describe('bind:装配', () => {
         const { manager } = setup(1280, 700);
         const view = WINDOW.windows.find((spec) => spec.id === 'view')!;
 
-        // raw resolveRelativeGeometry 在这里只给 178(见 WindowGeometry.test.ts
-        // 的说明),夹取后必须顶到 minSize.h.
+        // raw resolveRelativeGeometry 在这里只给 178,夹取后必须顶到 minSize.h.
         expect(manager.getGeometry('view').h).toBeGreaterThanOrEqual(view.minSize.h);
     });
 
