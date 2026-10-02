@@ -62,9 +62,10 @@ commit,不一致就重取.本地工作树有未提交改动时写的是 `<sha>-d
 顶层字段时,打包**直接失败**,逼人当场决定它该不该进资产(静默丢掉 `browser` 这类
 字段的症状是"消费者行为悄悄分叉",太晚).要加字段就去改那个脚本里的两张表.
 
-消费侧的 `scripts/fetch_ui.sh` 会**独立再校验一次**"清单里没有 `scripts`":库侧
-生成,消费侧验收,两边互为保险(这条链路的完整规则在两个应用仓库的脚本顶部).
-`ci.yml` 还会在每个 PR 上把资产 dry-run 打一遍.
+"消费侧独立再校验一次"这半**已经没有执行点**:两个应用仓库早先的取件脚本
+(`scripts/fetch_ui.sh`)已随"依赖更新为 npm:miko_ui"那次改造删除,现在没有消费者
+下载这份资产(见 `README.md` 的「取用」).所以资产链路的约束只剩库侧这一半:
+`ci.yml` 在每个 PR 上把资产 dry-run 打一遍,打包脚本自己断言一次清单形状.
 
 ## 2. 怎么发一次
 
@@ -83,17 +84,17 @@ git commit ... && git push origin main
 2. `npm run release:pack` -- 产出 `release/miko_ui_dist.tar.gz`;
 3. `gh release create`(首次)或 `gh release upload --clobber`(之后)把它挂到
    `ui-latest`;资产先就位,再把 tag 挪到本次 commit(`git ls-remote --tags` 能
-   对上"资产是哪一版",消费侧就是拿这个 tag 比资产清单里的 `gitHead`);
+   对上"资产是哪一版",取件方就是拿这个 tag 比资产清单里的 `gitHead`);
 4. **验收**:从消费者用的那个公开 URL 重新下载一次,比对 sha256 **并核对清单里的
    `gitHead` 就是本次构建的 commit**,然后打印 release 页面与资产大小.
 
-为什么是"覆盖"而不是"删掉 release 再建":消费者取的是固定 URL,中间那段 404 窗口
-会让他们的 `preinstall` 直接失败.
+为什么是"覆盖"而不是"删掉 release 再建":取件方(当前没有)取的是固定 URL,中间
+那段 404 窗口会让取件失败.
 
 - 只改 `*.md` 不会触发发布(`paths-ignore`);要**强制重出**一次,在 Actions 里
   `workflow_dispatch` 跑一次 Release.
 - `release:pack` 打出的 tar 是**可复现**的(排序 + mtime/uid/gid 归零),所以内容
-  没变则 sha256 不变 -- 消费者缓存里记的"来源"可以被人核对.
+  没变则 sha256 不变 -- 取件方缓存里记的"来源"可以被人核对.
 
 ## 2.1 怎么发一版到 npm(链路 B)
 
@@ -156,7 +157,7 @@ git tag v0.1.3 && git push origin v0.1.3
 | 运行期清单:白名单,剔除 `scripts`,未知字段报错,可复现 tar | `scripts/pack_release.mjs` 顶部 |
 | 不发 npm / 不写版本号 / `prepare` 必须留 / 锁只能用完整 `npm install` 重建 | `.github/workflows/ci.yml` 顶部 |
 | 为什么 `prepare` 能救 typecheck(example 自引用包名,类型只在 `dist/`) | `tsconfig.json` 的 `include` 旁 |
-| 应用侧怎么取产物(`file:` 链接,缓存目录,校验,手动兜底) | 两个应用仓库的 `scripts/fetch_ui.sh` 顶部 |
+| 应用侧怎么取产物(npm `npm ci` + `sync_miko_ui` 对齐 latest;本地改库走符号链接) | 两个应用仓库的 `scripts/build.py` / `scripts/buildlib.py` / `scripts/dev_ui_link.py` 顶部 |
 | 为什么必须去重(唯一实例,signal/effect 双注册表) | 两个应用仓库的 `vite.config.ts` 的 `resolve.dedupe` |
 
 动过锁或依赖之后,交付前跑一次 CI 同款校验:
@@ -167,15 +168,21 @@ npx --yes npm@11 ci --no-audit --no-fund     # EUSAGE 就是锁缺跨平台条�
 
 ## 5. 固定,回滚与将来的版本号
 
-现在只有一个滚动 tag,所以**没有**"装回上周那一版"的现成开关.要固定或回滚时:
+现在有两个"固定"的口子,按链路分:
 
-1. 给想固定/回滚的那个 commit 补一个 tag(例如 `ui-2026-09-23`),把它当
-   `ui-latest` 那样挂一份 `miko_ui_dist.tar.gz` 上去(`gh release create <tag> ...`);
-2. 消费侧把 `MIKO_UI_RELEASE` 指成那个 tag(`MIKO_UI_RELEASE=ui-2026-09-23 npm run ui:update`),
-   CI 里则以仓库变量/环境变量固定.
+- **npm(两个应用走这条)**:要固定或回滚就钉版本号 -- 把 `"miko_ui": "^0.1.6"` 改成
+  确切版本(如 `"miko_ui": "0.1.8"`)再 `npm ci`;`package.json` 与 lock 一起提交,
+  库侧不需要做任何事(旧版本一直在 registry 上).
+- **滚动资产(当前无消费者)**:滚动 tag 没有历史版本可挑,所以没有"装回上周那一版"
+  的现成开关.要固定/回滚时:给那个 commit 补一个 tag(例如 `ui-2026-09-23`),像
+  `ui-latest` 那样挂一份 `miko_ui_dist.tar.gz` 上去(`gh release create <tag> ...`),
+  再由取件方指定那个 tag;CI 里以仓库变量固定.
 
-消费侧脚本从一开始就是按这个形状写的,所以补 tag 不需要改脚本.真要开始按语义
-版本发布(多个消费者,对外承诺兼容性,发布节奏)时,再回来重写本文档,而不是打补丁.
+> 本文档早先在这里写过 `MIKO_UI_RELEASE=... npm run ui:update`,那是**已经消失的
+> 消费侧接口**:现在两个应用仓库的库相关开关只有 `MIKO_UI_SYNC` / `MIKO_UI_DIR` /
+> `MIKO_UI_LATEST_VERSION` / `MIKO_UI_REQUIRE_LATEST`(真身在各仓库
+> `scripts/build.py` 与 `scripts/dev_ui_link.py`).要开始按语义版本发布(多个消费者,
+> 对外承诺兼容性,发布节奏)时,再回来重写本节,而不是打补丁.
 
 ## 6. 归档:当年为什么放弃 npm(2026-09 已被 §9 取代)
 
@@ -197,13 +204,20 @@ npx --yes npm@11 ci --no-audit --no-fund     # EUSAGE 就是锁缺跨平台条�
 
 ## 7. CI/CD 的上线顺序(改库之后先看这里)
 
-两个消费者的 CI 会在 `npm ci` 的 `preinstall` 里去下**已经挂好的**资产.所以:
+两个消费者从 **npm** 取库,所以顺序是"库先发版,消费侧才用得到":
 
-1. 先推库(`miko_ui`),等 Release workflow 绿,资产挂上(它自己会重新下载验一遍);
-2. 再推消费侧的改动.在这之前,消费侧的 CI 会因为下载不到资产而**明确失败** --
-   这是刻意设计(见 §3 第 3 条),不是"配错了".
-3. 本地开发不受影响:本机的 `.cache/miko_ui/current` 在第一次取到之后就一直复用,
-   `npm run ui:update` 才会重新下载.
+1. 先发库:`npm run release:npm -- patch|minor|major`(它跑完整闸门,推 `main` 出资产,
+   再打 `v<version>` tag 触发 npm 发布,见 §2);
+2. 确认 registry 上查得到新版本(1-2 分钟传播延迟,见 §9)之后,再推消费侧的改动.
+   消费侧 CI 用 `npm view miko_ui@latest version` 对齐 `MIKO_UI_SYNC=auto`,查不到
+   版本会**明确失败**(`CI=true` / `MIKO_UI_REQUIRE_LATEST=1`)-- 这是刻意设计,不是
+   "配错了".
+3. 本地开发不受影响:`scripts/dev_ui_link.py link` 把 `node_modules/miko_ui` 换成指向
+   工作副本的符号链接(改 `styles/` 零构建立即生效,改 `src/` 先 `npm run build:dist`);
+   回到 npm 上那一版就 `unlink`(或 `npm ci`).
+
+> 滚动资产那条链路(链路 A)**当前没有消费者**,所以它不在这个顺序里.它仍在每次
+> `main` 推送时发布,保留给将来接它的取件方;见 §5 与 `README.md` 的「取用」.
 
 ## 8. 什么时候要重新规划
 

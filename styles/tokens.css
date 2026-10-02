@@ -27,11 +27,11 @@
      * 3. 值与上面某个 token 相同,只是换了语境的,写成下面的"别名"
      *    (`--x: var(--y)`),字面量仍然只有一处.
      *
-     * 为什么颜色不像字体/面板几何那样由 TS 持有:那批值 TS 自己也要当数字/
-     * 字符串用(字体度量,夹取上下限),所以 JS 侧有一份镜像
-     * (`src/theme/tokens.ts` 的 `DEFAULT_THEME_TOKENS`). 颜色没有这个需求--
-     * TS 侧从不读界面配色(唯一由脚本写入的颜色是消费者给的 --object-color),
-     * 所以真相源直接放在 CSS 里,连镜像都不需要.
+     * 为什么默认值全都放在 CSS,JS 侧不留镜像:TS 从不读这些值 -- 字体度量走
+     * 渲染后的 getComputedStyle,窗口外壳的两个尺寸由 `WindowManager` 按
+     * `DesktopConfig` 在运行期写到根元素上,界面配色更是 TS 侧零读取(唯一由
+     * 脚本写入的颜色是消费者给的 `--object-color`).所以"库的默认主题"只需要
+     * 这一处;`src/theme/tokens.ts` 的 `applyTheme()` 只在**覆盖**时写变量.
      *
      * 场景配色不在这里:用户对象的颜色由渲染它们的消费者持有,改界面主题
      * 不该连带改掉用户场景.
@@ -141,7 +141,10 @@
     --radius-pill: 0px;
     --radius-round: 0px;
 
-    /* -- 以下 10 个量 JS 侧也有镜像:src/theme/tokens.ts 的 DEFAULT_THEME_TOKENS -- */
+    /* -- 代码与公式的排版量:默认值只有这一份(JS 侧不再有镜像,见文件头) --
+       `--code-*` 都由 editor.css / widgets.css 的 `var()` 读;
+       `--katex-font-size` 库内不读,由消费侧读它定 KaTeX 渲染字号
+       (2026-10 确认有应用侧调用,保留). */
     --code-font-family: 'JetBrains Mono Slashed', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --code-font-size: 16px;
     --code-line-height: 1.2;
@@ -149,10 +152,11 @@
     --katex-font-size: 1.5em;
     --code-gutter-width: 32px;
 
-    /* 面板内容的最小可视高度(消费者面板的滚动区).
-       窗口被拖到比下限还矮时,由面板自己出内部滚动条,谁都不会被压没. */
-    --params-panel-min-height: 120px;
-    --view-controls-min-height: 120px;
+    /* "某块内容被压到多矮就该自己出滚动条"是应用自己的口径
+       它由消费侧的 UI 配置在运行期写进 `:root`,不需要库给一份带应用名的默认值.
+       判据很硬:**库的样式表里有没有 `var()` 读它?** 没有就别加 -- 应用自己的
+       尺寸下限写进应用各自的 `:root`.颜色板与 `--katex-font-size` 是另一回事:
+       它们本来就只由消费侧读,属于"消费者要覆盖的主题面",不是应用域名令牌. */
 
     /* 静态面板(`.ui-panel`)的两个内边距.窗口复用面板的框体,但它的标题栏是
        固定高度,正文不留内边距(见 `desktop.css` 的 `.window ...` 覆盖),所以

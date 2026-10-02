@@ -11,18 +11,19 @@ name: Release
 #                                         + 运行期清单 package.json)
 #      下载地址    : https://github.com/<owner>/<repo>/releases/download/ui-latest/miko_ui_dist.tar.gz
 #
-#      两个消费者只认这一份资产:各自的取件脚本下载 -> 校验 -> 解开 -> 原子替换缓存,
-#      再用根 `package.json` 的 `"@miko/ui": "file:.cache/miko_ui/current"` 链接进来.
-#      于是**这个 job 绿了,资产挂上了,库里改的东西才算交付出去**:交付形态是这份
-#      资产,不是 main 上的源码(消费者机器上没有 TypeScript,也不构建库).这条链路
-#      不读也不写 `version`.
+#      **这条链路当前没有消费者**:两个应用仓库都是 `npm ci` 从 registry 装
+#      `miko_ui`(`sync_miko_ui` 再对齐到 npm latest),消费侧早先的取件脚本
+#      (`scripts/fetch_ui.sh`)已随那次改造删除.所以"库里改的东西交付出去"的判据是
+#      **B 那条 npm 发布**,不是这个 job;资产 job 仍然每次 `main` 都跑,保留给将来
+#      接这条链路的消费者(退役与否是一次独立决定).这条链路不读也不写 `version`.
 #
 #   B. npm 包(`publish` job,**只在推 `v*` tag 时**跑)
 #      推一个 `v` 开头的 tag 就把同名包用 **OIDC 信任发布**发到
-#      registry.npmjs.org,服务"别人也要能 `npm install`"的场景.它不发
+#      registry.npmjs.org.**两个应用仓库的主链路就是这条**(依赖声明
+#      `"miko_ui": "^0.1.6"`),它同时服务"别人也要能 `npm install`"的场景.它不发
 #      `ui-latest` 资产,滚动资产那次 main 推送也不发 npm.`package.json` 的
 #      `version` 只服务这条链路:打包脚本把它当运行期字段带进资产清单,所以资产里
-#      会出现它,但消费侧判断"缓存是不是最新"的依据始终是 `gitHead`,不是版本号.
+#      会出现它.
 #
 # 为什么两条链路共用一个文件:npm 的 Trusted Publisher 配置只认 **workflow
 # 文件名**,包设置里填的就是 `release.yml`;把 npm 发布挪到别的文件名会被拒.
@@ -31,7 +32,8 @@ name: Release
 #   1. 资产由 `scripts/pack_release.mjs` 生成,清单是**运行期清单**,不带
 #      `scripts`.原因:npm 装 `file:` 链接的包时会先跑目标的 `prepare`(实测
 #      npm 10.9.8),而资产里没有 `scripts/` 也没有 devDependencies,那一步必然
-#      `MODULE_NOT_FOUND`.消费侧的取件脚本会独立再校验一次.
+#      `MODULE_NOT_FOUND`.这条约束现在只有库侧这一半(打包脚本 + ci.yml 的
+#      dry-run 各验一次);消费侧独立校验它的取件脚本已不存在.
 #   2. 资产必须产自**跑过完整闸门**的树,而且生产构建**只跑一次**:安装用
 #      `npm ci --ignore-scripts`(不让 `prepare` 顺手再构建一遍),闸门就是那一条
 #      显式的 `npm run build`(build:dist -> typecheck -> 边界守卫 -> vitest).
@@ -39,7 +41,7 @@ name: Release
 #      没有副作用;`prepare` 本身仍由 ci.yml 的 `npm ci` 守着,不会悄悄消失.
 #   3. 资产**原地覆盖同一个文件名**:消费者拿到的 URL 永远不变.所以更新走
 #      `gh release upload --clobber`(资产先就位,再把 tag 挪过去),不用
-#      "删掉 release 再建" -- 那中间有一段 404 窗口,消费者的 preinstall 会失败.
+#      "删掉 release 再建" -- 那中间有一段 404 窗口,取件方会失败.
 #      release notes 里那张表跟着这次构建重写(`gh release edit --notes-file`),
 #      否则覆盖上传后,"发布时间"会永远停在首次发布那一刻.
 #      时间戳只进 notes,**绝不进资产**:资产是可复现的(清单里只有 gitHead,没有
@@ -49,13 +51,13 @@ name: Release
 #      约束);打包这件事本身在每个 PR/推送上由 `ci.yml` 的 dry-run 步骤先验一遍,
 #      坏掉的清单不该等到发布才发现.
 #   5. 资产**自证 commit**:清单里的 `gitHead` 必须等于本次构建的 `GITHUB_SHA`
-#      (由 `pack_release.mjs` 写入).消费侧的取件脚本每次构建拿它比
-#      `ui-latest` tag 指向的 commit,落后就自动重取 -- 所以 tag 必须指向
+#      (由 `pack_release.mjs` 写入).这是写给**取件方**的契约 -- 当前无人取件
+#      (两个应用走 npm),将来的取件脚本靠它判断缓存新旧;所以 tag 必须指向
 #      "资产里的那个 commit",下面的交付验收会从公开 URL 下回来的那份里核一次.
 #
 # 回滚怎么办:滚动 tag 没有历史版本可挑.真要固定/回滚时,给某次 commit 补一个
-# 版本 tag 并把资产也挂上去,消费侧把 release 指定成那个 tag 即可(消费侧脚本已
-# 经支持,见 RELEASING.md 第 5 节).
+# 版本 tag 并把资产也挂上去,取件方把 release 指定成那个 tag 即可(当前没有消费侧
+# 取件脚本,见 RELEASING.md 第 5 节).
 # ============================================================================
 on:
   push:
@@ -149,7 +151,7 @@ jobs:
             printf '| 资产 | `%s` |\n' "$ASSET_NAME"
             printf '| sha256 | `%s` |\n' "$SHA256"
             printf '| 内容 | `dist/` + `styles/` + `LICENSE` + 运行期清单 `package.json` |\n\n'
-            printf '消费者由 `scripts/fetch_ui.sh` 自动取;手动下载:\n\n'
+            printf '取件方(当前没有;两个应用从 npm 取)由取件脚本自动取;手动下载:\n\n'
             printf '```sh\ncurl -fL -o %s \\\n  %s/%s/releases/download/%s/%s\n```\n' \
               "$ASSET_NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$TAG" "$ASSET_NAME"
           } > notes.md

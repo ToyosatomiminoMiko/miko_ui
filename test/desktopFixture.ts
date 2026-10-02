@@ -8,8 +8,12 @@
  *
  * 它**不是**任何消费者配置的副本:消费者改自己的窗口布局不必改这里,这里改
  * 夹具也不会影响消费者.
+ *
+ * 标量部分(动作 / 夹取余量 / z / 吸附 / 外壳尺寸)直接 spread 库的
+ * `DEFAULT_DESKTOP_CONFIG`,不抄第三份:夹具只负责"窗口清单长什么样",那些
+ * 与消费者无关的库默认值抄一份进来,只会在默认值改动时静默过期.
  */
-import type { DesktopConfig, RelativeGeometry } from '../src/desktop/types';
+import { DEFAULT_DESKTOP_CONFIG, type DesktopConfig, type RelativeGeometry } from '../src/desktop/types';
 
 /** 夹具里的窗口 id;与库的 `WindowId`(不透明 string)不同,这里收窄成字面量. */
 export type FixtureWindowId = 'source' | 'view' | 'params' | 'process' | 'objects';
@@ -33,8 +37,9 @@ export interface FixtureDesktopConfig extends Omit<DesktopConfig, 'windows'> {
     readonly windows: readonly FixtureWindowEntry[];
 }
 
-/** 测试用桌面配置. */
+/** 测试用桌面配置:标量取库的默认值,只有窗口清单是夹具自己的. */
 export const TEST_DESKTOP_CONFIG: FixtureDesktopConfig = {
+    ...DEFAULT_DESKTOP_CONFIG,
     windows: [
         {
             id: 'source',
@@ -99,15 +104,4 @@ export const TEST_DESKTOP_CONFIG: FixtureDesktopConfig = {
             minSize: { w: 360, h: 160 },
         },
     ],
-    actions: [
-        { id: 'minimize', text: 'min' },
-        { id: 'maximize', text: 'max' },
-    ],
-    edgeKeep: 80,
-    edgeGap: 16,
-    headerMinVisible: 36,
-    dockReserve: 40,
-    headerHeight: 36,
-    z: { windowLayer: 100, first: 110, snapPreview: 50, dock: 200 },
-    snap: { edge: 16, magnet: 8 },
 };

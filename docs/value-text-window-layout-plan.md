@@ -2,12 +2,28 @@
 
 > 状态:**方案**(demo 阶段,未立项).本文只定"口径与接口",不产生代码改动.
 > 目标版本:`0.2.0`(**暂定**).
-> **2026-10 评审结论**:先只审方案,不动代码;两处破坏性变更(D2 默认口径切档,
-> Phase 4 去掉正文拉伸通吃)**搁置,待消费者侧实验后再定**.因此第 6 节的 Phase 2 /
-> Phase 4 是"可路径"而不是"待执行",第 7 节的 D2 是开放项(不按建议直接采纳).
+>
+> **2026-10 第一轮评审**:先只审方案,不动代码;两处破坏性变更(D2 默认口径切档,
+> Phase 4 去掉正文拉伸通吃)**搁置,待消费者侧实验后再定**.
+>
+> **2026-10 第二轮:消费者调研 + 实测(已并入本文)**.库里唯一的两个消费者
+> (`miko_graphcalc`,`ToyosatomiminoMiko.github.io`)的正文做法已逐条查清,
+> 三处争议在 headless Chromium 里对着库的真实样式表量过.结论有四条与初稿相反:
+>
+> 1. **Phase 4(去掉 `.window-body > *` 通吃)从"搁置待实验"改成可直接落地** --
+>    实测对两家现有布局**逐像素无影响**(4.2-a),而真实缺陷在别处(2.2 第 5 条);
+> 2. **Phase 3(把 `.ui-panel-body` 改成列 flex)的风险被低估,收益被高估** --
+>    实测会打断面板正文的 margin 塌陷(4.6),而站点从"拉伸语义"里一分钱好处都
+>    拿不到(它的面板没有定高);建议改成 **opt-in**(7/D8);
+> 3. **`Splitter` 降级**:两家零需求,graphcalc 还主动删掉了自己的分栏控制器(7/D7);
+> 4. **初稿的两条"现状"写错了**:`formatNumber` 不是死代码(消费者在用,见 1.1),
+>    而"全库没有 `ResizeObserver`"也不成立 -- 库的编辑器层自己在用(见 1.2 与
+>    4.4 第 6 条).
+>
 > 前置阅读:`README.md` 的「公开面」「三条设计约束」「边界契约」;
 > `src/shared/numberText.ts`;`styles/desktop.css` 的 `.window-body` 一节;
-> `test/scrollbarStyles.test.ts`(它守的那条"独立规定"与本方案第 3.2.5 节正面冲突).
+> `styles/widgets.css` 的 `.ui-panel-body` 一节;
+> `test/scrollbarStyles.test.ts`(它守的那条"独立规定"与本方案第 4.5 节正面冲突).
 
 ## 0. 一句话
 
@@ -26,31 +42,85 @@
 
 ## 1. 现状(事实清单)
 
+### 1.0 两个消费者的形态基线(2026-10 调研)
+
+库的两个形态**被两家消费者分别用掉一半,交集几乎为空**.下面这张表是本文所有
+"现状"判断的基准;第 1.1/1.2 节的计数都指它:
+
+| | `miko_graphcalc` | `ToyosatomiminoMiko.github.io` |
+| --- | --- | --- |
+| 库的哪一半 | `mountDesktop` / **6 个窗口** | `createPanel` / **5 块面板** |
+| 另一半 | `createPanel` 零使用 | 窗口系统零使用(`.window` / `desktop.css` 全零命中) |
+| 正文容器 | `div.ui-panel-body.window-body` | `div.ui-panel-body` |
+| 正文直接子节点数 | **恒为 1**(6/6 窗口) | **8 / 4 / 7 / 2 / 3**(OLED/RBT/IEEE754/Calendar/SETTING) |
+| 对 `.ui-panel-body` 的覆盖 | 3 处重复声明骨架(`.panel` / `.right-page` / `.process-panel`) | **0 条**规则命中 |
+| 纵向节奏靠什么 | 手写 flex 三段式 + 百分比 + `min-height` 令牌 | 内容自带 `margin` + 嵌套 `gap` + **OLED 的 3 个 `<br>`** |
+| 定高 | 窗口几何由 `UI_CONFIG.window` + `resolveRelativeGeometries` 写成行内样式 | 面板高度 = 内容高(无 height/overflow,整页滚动) |
+| 手挂 `.ui-scrollbar` | **14 处** | **1 处**(库 `CodeEditor` 的 textarea);另有 2 处滚动区漏挂 |
+| 取值口径 | `UI_CONFIG` -> `applyUiConfig()` 写 `:root` | `tokens.css` + 页面级 CSS 变量 |
+| 取库方式 | `miko_ui` 从 npm 装;本地改库走 `scripts/dev_ui_link.py` 符号链接 | 同左 |
+
+两条与本文直接相关的推论:
+
+1. **"窗口正文只有一个宿主"是约定,不是测试**:graphcalc 六个窗口的 `content.body`
+   数组各一项,但它的单测只断言 `body.length > 0`.这是可以收进库的契约点(4.3).
+2. **站点对库面板的默认值零覆盖**:它没有一条规则是为了抵消 `.ui-panel-body` 的
+   `padding` / `flex` / `min-height` 而存在.所以站点既是"库默认值够用"的证据,
+   也是"库一改默认值就直接改到它"的风险面(4.6).
+
 ### 1.1 数值/文本的显示点
 
 | 位置 | 现在怎么出文本 | 备注 |
 | --- | --- | --- |
-| `src/shared/numberText.ts:10` | `formatNumber`:定点 6 位去尾零,` | v \| < 1e-4` 或 `>= 1e6` 回退科学计数法 \| 纯函数,已导出公开面,**但库内零引用** |
-| `src/shared/numberText.ts:22` | `formatVector`:`[1, 2, 3]` | 同样零引用;输出不可被 `Number()` 解析 |
+| `src/shared/numberText.ts:10` | `formatNumber`:定点 6 位去尾零,`\|v\| < 1e-4` 或 `>= 1e6` 回退科学计数法 | 纯函数,已导出公开面 |
+| `src/shared/numberText.ts:22` | `formatVector`:`[1, 2, 3]` | 输出不可被 `Number()` 解析 |
 | `src/widgets/NumberField.ts:91` | 默认 `format = String(value)` | 可被 `options.format` 覆盖 |
 | `src/widgets/NumberField.ts:82` | `defaultParse`:trim + `Number.isFinite` | 私有函数,**不对外**,别处想用只能抄 |
 | `src/widgets/Slider.ts:110` | 默认 `format = String(value)` | 同一份口径还喂给重置按钮的 `title` / `aria-label`(`Slider.ts:148`) |
 | `src/widgets/RangeInput.ts:67,83,92` | 直接 `String(value)` | 裸滑杆**没有** `format` 出口 |
-| `example/main.ts:102-121` | 消费者自写 `createReadout`:`String(value)` / `value.toFixed(3)` | 每个应用抄一份 |
+| `example/main.ts:102-121` | 消费者自写 `createReadout`:`String(value)` / `value.toFixed(3)` | 示例侧的抄写 |
 | `example/example.css:63-81` | 消费者自写 `.readout-row` / `.readout` | 库的样式表里没有读数件 |
 | `src/editor/EditorLineNumbers.ts:106` | `String(i)` | 行号是整数,不受影响 |
 
-### 1.2 窗口正文的布局事实
+**消费者侧实测(2026-10)**:数值->文本口径在 graphcalc 里是 **6 套并行**
+--库的 `formatNumber`/`formatVector` 只覆盖其中 2 个文件 8 处
+(`adapters/entityText.ts:53-62`,`ui/evaluation/integralItem.ts:245`),另外 5 套是
+`String(Number(toFixed(4)))`(`ui/view/ViewPanel.ts:66`),LaTeX 版
+(`math/latexNumber.ts:14-30`,注释自陈"与库的 `formatNumber` 同一档位"),
+不舍入的直出(`compiler/dsl/latex.ts:20-27`),刻度版
+(`render/core/tickLabel.ts:42`),以及 `${name}=${value}` 的裸拼
+(`ui/process/ProcessPanel.ts:47-51`).站点侧只有两处格式化,其中一处正是为了躲
+浮点尾巴而写的 `toFixed(2)`(`setting/page_opacity.ts:40-47`).
+
+**所以要修正初稿的一句话**:`formatNumber` 确实是**库内零引用**,但**不是死代码**
+--graphcalc 引它,且另外几处是在"重新实现同一档位".消费者侧缺的不是这个函数,
+而是"同一个口径能被三处共用"的那个对象.
+
+**两家共同缺的显示能力**(实测计数):
+
+| 能力 | graphcalc | 站点 | 备注 |
+| --- | --- | --- | --- |
+| `<output>` 语义 | 0 | 0 | 读出行全是 `<div>` / `<span>` |
+| `title=` 全精度逃生口 | 0 | 0 | 现有 `title` 都是非数值标签 |
+| `font-variant-numeric: tabular-nums` | 1 处(`css/process.css:131`) | 0 | 且那一处是**步骤序号**,不是数值读数 |
+| `aria-live` | 1 处(`appViews.ts:117`,诊断坞) | 0 | 唯一一处不是数值读数 |
+
+### 1.2 窗口/面板正文的布局事实
 
 | 位置 | 现状 |
 | --- | --- |
 | `styles/desktop.css:184-192` | `.window > .window-body`:`display:flex; flex-direction:column; flex:1 1 auto; min-height:0; padding:0; overflow:hidden` |
 | `styles/desktop.css:194-197` | `.window-body > * { flex: 1 1 auto; min-height: 0 }` -- **通吃所有直接子节点** |
-| `example/example.css:46-58` | 消费者必须自己写 `.pane`(列排布 + 间距 + 内边距),再给按钮 `align-self:flex-start` 抵消上面那条通吃 |
+| `styles/widgets.css:529-534` | `.ui-panel-body`:`flex:1 1 auto; min-height:0; padding:var(--panel-body-padding)`(**没有 `display`**,块级) |
+| graphcalc `css/panels.css:19-27` | `.panel` / `.right-page` 只写 `display:flex; flex-direction:column; min-height:0`,**刻意不写 `flex:1 1 auto`**:注释明写"`.window-body > *` 已经给了,两处都写就会在下一次改窗口正文骨架时漏掉一处" |
+| graphcalc `css/panels.css:38-59, 99-118` | 三种手搓排布:滚动中段(`flex:1 1 auto; min-height:var(--...); overflow-y:auto`),定高底栏(`flex:0 1 auto; max-height:34%` + `:empty{display:none}`),唯一子元素自己当滚动区 |
+| graphcalc `css/process.css:20-38, 185-191` | 固定页头 / 固定截断提示**一条 flex 声明都没有**(靠默认 `flex:0 1 auto`);全应用 `flex:0 0 auto` 只有 3 处,全在行内小件上 |
+| 站点 `src/oled/ui/oled_panel.ts:275-280` | 3 个 `<br>` 当纵向间隔(面板体没有 `gap`/`margin`) |
+| 站点 `src/setting/setting.css:37-45` | 三块 `fieldset` 的组间距靠 `margin: var(--...) 0 var(--...)`,注释明写"上一组的 margin-bottom 与下一组的 margin-top 会塌成较大的那个" |
 | `src/desktop/WindowManager.ts:660-663` | `_applyGeometry` 写 `--window-body-height`(给浮层的 `max-height` 用) |
-| `styles/widgets.css:135-146` | `.menu-panel` 消费 `--window-body-height`;没有 `--window-body-width` |
-| `README.md:269-274` | `Splitter` / `ScrollArea` / 表格件 / `TextField` 明确列为"还没做的" |
-| 全库 | 没有 `ResizeObserver`,没有 JS 测量排版;需要在尺寸变化时重排的件订阅 `WindowManager.onGeometryChange(id)` |
+| `styles/widgets.css:135-146` | `.menu-panel` 消费 `--window-body-height`;**没有 `--window-body-width`** |
+| README.md:269-274 | `Splitter` / `ScrollArea` / 表格件 / `TextField` 明确列为"还没做的" |
+| 全库 | **没有 JS 测量排版**(布局全靠 CSS).两个例外都在编辑器对齐:`EditorLineNumbers` / `EditorHighlight` 各持一个 `ResizeObserver`(尺寸变化不一定补发 `scroll` 事件);`EditorHighlight` 还用 `requestAnimationFrame` 合并输入重绘.窗口侧仍走 `WindowManager.onGeometryChange(id)`.**注意**:初稿把这里写成"全库没有 `ResizeObserver`",是错的(见 4.4 第 6 条) |
 
 ## 2. 问题
 
@@ -59,15 +129,21 @@
 1. **同一份值,三种文本**.`1e6` 在数字框里是 `1000000`(`String`),在用了
    `formatNumber` 的读数里是 `1.000000e+6`;`0.1+0.2` 一个显示
    `0.30000000000000004`,另一个显示 `0.3`.这不是"消费者选错了",而是库把
-   口径的全部选择权下放了,又没有给一个可共享的对象.
-2. **`formatNumber` 是死代码**.它已经进了公开面,但库内没人用,消费者也不知道
-   该不该用 -- 它现在只是"库作者写过一个格式化函数".
+   口径的全部选择权下放了,又没有给一个可共享的对象.消费者侧的 6 套并行口径
+   (1.1)就是这条的后果.
+2. **`formatNumber` 库内零引用**.消费者在用,但库里的 `Slider` / `NumberField`
+   默认都不走它,于是"库导出的口径"与"库控件的口径"是两回事.
 3. **编辑态与显示态被同一个 `format` 混在一起**.`NumberField.format` 同时承担
    "给用户看的文本"和"能解析回来的文本".这两件事的要求相反:显示要短,要好看,
    编辑要能被 `Number()` 咬住.所以消费者一改 `format`,就把可编辑性一起改了.
+   站点为此**放弃了百分比显示**:`setting/page_opacity.ts:40-47` 写着"数值框这边
+   还必须给**纯数字**文本:它是 `<input type="number">`,写 `90%` 会被浏览器当成
+   非法值丢掉(框里变空),所以这里不做百分比换算".
 4. **没有只读显示件**.`createNumberRow` / `createSwitchRow` 都有,唯独"只读的
    值"没有,于是 `example` 里的 `createReadout` 与 `.readout*` 样式注定要在每个
-   应用里重写一遍.
+   应用里重写一遍(站点 6 处,graphcalc 6 套口径,见 1.1).
+5. **两处顺手该补的能力**:全精度 `title` 与 `tabular-nums` 在两家都是 0
+   (1.1 表),`<output>` 语义也是 0.这三样对消费者是零改动的净收益.
 
 ### 2.2 窗口内布局
 
@@ -76,16 +152,26 @@
    - 放两个 `<div>` 就直接对半分高,这从来没人声明过;
    - 按钮被拉成整行宽(`example` 只好反向抵消);
    - 想"上面一条工具条,下面吃掉剩余",得先知道这条规则存在.
-2. **"正文里怎么排"没有库内契约**.`.pane` 是消费者发明的类名与排布,换一个应用
-   就重来一份;而库的样式契约(`test/emittedClasses.test.ts`)恰好要求"库产出的
-   类必须有库的样式",反向也成立 -- 消费者自己发明容器,就是把库该定的结构推给
-   了应用.
+2. **"正文里怎么排"没有库内契约**.graphcalc 为此写了一份注释当契约
+   (`css/panels.css:19-21`:不要再写 `flex`),站点则发明了自己的节奏(`<br>` +
+   `margin` + `gap`).同一件事两种做法,都不是库定的.
 3. **滚动没有出口**.正文是 `overflow:hidden`;要滚动,消费者得自己套一层
    `overflow:auto` + 手挂 `.ui-scrollbar` + 在每一层上写 `min-height:0`
-   (漏一层就是"滚不动"或"被压扁").
-4. **"确定"缺的是规则而不是能力**.CSS 全都能做到,但"哪个区域吃剩余,哪个区域滚,
-   溢出往哪去"现在只写在 `example.css` 的注释里,不是库的契约 -- 这正是本方案要
-   把它变成契约的那一半.
+   (漏一层就是"滚不动"或"被压扁").实测两家合计:**手挂 14 + 1 处,漏挂 2 处**
+   (1.0 表).
+4. **定高内容的下限没有出口**.graphcalc 要"窗口被拖到太矮时,内容先压到 120px,
+   再自己出滚动条,而不是把窗口撑破"(`css/panels.css:33-37`,`uiConfig.ts:158-161`).
+   它现在的实现是**直接对抗**库的 `min-height:0`:自己定义两个 `min-height` 令牌,
+   经 `applyUiConfig()` 写进 `:root`(见 4.3 的接口缺口).
+5. **"固定栏"今天并不固定(实测出来的真实缺陷)**.`flex: 0 0 auto` 在 graphcalc 的
+   全部应用 CSS 里只有 3 处,且都在行内小件上;`process` 窗口的 `.process-header`
+   与 `.process-truncated` **没有任何不可压缩保证**.headless Chromium 量下来
+   (4.2-b):正文高 263px 时装一条 40px 的固定块,它会被压成 **23.9px** -- 该固定的
+   被压扁,该滚的中段反而先保住空间.这条比"默认值不好看"硬得多,是 Phase 4 的
+   真正理由.
+6. **站点侧会为"面板正文改列 flex"付出代价(实测)**.站点 5 块面板的正文靠
+   `margin` 间隔;改成列 flex 后 margin 不再塌陷,SETTING 页的组间距从 16px 变成
+   26px(4.6).而它从"拉伸语义"里拿不到任何好处 -- 它的面板没有定高.
 
 ## 3. 方案 A:数值/文本显示的统一
 
@@ -136,6 +222,19 @@ export interface NumberTextOptions {
     readonly group?: false | string;
     /** 固定后缀(显示档专用,如 `°`);默认无. */
     readonly suffix?: string;
+    /**
+     * 科学计数法的**语法**(2026-10 新增,消费者逼出来的).
+     *
+     * 说明:同一个"档位"(几位小数,什么时候回退指数,尾零怎么办)会被三种
+     * **不同的文本语法**消费,而初稿把它们绑成了一个纯文本对象:
+     *   - `'plain'`(默认):`1.000000e+6` / `0.3`;
+     *   - `'latex'`:`2.775558\times10^{-17}`(graphcalc 的 `math/latexNumber.ts`
+     *     为了这个语法,把 `1e-4 / 1e6 / 6 位` 的档位重抄了一遍,注释里自陈
+     *     "与库的 formatNumber 同一档位");
+     *   - `'edit'`:见 3.3,必须是合法 number input 语法.
+     * 档位是**策略**,语法是**渲染**;合成一个对象就装不下 LaTeX 这条路.
+     */
+    readonly syntax?: 'plain' | 'latex' | 'edit';
 }
 
 /** 默认口径 = 现在 formatNumber 的行为,一位不差. */
@@ -166,6 +265,11 @@ export function parseNumber(text: string): number | null;
 一个带千位分隔符或单位的 `format`(比如 `1,234.5` 或 `0.6 rad`),
 `input.value = format(next)` 的结果是**输入框变空**,而且值源没变,没有报错.
 
+**这条不是猜的**:站点独立踩到并写进了注释 -- `src/setting/page_opacity.ts:40-47`:
+"数值框这边还必须给**纯数字**文本:它是 `<input type="number">`,写 `90%` 会被
+浏览器当成非法值丢掉(框里变空),所以这里不做百分比换算."库把这条变成硬规则,
+消费侧就不必各自记住它.
+
 由此定两条:
 
 1. `NUMBER_TEXT_EDIT` 的 `toText` 输出**必须**匹配
@@ -187,6 +291,11 @@ export function parseNumber(text: string): number | null;
 `1.000000e+6` 会让用户没法直接改第 4 位;而 `String(1e21) === '1e+21'` 本来就是
 指数,浏览器接受,所以放宽到 1e15 不引入新语法.
 
+> **消费者侧的位数现实**(2026-10):预置的 6 位对两家都不合用 -- 站点要 2 位
+> (`page_opacity.ts:45`),graphcalc 要 4 位去零(`ViewPanel.ts:66`).所以两个预置
+> 必须允许 `digits` 覆盖(`numberText({ ...NUMBER_TEXT_DISPLAY, digits: 2 })`),
+> 单测要覆盖"预置 + digits 覆盖"这条路.
+
 ### 3.4 只读显示件
 
 ```ts
@@ -202,6 +311,8 @@ export interface ValueDisplayOptions<T> {
     readonly announce?: boolean;
     /** `<output for=...>`:关联产生这个值的输入框 id. */
     readonly forIds?: readonly string[];
+    /** 追加在 `.ui-readout-value` 上的消费者类名(与 createButton 同一条约定). */
+    readonly class?: string;
 }
 export interface ValueDisplayHandle<T> {
     readonly element: HTMLOutputElement;
@@ -233,10 +344,10 @@ export function createReadoutRow<T>(
    (`aria-live="polite"` + `aria-atomic="true"`).
 2. **显示文本短,`title` 给全精度**.`0.1+0.2` 显示 `0.3`,
    `title="0.30000000000000004"`,鼠标停上去就能看到真实值.这条替代"提高小数位
-   直到看得出来"那种做法.
+   直到看得出来"那种做法.两家现在都没有这个逃生口(1.1),装进库是零改动收益.
 3. **等宽数字,不跳字**.`.ui-readout-value` 带
    `font-variant-numeric: tabular-nums;`(token 另有 `--code-font-family` 出口),
-   拖动时数字宽度不抖动.
+   拖动时数字宽度不抖动.两家现在合计只有 1 处 `tabular-nums`,而且不是读数.
 4. **只读,不进 Tab 序**.显示件不接收键盘输入,所以不给 `tabindex`;
    需要"点一下变成可编辑"的那条路留给 `TextField`(README 已列出的补件),
    本方案不顺手造它.
@@ -253,6 +364,12 @@ export function createReadoutRow<T>(
 - `RangeInput` 加 `text?: ValueText<number>`,只用于 `input.value` 的写入
   (`.value` 对 range 只是字符串,不显示数字,但保持同一个口径免得将来分叉).
 
+> **现状提醒**:站点 7 条 metro 滑块的 `step` 是 `0.01` 且 `min` 有 `0.2`
+> (`metro_window/src/config.ts:242-254`)却不传 `format`,数值框会露出
+> `0.8999999999999999` 这类尾巴;唯一传了 `format: toFixed(2)` 的那条正是为了躲它
+> (`setting/page_opacity.ts:75`).所以"默认档"这件事的收益在站点侧是**现成的**:
+> 7 条滑块一行不改就干净.
+
 ### 3.6 与既有机器契约的关系
 
 - `test/emittedClasses.test.ts`:`ui-readout-name` / `ui-readout-value` 必须在
@@ -260,7 +377,7 @@ export function createReadoutRow<T>(
   `control-row` 已有规则,复用不给白名单加一条.
 - `scripts/check_ui_boundary.py`:口径层是纯函数(`src/shared/`),不碰
   `document` / `window` / id,八条断言不受影响;库不引新依赖(`Intl` 是标准全局,
-  见下面的决定 `D1`).
+  见决定 `D1`).
 - `src/index.ts`:`export * from './shared/numberText'` 已经在了;新件按现有分组
   补一行 `export * from './widgets/ValueDisplay'`.
 
@@ -280,14 +397,34 @@ export function createReadoutRow<T>(
 
 ### 4.2 ① 正文默认口径:把通吃规则换成"默认不拉伸 + 显式拉伸"
 
-契约写在**面板正文这一层**(窗口复用面板,见 4.6),默认值与两条出口**同处一个
-文件**,所以谁赢只由特异度决定,与样式表加载顺序无关:
+**先说实测(2026-10,headless Chromium 154,对库真实样式表,未改任何仓库)**.
+
+**a. 去掉通吃规则,对两家现有布局是 no-op** -- 两家窗口正文全是单子节点
+(graphcalc 6/6,示例 3/3),`:only-child` 兜住了:
+
+| 场景 | 现状(`1 1 auto`) | 方案(`0 0 auto` + `:only-child{flex:1 1 0}`) |
+| --- | --- | --- |
+| 单子节点,内容矮 | child **263.0** | child **263.0** |
+| 单子节点,内容 500px 超高 | child **263.0** | child **263.0** |
+
+**b. "压扁 vs 裁切"的差别是真的**(正文高 263px,里面放 400px + 40px 两块):
+
+| | 现状 | 方案 |
+| --- | --- | --- |
+| 第一块(内容 400) | 压成 **239.1** | 保持 **400** |
+| 第二块(内容 40) | 压成 **23.9** | 保持 **40** |
+| 第二块是否可见 | 可见 | **被 `overflow:hidden` 裁掉** |
+
+即:现状会把一条 40px 的固定条压成 24px;方案保留尺寸但**静默裁掉溢出** --
+所以"默认确定"必须配"显式滚动区",这正是 4.4 第 3 条.换句话说,**Phase 4 不是
+审美调整,它修的是 2.2 第 5 条那个真实缺陷**(graphcalc `process` 窗口的固定栏今天
+会被压扁).
+
+契约写在**面板正文这一层**(窗口复用面板,见 4.6):
 
 ```css
-/* styles/widgets.css:正文容器的排布契约(面板与窗口共用) */
+/* styles/widgets.css:正文容器的排布契约 */
 .ui-panel-body {
-    display: flex;
-    flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
     min-width: 0;
@@ -311,14 +448,26 @@ export function createReadoutRow<T>(
     min-width: 0;
 }
 
-/* styles/desktop.css:窗口只是覆盖面板的 padding 与溢出,不再重复排布规则 */
+/* styles/desktop.css:窗口只是覆盖面板的 padding 与溢出 */
 .window > .window-body {
     padding: 0;
     overflow: hidden;
 }
 ```
 
-两条要注意的:
+**但"默认给 `.ui-panel-body` 加 `display:flex; flex-direction:column`"这一步建议
+拆出来单独决策(7/D8)**:实测它会打断面板正文的 margin 塌陷(4.6),而站点从
+"拉伸"里拿不到好处.两种落法:
+
+- **A(推荐,opt-in)**:`.ui-panel-body` 默认**保持块级**;`createPanel({ stack: true })`
+  (或 `.ui-panel-stack` 类)才给列 flex + `gap`;窗口正文的排布契约写在
+  `.window > .window-body`(窗口这一半照旧是列 flex).好处:站点零迁移;坏处:
+  窗口与面板的"同一份契约"变成"同一份子节点策略 + 可选的栈容器".
+- **B(全量,初稿写法)**:`.ui-panel-body` 直接变列 flex,消费侧同步把面板正文的
+  `margin` 间距改成 `gap`.好处:一处契约;坏处:站点 5 块面板,约 17 处间距规则要
+  跟着改(站点 <br> 间隔实测不受影响,见 4.6).
+
+两条要注意的(对两种落法都成立):
 
 - `:only-child` 会命中"正文里恰好只有一个节点"的所有情形,包括那个节点是
   `.ui-scroll-area` 或 `.ui-fill` -- 结论一致,不冲突;
@@ -345,6 +494,8 @@ export interface StackOptions {
     readonly justify?: 'start' | 'center' | 'end' | 'between';
     /** 吃掉剩余空间(等价于在正文里 .ui-fill);默认 false. */
     readonly fill?: boolean;
+    /** 消费者作用域类(2026-10 新增,见下面的"接口缺口 1"). */
+    readonly class?: string;
 }
 export function createStack(options?: StackOptions): {
     readonly element: HTMLDivElement;   // .ui-stack[.ui-stack--row][.ui-fill]
@@ -357,13 +508,20 @@ export interface ScrollAreaOptions {
     readonly axis?: 'y' | 'x' | 'both';
     /** 给内部内容加内边距(留白归滚动区,滚动条贴外沿);默认 var(--layout-padding). */
     readonly padding?: string;
+    /**
+     * 内容下限(2026-10 新增,见下面的"接口缺口 2"):默认 `0`
+     * (方案的唯一语义是"吃掉剩余,超出就滚");给成 `var(--...)` 或 `120px`
+     * 就变成"窗口比下限还矮时,先停在下限,再自己滚".
+     */
+    readonly minHeight?: string;
+    readonly class?: string;
 }
 export function createScrollArea(options?: ScrollAreaOptions): {
     readonly element: HTMLDivElement;
     readonly content: HTMLDivElement;
 };
 
-// src/layout/Splitter.ts  (README 的补件清单里那一项,独立上线)
+// src/layout/Splitter.ts  (README 的补件清单里那一项;需求见 7/D7,已降级)
 export interface SplitterOptions {
     readonly first: Child;
     readonly second: Child;
@@ -371,6 +529,7 @@ export interface SplitterOptions {
     readonly ratio?: ValueSource<number>;          // 0..1;给 signal 就是双向持久化
     readonly minRatio?: number;                    // 默认 0.1
     readonly label?: string;                       // separator 的可访问名
+    readonly class?: string;
 }
 export function createSplitter(options: SplitterOptions): {
     readonly element: HTMLDivElement;   // .ui-splitter
@@ -384,16 +543,34 @@ export function createSplitter(options: SplitterOptions): {
 `createStack` / `createScrollArea` 是"类名契约的出口":消费者**不写库的类名**
 (与 `Row.ts` 的既有约定一致),库改类名不破坏消费者.
 
+**接口缺口(2026-10 由消费者证据逼出来,必须在实现前定死)**:
+
+1. **`class` 出口不是可选项**.graphcalc 的 `src/config/styleLayers.test.ts:122-144`
+   **禁止**应用给"只含库的类"的选择器写样式(选择器里必须有一个库不拥有的类).
+   于是 `createScrollArea` 一旦产出 `.ui-scroll-area`,消费者就**无法**给它写
+   `min-height` -- 而 graphcalc 现在正是这么做的(`css/panels.css:40`
+   的 `#view-controls{min-height:...}`).库对 `createButton` / `createBadge` /
+   `createPanel` 已有"基线在前,消费者作用域类在外"的约定,布局原语漏了这条.
+2. **`ScrollArea` 需要 `minHeight`**.graphcalc 要的恰是"压到 120px 就停住,再滚"
+   (`--view-controls-min-height` / `--params-panel-min-height`,
+   由 `UI_CONFIG.panel` 经 `applyUiConfig` 写成 `:root`,见
+   `src/config/uiConfig.ts:158-167`,`src/app/applyUiConfig.ts:36-38`).
+   只有 `min-height:0` 的滚动区表达不了这条反方向需求.
+   **注**:这两个令牌原本被抄进了库的 `styles/tokens.css` 与 `theme/tokens.ts`
+   (领域名进库,违反第 8 节第 1 条),**2026-10 已清出库**(见第 5 节).
+3. `createStack` 的默认 `gap` / `padding` 走新 token(4.7);消费者要自己的间距
+   就在外层再加一个类,不必改原语的默认值.
+
 `.ui-scroll-area` 的定义刻意**只有一个语义**:它就是那块"吃掉剩余高度,超出就滚"
-的区域(`flex:1 1 0; min-height:0; overflow:auto`,拉伸部分见 4.2).
-要一个**固定高度**的滚动框,把它包进一层并用自己的类压 `flex`,或不要它 --
-库不提供第二种滚动语义,否则"确定"又变成两种解释.
+的区域(`flex:1 1 0; overflow:auto`,拉伸部分见 4.2).要一个**固定高度**的滚动框,
+用 `minHeight` 与自己的类压 `flex`,或不要它 -- 库不提供第二种滚动语义,否则
+"确定"又变成两种解释.
 
 `styles/layout.css` 只放原语自己的外观(`.ui-stack*` 的 `gap/padding/方向`,
 `.ui-scroll-area` 的 `overflow`,`.ui-splitter*`),不写任何"父亲是谁"的选择器;
 挂进 `styles/styles.css` 的位置是 **`widgets.css` 之后,`desktop.css` 之前**
-(总入口现有的 `token -> 滚动条 -> 控件 -> 桌面` 顺序里,布局原语属于"控件"那一档).
-它是新的一份分组入口,`package.json` 的 `exports` 同步加 `./styles/layout.css`.
+(总入口现有的 `token -> 滚动条 -> 控件 -> 桌面` 顺序里,布局原语属于"控件"那一档),
+见 4.8 的分发三门.
 
 `Splitter` 的比例换算与夹取抽成纯函数(`src/layout/splitterGeometry.ts`),
 与 `desktop/WindowGeometry.ts` 同一条路数:没有 DOM,单测穷举.
@@ -405,18 +582,39 @@ export function createSplitter(options: SplitterOptions): {
 2. **分配顺序 = DOM 顺序**:固定的头/工具条在上,吃掉剩余的在中,固定的尾在下;
    库不提供 `order` 之类的视觉错位.
 3. **溢出只发生在显式声明的滚动区**;`.window-body` 自身 `overflow:hidden`,
-   裁切而不是压缩(所以子节点是 `0 0 auto`).
+   裁切而不是压缩(所以子节点是 `0 0 auto`).实测见 4.2-b:**溢出会被静默裁掉**,
+   这正是"必须显式声明滚动区"的代价与理由.
 4. **滚动区必须整体滚**:`createScrollArea` 产出的容器同时带 `ui-scroll-area` 与
-   `ui-scrollbar`(见 4.5 的决定),它的 `min-height:0` 由原语自己写,消费者不必
+   `ui-scrollbar`(见 4.5 的决定),它的 `min-height` 由原语自己写,消费者不必
    再沿链补.
 5. **浮层不进正文**.正文 `overflow:hidden` 会切掉浮层;窗口浮层的唯一出口是
    标题栏的 `overlays` 槽(它就在 `.window-header` 里,见 `WindowFrame.ts:120-129`),
    面板浮层用 `Popover`(需要定位父级).这条把"为什么有 overlays 槽"落成规则.
+   **消费者侧的印证**:graphcalc 的示例菜单必须走 `slots.overlays`
+   (`src/config/uiConfig.ts:278`),而它的 `.panel` 也因此**不能**写 `overflow`
+   (`docs/windowing-plan.md` 的 B2 第 3 条).
 6. **尺寸只来自配置与 token**:`--dock-reserve` / `--window-header-height` 由
    `WindowManager` 写(已有);布局原语不写任何魔法数,间距/内边距走
    `--layout-gap` / `--layout-padding` 两个新 token.需要在尺寸变化时重排的件
-   订阅 `onGeometryChange(id)`,**不引 `ResizeObserver`**(与「不用批处理,不引
-   调度器」同一条约束,也是 900 行 DOM 桩还能用的前提).
+   订阅 `onGeometryChange(id)`.
+   **原语本身不做 JS 测量**:布局靠纯 CSS(`flex` / `overflow`)表达,这是"确定"
+   的一部分,不是"库不许用 `ResizeObserver`".
+   **初稿在这里写错了**(2026-10 更正):原文说"不引 `ResizeObserver`(与「不用批处理,
+   不引调度器」同一条约束,也是 900 行 DOM 桩还能用的前提)"-- 三条都不成立:
+   - 库**已经在用** `ResizeObserver`:`EditorHighlight.ts:89` 与
+     `EditorLineNumbers.ts:90`(理由写在 `EditorHighlight.ts:85-88`:面板折叠/拖宽
+     会改变编辑器尺寸,滚动位置可能被浏览器夹回去,而且**不一定补发 `scroll`
+     事件**);
+   - 它**不影响**测试:`src/testing/domStub.ts:681` 的 `StubResizeObserver` 提供了
+     可手动 `trigger()` 的替身,并通过 `domStub.resizeObservers` 暴露给断言
+     (`EditorHighlight.test.ts:119`,`EditorLineNumbers.test.ts:69` 就在用它);
+   - README 那条约束管的是**响应式更新路径**(`effect` 同步执行,`set()` 返回时订阅者
+     已经跑完),它不覆盖视图层的帧合并(`EditorHighlight.ts:123` 的
+     `requestAnimationFrame`,桩里同样有替身:`domStub.ts:900,916`)与反馈计时
+     (`FormulaCopyController.ts:149` 的 `setTimeout`).
+   **缺口**:`onGeometryChange` 只服务**窗口**;站点用的是面板,没有 id 可订阅,
+   所以站点只能自己 `ResizeObserver`(metro_window)或 `window.resize`(OLED).
+   面板尺寸变化的出口本方案**不提供**,记为不做的事(第 8 节).
 
 ### 4.5 与"滚动条是单独一条规定"的正面冲突(必须拍板)
 
@@ -434,27 +632,44 @@ export function createSplitter(options: SplitterOptions): {
 "库内没有任何地方产出这个类"只是当年为了说明"独立"顺手写下的一句话,不是那份
 规定的价值本身;而 `createScrollArea` 正是"滚动容器"这个语义在库里的唯一出口.
 
+**消费者侧的量化理由(2026-10)**:手挂类这件事现在的成本是
+**graphcalc 14 处 + 站点 1 处,另有站点 2 处滚动区漏挂**
+(`public/css/ieee754.css:174,185` 的 `.ieee-formula` / `.ieee-special` 有
+`overflow-x:auto` 却没有 `.ui-scrollbar`,于是这两块滚动区与全站滚动条主题脱节).
+A 方案直接消灭这 17 个点.
+
 ### 4.6 面板与窗口共用同一份契约
 
 库已经把"窗口 = 面板 + 几何与拖动"分了层(`Panel.ts` 文件头,`desktop.css` 的
 `.window ...` 覆盖).布局契约跟着这条分层走:
 
-- `styles/widgets.css` 的 `.ui-panel-body` 拿到**通用**部分(列排布 + 子节点策略,
-  见 4.2);
-- `styles/desktop.css` 只写窗口的差异(`padding:0`,`overflow:hidden`),
+- `styles/widgets.css` 的 `.ui-panel-body` 拿到**通用**部分(子节点策略,见 4.2);
+- `styles/desktop.css` 只写窗口的差异(`padding:0`,`overflow:hidden`,列排布),
   不再重复任何排布规则;
 - 布局原语(`.ui-stack` / `.ui-scroll-area` / `.ui-splitter`)不依赖任何一个,
   所以嵌进面板正文同样成立.
 
-代价有两条,都要在 Phase 3 目视核对:
+**实测代价(2026-10,headless Chromium)**:把 `.ui-panel-body` 从块级改成列 flex
+对站点意味着两件事,一好一坏:
 
-1. `.ui-panel-body` 从"块级 + 内边距"变成"列 flex":子节点成为 flex item
-   (`margin` 不再折叠,宽度默认拉伸,`flex:0 0 auto` 不压缩).它对面板里
-   常见的一列内容基本无感,但不是零差异;`ui-panel*` 是 v0.1.8 刚加的,
-   消费面很小,现在改比以后改便宜.
-2. 窗口正文的**行为差异只在"多个直接子节点"这一种情形**:从"各拿 1 份拉伸"
-   变成"各按内容高,不拉伸".只有一个子节点的窗口(现有两个应用的主要形态)
-   观感不变 -- 这正是 Phase 4 敢单独发一次的原因.
+| 站点面板正文的排版手法 | 块级(现状) | 列 flex |
+| --- | --- | --- |
+| OLED 的 3 个 `<br>` 间隔 | 间隔 **18.0** | 间隔 **18.0** ✅(`<br>` 被块化后仍占 17px 行高) |
+| SETTING 三块 `fieldset` 的 `margin` 间隔 | **16.0**(塌陷) | **26.0**(16+10 **相加**) ❌ |
+
+第二条不是小数目:站点 SETTING 页的组间距,IEEE754 面板 7 个子节点之间的间距
+全靠 margin 塌陷,而 `.setting-group` 的注释把"塌陷成较大的那个"写成了**故意**的
+行为(`src/setting/setting.css:38`).它是**库的示例抓不到**的回归:示例的 `.pane`
+用 `gap`,没有 margin.所以:
+
+- 若走 D8-A(opt-in),这一条不发生,站点零迁移;
+- 若走 D8-B(全量),消费侧必须同步把面板正文的 margin 间距换成 `gap`
+  (站点 5 块面板,约 17 处规则),并**用站点的真浏览器冒烟验收**(9.5),
+  而不是拿库的示例目视.
+
+另一条代价(初稿已写,仍然成立):`.ui-panel-body` 从块级变 flex 后,`margin`
+不再折叠,宽度默认拉伸.对面板里常见的一列内容基本无感,但不是零差异;
+`ui-panel*` 是 v0.1.8 刚加的,消费面是站点 5 块面板,改动窗口现在还便宜.
 
 ### 4.7 三个新 token
 
@@ -468,68 +683,125 @@ export function createSplitter(options: SplitterOptions): {
 名字取 `--layout-*` 而不是复用 `--panel-*`:前者是"容器怎么排",后者是"框体长
 什么样",混用会让"窗口正文没有内边距"这条差异重新变成猜谜.
 
+**顺带一条硬规则(2026-10 已执行)**:库的 `tokens.css` 里**不放消费者域名的
+尺寸**.曾经有 `--params-panel-min-height` / `--view-controls-min-height` 两个
+应用窗口名令牌(库内零引用,只服务 graphcalc),已退回应用.判据很硬:**库的样式表
+里有没有 `var()` 读它?** 没有就别加.建议在库侧补一条机器守卫(第 5 节).
+
+### 4.8 新样式表的分发三门(2026-10 新增)
+
+`styles/layout.css` 是新的一份分组入口,它要过三道门,漏一道就是"库改了但消费侧
+不知道":
+
+| 门 | 位置 | 漏掉的症状 |
+| --- | --- | --- |
+| 1. `exports` | 库 `package.json` 的 `exports`(现在逐份列了 7 个样式入口) | 消费者 `import 'miko_ui/styles/layout.css'` 直接解析失败 |
+| 2. 消费者的样式分层守卫 | graphcalc 的 `src/config/styleLayers.test.ts:46-53` 与 `src/config/cssPalette.test.ts:43-48` **逐份列出库的 CSS** | 新表里的类不在"库拥有的类"集合里 -> 应用给它们写样式**不会**被那条契约抓到(静默失效) |
+| 3. 站点的引入方式 | 站点 `src/main.ts:32-45` **逐份 import** 库的样式表(不引 `styles.css`) | 新表不会自动到;站点的布局原语将没有样式 |
+
+graphcalc 引的是聚合入口 `miko_ui/styles.css`,所以第 1 门过了它就自动拿到;
+站点是逐份引,第 3 门必须显式加一行.这条差异是"库加样式表"这类改动的固定成本,
+写进第 5 节的改动清单.
+
 ## 5. 改动清单(按文件)
 
 | 文件 | 动作 | 属 Phase |
 | --- | --- | --- |
-| `src/shared/numberText.ts` | 重写为策略工厂 + 两个预置 + `parseNumber`;保留 `formatNumber` / `formatVector` 旧签名与行为 | 0 |
-| `src/shared/numberText.test.ts` | 补策略与边界用例(含编辑档语法正则) | 0 |
+| `src/shared/numberText.ts` | 重写为策略工厂 + 两个预置 + `parseNumber` + `syntax` 轴;保留 `formatNumber` / `formatVector` 旧签名与行为 | 0 |
+| `src/shared/numberText.test.ts` | 补策略与边界用例(含编辑档语法正则,`syntax: 'latex'`,`digits` 覆盖) | 0 |
 | `src/widgets/ValueDisplay.ts` | 新增 `createValueDisplay` / `createReadoutRow` | 1 |
-| `styles/widgets.css` | `.ui-readout-name` / `.ui-readout-value` 默认规则;`.ui-panel-body` 的正文排布契约(4.2) | 1 / 3 |
+| `styles/widgets.css` | `.ui-readout-name` / `.ui-readout-value` 默认规则(含 `tabular-nums`);正文子节点策略(4.2) | 1 / 3 |
 | `src/widgets/NumberField.ts` / `Slider.ts` / `RangeInput.ts` | 加 `text?`;Phase 2 切默认档 | 1 / 2 |
 | `src/index.ts` | 补导出(`ValueDisplay`,布局组) | 1 / 3 |
-| `src/layout/Stack.ts` / `ScrollArea.ts` / `splitterGeometry.ts` / `Splitter.ts` | 新增布局组 | 3 / 5 |
-| `styles/layout.css` + `styles/styles.css` + `package.json` 的 `exports` | 新增 `./styles/layout.css` 并挂进总入口 | 3 |
+| `src/layout/Stack.ts` / `ScrollArea.ts` / `splitterGeometry.ts` / `Splitter.ts` | 新增布局组(三个原语都要 `class` 出口;`ScrollArea` 要 `minHeight`) | 3 / 5 |
+| `styles/layout.css` + `styles/styles.css` + `package.json` 的 `exports` | 新增 `./styles/layout.css` 并挂进总入口(4.8 第 1 门) | 3 |
 | `styles/desktop.css` | 删掉 `> *` 通吃;窗口正文只留 `padding:0` + `overflow:hidden` | 4 |
-| `styles/tokens.css` | 三个 `--layout-*` | 3 |
+| `styles/tokens.css` | 三个 `--layout-*`;**已清出两个消费者域名令牌(2026-10)** | 3 / 已完成 |
+| `src/theme/tokens.ts` | 同步删掉那两个令牌的 JS 镜像 | 已完成 |
+| `src/theme/tokens.test.ts`(或新 `test/tokensContract.test.ts`) | **守卫**:`tokens.css` 的 CSS 兜底值 ↔ `DEFAULT_DESKTOP_CONFIG` 逐条同值(2026-10 起直接读 CSS 文本);库 token 名里不出现消费者域名(至少禁止已知应用词).原"与 `DEFAULT_THEME_TOKENS` 键集合一致"一项随那层 JS 镜像删除而作废(见 4.7 的收敛记录) | 3 / 部分已完成 |
 | `test/emittedClasses.test.ts` | 不加白名单(新类全部有真规则);若采用 4.5-A 则加正向断言 | 3 |
 | `test/layoutStyles.test.ts`(新) | 解析 CSS 文本守 4.2 / 4.4 的形式断言 | 3 |
 | `test/scrollbarStyles.test.ts` | 按 4.5 的决定改注释并加断言 | 3 |
 | `example/main.ts` / `example/example.css` | 读数改用 `createReadoutRow`,正文改用 `createStack`;删掉自写的 `.readout*` 与 `.pane` | 1 / 3 |
-| `README.md` | 公开面表补 `layout/` 与读数件;"还没做的"划掉 `Splitter` / `ScrollArea`;补两条新契约 | 各 Phase |
+| **`miko_graphcalc` `src/config/styleLayers.test.ts` / `cssPalette.test.ts`** | 库新增样式表时**必须**把 `./styles/layout.css` 补进两份 LIB_CSS 列表(4.8 第 2 门) | 3 |
+| **`Toyosatomimiko.github.io` `src/main.ts`** | 逐份 import 库样式表,新增 `styles/layout.css` 要显式加一行(4.8 第 3 门) | 3 |
+| **`miko_graphcalc` `css/panels.css`** | 走 D8-A 则零改动;走 D8-B 则把 `.diagnostic-list` 等 margin/百分比间距改到新原语 | 3 |
+| **`Toyosatomimiko.github.io` `src/setting/setting.css` 等** | 走 D8-A 则零改动;走 D8-B 则把面板正文的 margin 间距改成 `gap`(实测 16 -> 26 的那一处) | 3 |
+| `README.md` | 公开面表补 `layout/` 与读数件;"还没做的"划掉 `ScrollArea`;补两条新契约 | 各 Phase |
 | `docs/...`(本文) | 随实现更新状态与决策记录 | 各 Phase |
 
 ## 6. 分期与发布
 
 两处破坏性变更(默认口径切档,去掉 `> *` 通吃)**合并成一次 `0.2.0`**,
 但先让非破坏性的脚手架先上线,消费者先吃一层,破坏性那一步才没有回头路.
+**2026-10 的实测把 Phase 3 与 Phase 4 的位置对调了**:
 
 | Phase | 内容 | 破坏性 | 闸门 |
 | --- | --- | --- | --- |
-| 0 | 口径层(策略工厂 + 预置 + parse + 单测) | 无(纯新增/等价重写) | `npm run build` |
+| 0 | 口径层(策略工厂 + 预置 + parse + `syntax` + 单测) | 无(纯新增/等价重写) | `npm run build` |
 | 1 | 显示件 + 样式 + `text?` 选项 + 示例改用显示件 | 无(默认仍 `String`) | `npm run build` + 示例目视 |
 | 2 | 默认口径切到 `NUMBER_TEXT_EDIT` / `NUMBER_TEXT_DISPLAY` | **有**(默认文本变化) | 消费者同步改;`RELEASING.md` 顺序:先发库 |
-| 3 | 布局组(Stack / ScrollArea / tokens / layout.css)+ `.ui-panel-body` 列排布 + 三条**显式拉伸**出口 + CSS 契约测试 | 面板正文排布有变化 | 示例目视 + 契约测试 |
-| 4 | 加"直接子节点不拉伸"默认并删掉旧 `.window-body > *` 通吃 | **有**(多子节点不再等分/拉伸) | **搁置,待实验**;要试的话,先只加 Phase 3 的三条显式拉伸出口(它们不影响旧行为),拿真实布局跑一遍再决定这一步 |
-| 5 | `Splitter`(带键盘与拖拽) | 无(新增) | 交互测试 + 示例目视 |
+| 3 | 布局原语(Stack / ScrollArea / tokens / layout.css)+ 三条**显式拉伸**出口 + CSS 契约测试 + **4.8 的三门** | 面板正文排布**可选**(D8-A 则无) | 示例目视 + 契约测试 + **站点 `npm run smoke:home`** |
+| 4 | 加"直接子节点不拉伸"默认并删掉旧 `.window-body > *` 通吃 | **有**(多子节点不再等分/拉伸),但**实测对两家现有布局零影响**(4.2-a) | 示例目视 + graphcalc 目视(`process` 窗口拖矮时固定栏不再被压扁) |
+| 5 | `Splitter`(带键盘与拖拽) | 无(新增) | **需求不足,见 7/D7;可无限延后** |
 
-发布顺序按 `RELEASING.md`:库先推 `main` 出滚动资产,两个应用仓库再
-`npm run ui:update` 并改调用点.**不能反过来** -- 资产里是构建产物,消费者改动
-上线时库必须已经在.
+**发布顺序(2026-10 更正)**:初稿写"库先推 `main` 出滚动资产,两个应用仓库再
+`npm run ui:update`" -- 这两句都已作废:
+
+- 两个应用仓库**从 npm 装**(`"miko_ui": "^0.1.6"` + `npm ci`),构建时用
+  `scripts/build.py` 的 `sync_miko_ui`(`npm view miko_ui@latest version`)对齐到
+  npm 的 latest;滚动资产那条链路**当前没有消费者**(消费侧的
+  `scripts/fetch_ui.sh` 已随"依赖更新为 npm:miko_ui"删除).
+- **没有 `npm run ui:update` 这个脚本**;本地改库走
+  `scripts/dev_ui_link.py link`(把 `node_modules/miko_ui` 换成指向工作副本的符号
+  链接),要回到 npm 版就 `unlink` 或 `npm ci`.
+- 所以正确的顺序是:库`npm run release:npm -- patch|minor|major`(出 npm 版)->
+  等 registry 可见(1-2 分钟传播延迟)-> 再推消费侧.库侧细节见
+  `RELEASING.md` 的 §7;应用侧真身在各仓库 `scripts/build.py` / `buildlib.py` /
+  `dev_ui_link.py`.
 
 ## 7. 需要拍板的决定
 
-| 编号 | 决定 | 建议 |
+| 编号 | 决定 | 状态 / 建议 |
 | --- | --- | --- |
 | D1 | 显示档是否支持千位分隔符,若支持用不用 `Intl.NumberFormat` | **默认不开**,`group` 只在消费者显式给 `Intl` 的格式化时生效.`Intl` 的输出随 ICU/区域设置变,库的默认行为不该随环境变 |
-| D2 | `NumberField` / `Slider` 默认口径是否切到 `NUMBER_TEXT_EDIT` | **搁置,待实验**.原建议:切(Phase 2).不切则"统一"无人执行;切了要发一次 minor + 迁移说明.实验时可以先给 `text?`(Phase 1),默认不动,拿来跑一遍真实参数面板看观感 |
+| D2 | `NumberField` / `Slider` 默认口径是否切到 `NUMBER_TEXT_EDIT` | **仍待实验,但收益已在站点侧量化**:7 条 metro 滑块(`step:0.01` + `min:0.2`)今天会露浮点尾巴,切了一行不改就干净.切了要发一次 minor + 迁移说明 |
 | D3 | `createValueDisplay` 默认是否让读屏播报 | **不播报**(`aria-live="off"`),`announce:true` 才开 |
 | D4 | `.window-body` 自身是否可滚 | **不滚**,保持 `hidden` + 显式 `createScrollArea`.正文可滚会让绝对定位的浮层与手柄语义一起变模糊 |
-| D5 | 4.5 选 A 还是 B(`createScrollArea` 是否自己挂 `.ui-scrollbar`) | **A** + 那条正向断言 |
+| D5 | 4.5 选 A 还是 B(`createScrollArea` 是否自己挂 `.ui-scrollbar`) | **A** + 那条正向断言.消费者侧有 17 个手挂/漏挂点支撑(4.5) |
 | D6 | 多个 `.ui-fill` 是均分(`flex:1 1 0`)还是按内容比(`1 1 auto`) | **均分**(确定,可预期) |
-| D7 | `Splitter` 是否本期做 | 可延后;`Stack` / `ScrollArea` 是"确定"的最小集,`Splitter` 是交互件,自己一条 Phase 5 |
+| D7 | `Splitter` 是否本期做 | **降级为可无限延后**:两家消费者**零使用**,graphcalc 在窗口化时主动删掉了自己的分栏控制器(`RightSplitController` / `#right-splitter` / `--right-split-basis`),"一个窗口一件事"取代了分栏.真要有需求,先看 `createStage`(D11) |
+| D8 | `.ui-panel-body` 是否默认变列 flex(4.2 的 A/B) | **建议 A(opt-in)**:站点对库面板零覆盖,且面板没有定高(拉伸语义拿不到好处),而默认改会打断它的 margin 塌陷(实测 16 -> 26).`createPanel({ stack: true })` 开启栈式排布 |
+| D9 | 布局原语是否接受消费者 `class` | **必须接受**(4.3 缺口 1):graphcalc 的 `styleLayers` 禁止应用给库类写样式,没有出口就等于消费者无法给原语定尺寸 |
+| D10 | `ValueText` 是否拆出 `syntax` 轴 | **建议拆**(3.2):同一个档位要服务纯文本 / LaTeX / 编辑三种语法,graphcalc 已经为 LaTeX 重抄了一遍档位 |
+| D11 | 是否新增 `createStage`(定尺寸媒体槽) | **待议,优先级高于 Splitter**:站点 OLED 定死 1024x512,RBT 只有 1200x640 属性(CSS 零规则,窄视口被 `body{overflow-x:hidden}` 直接裁掉),而 metro_window 自己实现了整套 `ResizeObserver` + 150ms 防抖 + `dpr` 追猎 + 16:9 cover 后备缓冲.这是三家(含 451)各写一遍的东西 |
+| D12 | 面板的尺寸变化出口 | **本方案不提供**(4.4 第 6 条的缺口):`onGeometryChange` 只服务窗口,面板没有 id 可订阅.站点只能自己 `ResizeObserver`.要不要给面板一条出口,列进下一轮 |
 
 ## 8. 不做的事(明确划出去)
 
-- **不引 `ResizeObserver`**,不做 JS 测量排版;需要在尺寸变化时重排的件继续走
-  `onGeometryChange`(第 4.4 第 6 条).
+- **布局原语不做 JS 测量排版**:原语与窗口正文的排布靠纯 CSS 表达,尺寸变化用
+  `onGeometryChange`(第 4.4 第 6 条).**不是**"库不许用 `ResizeObserver`" --
+  库的编辑器层已经在用(2 处),测试桩里有替身;消费者侧本来也在用
+  (graphcalc 的 `RenderController` 1 处,站点 2 处,另有库编辑器层自带的 2 处).
 - **不加运行时依赖**:没有 CSS-in-JS,没有 `Intl` 数据包,`katex` 仍是唯一 peer.
+- **不在库里放消费者域名的东西**(token 名,窗口名,面板名).**2026-10 已清理**
+  两个令牌;判据:**库的样式表里有没有 `var()` 读它?** 没有就不许加,并补机器守卫
+  (第 5 节).顺带记一条同类前科:graphcalc 的 `cssPalette.test.ts` 早就有一条
+  "库里没有领域图例"的断言,但它只查 `--kind-*` 前缀,所以从没抓到那两个窗口名
+  令牌 -- 守卫的**判据太窄**等于没有.
 - **不造 `TextField`**:带输入框的文本编辑(以及"点一下变可编辑")是另一件事,
   与 README 的补件清单一起排.
 - **不把 `.pane` 那套消费者内边距搬进库**:库给 `--layout-padding` 与 `createStack`,
   给多少是消费者的排版选择.
-- **不在库内出现应用窗口名 / 领域语义**(边界第 1-3 条),布局原语不认识"参数面板"
-  这类概念.
+- **不搬 graphcalc 的 `.diagnostic-list` 形状**(`max-height:34%` + `:empty`)进库:
+  那是"一个可收缩的定高尾条",属于应用的内容策略(它的基准还随窗口化漂移过,
+  见 graphcalc `docs/windowing-plan.md` 的 B3).`MessageList` 只给条目外观这条
+  分工不变.
+- **不动 `.menu-anchor`**:它**不是**死规则 -- 库自己的示例在用它
+  (`example/main.ts:195`,`example/README.md:42`),`widgets.css:164` 有规则.
+  它是一条"消费者手加的用法词汇"(与 `.ui-scrollbar` 同类).两家真实消费者都没用
+  它(null 需求),要不要让 `createMenu` 自己产出这个锚点容器,列进下一轮,
+  **不要删规则**.
 
 ## 9. 验收标准
 
@@ -537,10 +809,20 @@ export function createSplitter(options: SplitterOptions): {
 
 1. 同一个 `signal<number>` 绑到 `Slider` 的数值框,`NumberField` 与 `createReadoutRow`,
    给同一个 `text` 时三处文本**逐字符相同**(新契约测试).
-2. `formatNumber` / `formatVector` 的现有 7 条断言一条不改仍然通过(等价重写).
-3. 编辑档 `toText` 的输出对全部边界值匹配 number input 合法语法正则.
-4. `npm test` 的 `emittedClasses` 不需要为新类扩白名单.
-5. 示例里出现一个窗口:固定工具条 + `fill` 主体 + 滚动区 + `Splitter`,
+2. `formatNumber` / `formatVector` 的现有断言一条不改仍然通过(等价重写).
+3. 编辑档 `toText` 的输出对全部边界值匹配 number input 合法语法正则;
+   并覆盖 `syntax: 'latex'`(graphcalc 那套 `\times10^{n}`)与 `digits` 覆盖(2 位 / 4 位).
+4. `npm test` 的 `emittedClasses` 不需要为新类扩白名单;`tokensContract` 守住
+   "库 token 里没有消费者域名".
+5. **布局的验收闸门是站点的真浏览器冒烟,不是库的示例目视**:
+   `ToyosatomimikoMiko.github.io` 的 `npm run smoke:home`(headless Chromium,已在
+   断言 `#setting .ui-panel-body > fieldset.setting-group` 的数量与布局)必须全绿.
+   理由:面板正文的 margin/`<br>` 节奏只有站点有,库的示例抓不到(4.6 实测).
+6. 示例里出现一个窗口:固定工具条 + `fill` 主体 + 滚动区 + `Splitter`,
    窗口被拖到任意小尺寸时,固定条不被压扁,滚动区出现滚动条,没有任何内容越界.
-6. `example/example.css` 里不再有 `.readout*` 与 `.pane`(全部由库的原语承担).
-7. 示例的"读数"窗口:拖滑杆时数字不跳字(`tabular-nums`),`title` 里是全精度值.
+   -- **`Splitter` 那一项按 D7 降级后,改为"固定工具条 + fill 主体 + 滚动区"**.
+7. `example/example.css` 里不再有 `.readout*` 与 `.pane`(全部由库的原语承担).
+8. 示例的"读数"窗口:拖滑杆时数字不跳字(`tabular-nums`),`title` 里是全精度值.
+9. **graphcalc 侧的回归项(实测出来的真实缺陷)**:`process` 窗口拖到很矮时,
+   `.process-header` 与 `.process-truncated` 不再被压扁(Phase 4 之后),
+   `.process-steps` 仍然滚.

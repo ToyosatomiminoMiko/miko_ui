@@ -10,23 +10,23 @@ GraphCalc 的 Web UI 库:**DOM 原语 + 响应式原语 + 控件 + 布局行 + �
 > `docs/ui-library-extraction-plan.md`(本文件的每一节都能在那份计划里找到
 > 出处).这份仓库是那个计划 P4 结束后的产物.
 
-## 取用:主链路是 release 产物;另有对外的 npm 包
+## 取用:两个应用从 npm 装;库另发一份滚动资产
 
 本库同时服务
 [miko_graphcalc](https://github.com/ToyosatomiminoMiko/miko_graphcalc) 与
 [ToyosatomiminoMiko.github.io](https://github.com/ToyosatomiminoMiko/ToyosatomiminoMiko.github.io)
-两个应用仓库,两边拿的是同一份产物;此外它**也发布到 npm**,服务"别人也想
-`npm install`"的场景.两条链路互不干扰:
+两个应用仓库,两边都是 `npm ci` **从 npm 装**(依赖声明只有一条
+`"miko_ui": "^0.1.6"`);库另外还在每次推送 `main` 时发一份滚动资产,给"不走 npm"
+的场景.两条链路互不干扰:
 
 | 链路 | 触发 | 形态 | 谁在用 |
 | --- | --- | --- | --- |
-| **滚动 release 资产**(主) | 推到 `main` | `miko_ui_dist.tar.gz`,挂在 tag `ui-latest` 上,内容被覆盖 | 上面那两个应用仓库 |
-| **npm 包**(对外) | 推 `v*` tag | registry 上的 `miko_ui@<version>`,带 provenance | 外部消费者 |
+| **npm 包**(两个应用的主链路) | 推 `v*` tag | registry 上的 `miko_ui@<version>`,带 provenance | 两个应用仓库 + 外部消费者 |
+| **滚动 release 资产** | 推到 `main` | `miko_ui_dist.tar.gz`,挂在 tag `ui-latest` 上,内容被覆盖 | 当前**没有消费者**(见下) |
 
 npm 那条链路走 **OIDC 信任发布**(无长期 token,不需要账号 2FA),细节见
-`RELEASING.md`.下面这一节讲的是主链路,也就是两个应用仓库用的那份.
-
-交付形态是**一个滚动 release 资产**:
+`RELEASING.md`.两个应用怎么取用,本地怎么改库联调,见下面的「应用侧怎么取用」.
+库另外还发一份滚动资产,它的形态是:
 
 ```text
 https://github.com/ToyosatomiminoMiko/miko_ui/releases/download/ui-latest/miko_ui_dist.tar.gz
@@ -34,33 +34,45 @@ https://github.com/ToyosatomiminoMiko/miko_ui/releases/download/ui-latest/miko_u
 
 main 每次推送后,`.github/workflows/release.yml` 把包根(`dist/` + `styles/` +
 `LICENSE` + **运行期清单** `package.json`)打成 `miko_ui_dist.tar.gz` 挂到 tag
-`ui-latest`;清单里的 `gitHead` 记着构建它的那个 commit,消费者的
-`scripts/fetch_ui.sh` 每次构建拿它比 `ui-latest` 指向的 commit(落后就自动重取),
-然后下载 -> 校验 -> 解开到 `.cache/miko_ui/current`,再用一条本地依赖接进来:
+`ui-latest`;清单里的 `gitHead` 记着构建它的那个 commit,所以这份资产**自证版本**
+(它是"某次 `main` 的产物",不是版本承诺).
 
-```json
-"@miko/ui": "file:.cache/miko_ui/current"
-```
+> 这条链路**当前没有消费者**:两个应用仓库都是 `npm ci` 从 registry 装 `miko_ui`,
+> 消费侧的 `scripts/fetch_ui.sh` 已随那次改造删除(真身见各仓库 `scripts/build.py`
+> 的 `sync_miko_ui` 与 `scripts/dev_ui_link.py`).资产 job 仍然每次 `main` 都跑,
+> 保留给将来接这条链路的消费者.**要不要退役它是一次独立决定**,本文只描述现状.
 
-于是应用里的 `import '@miko/ui'` 解析到的是**构建产物** `dist/index.js` +
-`dist/index.d.ts`(纯 ESM + 自带类型声明),消费者机器上**没有 TypeScript,也没有
-本库的源码**:
+### 应用侧怎么取用
+
+两个应用仓库用的是同一套两条路:
+
+| 场景 | 机制 | 真身 |
+| --- | --- | --- |
+| 构建 / CI / Pages | `npm ci` 按 `"miko_ui": "^0.1.6"` 装;`sync_miko_ui` 再用 `npm view miko_ui@latest version` 对齐到 npm 的 latest(`MIKO_UI_SYNC=auto\|check\|off`;CI 下查不到版本直接失败) | 各仓库 `scripts/build.py` / `scripts/buildlib.py` |
+| 本地改库联调 | `dev_ui_link.py link` 把 `node_modules/miko_ui` 换成指向本地工作副本的符号链接(`link` / `unlink` / `status`,路径用 `MIKO_UI_DIR` 覆盖);只动被 gitignore 的 `node_modules/` | 各仓库 `scripts/dev_ui_link.py` |
+
+链接之后:库的 `styles/` 改完**零构建立即生效**(`exports` 直接映射到
+`styles/*.css`);`src/` 要先编译进 `dist/`(`npm run build:dist`,或在库里常驻
+`npx tsc -p tsconfig.build.json --watch`).链接只存在于 `node_modules/`,所以 CI 与
+GitHub Pages 的行为一个字节都不变,`npm ci` 即可还原成 npm 上那一版.
+
+无论走哪条,应用解析到的都是**构建产物** `dist/index.js` + `dist/index.d.ts`
+(纯 ESM + 自带类型声明),消费者机器上**没有 TypeScript,也没有本库的源码**:
 
 ```ts
-import { mountDesktop, signal } from '@miko/ui';
-import '@miko/ui/styles.css';          // token + 控件 + 桌面,一次全要
-// 或者按分组引:@miko/ui/styles/tokens.css / scrollbar.css / widgets.css / desktop.css / editor.css / feedback.css
+import { mountDesktop, signal } from 'miko_ui';
+import 'miko_ui/styles.css';          // token + 控件 + 桌面,一次全要
+// 或者按分组引:miko_ui/styles/tokens.css / scrollbar.css / widgets.css / desktop.css / editor.css / feedback.css
 ```
 
-> `@miko/ui` 只是应用侧给这条 `file:` 依赖起的名字,目录里的包名仍是 `miko_ui`.
-> 公开面由 `package.json` 的 `exports` 定义,与包名无关.
+> 包名就是 `miko_ui`(依赖目录里也是它);公开面由 `package.json` 的 `exports`
+> 定义,与"怎么把它接进来"无关.
 
 运行时依赖只有 `@preact/signals-core` 一个;`katex` 是可选 peer,只有引公式件时才
 需要(它同时会在运行时引自己的 `katex/dist/katex.min.css`,所以用公式件时 KaTeX
-的样式不用你手动引).**应用侧自己声明这两个依赖**:资产里没有 `node_modules`,
-而且"`file:` 链接的传递依赖装不装"取决于目标目录在不在应用根内(npm 实测:根内会
-装,根外不装).把它写成应用自己的依赖,行为才不依赖这个细节,也才能保证全程只有
-一份实例 -- 两个应用仓库都是这么写的.
+的样式不用你手动引).**应用侧仍然自己声明这两个依赖**:实际装几份取决于消费侧的
+依赖图,而 `signals` 装成两份就是两套注册表 -- 两个应用仓库都在 `vite.config.ts`
+里用 `resolve.dedupe` 兜住这件事.
 
 > **只面向打包器/浏览器**,两条原因(与交付形态有关,见 `RELEASING.md`):
 >
@@ -115,9 +127,9 @@ npm 的生命周期 -- 原因见下面"边界契约").
 "库侧依赖/交付契约":用 `npm install --package-lock-only` 会丢掉跨平台可选依赖,
 而 CI 的 npm 11 会因此直接拒掉 `npm ci`(本地 npm 10 看不出来).
 
-改完推到 `main` 就够了:`.github/workflows/release.yml` 会重新出一次资产,消费者
-下次取产物时拿到(那边 `npm run ui:update`,CI 则是每次干净下载).交付细节,以及
-"发布必须先于消费者改动上线"的顺序,写在 `RELEASING.md`.
+改完推到 `main`,`.github/workflows/release.yml` 会重新出一次滚动资产(当前没有消费
+者取它).**要让两个应用仓库拿到,得发一版 npm**:`npm run release:npm -- patch|minor|major`.
+交付细节与"库先发,消费侧再推"的顺序写在 `RELEASING.md`.
 
 ## 用起来是什么样
 
@@ -212,7 +224,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | `editor/` | `CodeEditor`(建整套编辑器外壳),`EditorLineNumbers` / `EditorHighlight`(分词与槽宽由消费者注入),`HIGHLIGHT_ENABLED_CLASS`,`replaceTextareaSource` / `seedTextareaSource`(程序化写入源码并保住原生撤销栈) |
 | `feedback/` | `MessageList`(错误/警告列表,零领域依赖) |
 | `formula/` | `createFormulaElement`(KaTeX;`katex` 是**可选** peer),`FormulaCopyController` |
-| `theme/` | `applyTheme(root, tokens)`,`DEFAULT_THEME_TOKENS` |
+| `theme/` | `applyTheme(root, tokens)`(把一组 CSS 变量写到根元素上;库的默认主题只有 `styles/tokens.css` 一份,JS 侧不留镜像) |
 | `testing/` | **测试入口**(独立子路径 `miko_ui/testing`,不进主入口):手写 DOM 桩 `installDomStub`,复刻了真 DOM 里踩过的坑,并给出 `document.execCommand` / `navigator.clipboard` 两条可断言通道 |
 | `styles/` | `tokens.css`(默认主题,最先加载),`scrollbar.css`(独立的滚动条规定:滚动容器挂 `.ui-scrollbar`),`widgets.css`(含行外壳 `.object-row`/`.row-main`/`.row-actions`),`desktop.css`,`editor.css`,`feedback.css`(`.diagnostic*`,复制反馈的 `.is-copied`/`.is-error`),`styles.css`(总入口) |
 
@@ -275,16 +287,19 @@ baseline,也没有"允许的例外".
 
 ## 交付
 
-**给两个应用仓库**(滚动资产):把 `main` 推到 GitHub.
+**给两个应用仓库**(npm):推一个版本 tag,应用侧 `npm ci` + `sync_miko_ui` 就对齐到
+新产物 -- 与下面"给 npm"是同一条命令,顺序与判据见 `RELEASING.md`.
+
+**滚动资产**:把 `main` 推到 GitHub.
 
 ```sh
 git push origin main
 ```
 
 `.github/workflows/release.yml` 的 `release` job 随后把包根打成
-`miko_ui_dist.tar.gz`,挂到滚动 release `ui-latest`,并从**消费者用的那个公开
-URL** 重新下载验一遍 sha256.两个应用仓库的 `scripts/fetch_ui.sh` 取的就是这份
-资产.本地想先看一眼资产:
+`miko_ui_dist.tar.gz`,挂到滚动 release `ui-latest`,并从那个公开 URL 重新下载验
+一遍 sha256.**这条链路目前没有消费者**(两个应用走 npm),保留给将来接它的消费
+者;本地想先看一眼资产:
 
 ```sh
 npm run release:pack   # -> release/miko_ui_dist.tar.gz(清单含 gitHead,内容,sha256 都打在日志里)
