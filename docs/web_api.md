@@ -8,7 +8,7 @@
 window
  └─ document       <- 文档
      ├─ doctype    <- `<!DOCTYPE html>`
-     ├─ html       <- 根元素
+     ├─ documentElement  <- 根元素
      ... (各种方法)
 ```
 
