@@ -73,3 +73,11 @@ CSS 导入的类型不在这里声明:库自己的 `src/css_modules.d.ts` 有一
   `trigger`,触发器是一颗普通 `createButton`,库侧没有任何"窗口标题栏"的前提;
 - 菜单的声明侧只有数据 + 一条 `onSelect`,结构 / 当前项 / 开合 / 外观
   全在库侧.
+
+## 子目录
+
+- **`layout/`** -- 窗口正文排布演示:三档口径(现状 / Phase 3 / Phase 4)+ 一条窗口高度滑杆,
+  并排看"唯一子节点""工具条 + 主体 + 底栏""两个普通块""两个 `.ui-fill`"在每一档下**实测**的高度
+  (被压扁 / 被拉高 / 可滚 / 越界被裁都会标红).跑法:`npm run dev` 后打开
+  <http://localhost:5173/layout/>.它只引库的样式表加**两份原型表**,库的 `src/` 与 `styles/`
+  一个字没改;细节见 [`layout/README.md`](./layout/README.md).

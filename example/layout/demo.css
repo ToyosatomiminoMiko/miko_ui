@@ -1,0 +1,346 @@
+/* ==========================================================================
+ * 排布演示页自己的外观.
+ * --------------------------------------------------------------------------
+ * 本文件**不写任何布局契约**:
+ *   - 窗口正文的现状规则在库的 `miko_ui/styles.css`;
+ *   - 方案的两档原型在 `phase3.css` / `phase4.css`.
+ * 这里只管"演示页长什么样"以及演示块的配色/纹理.
+ *
+ * 颜色全部走库的 token(tokens.css):演示页不是库,但这样看上去才是同一套东西.
+ * ========================================================================== */
+
+:root {
+    /* 每一扇演示窗口的高度,由 main.ts 的滑杆写. */
+    --demo-window-h: 263px;
+    color-scheme: dark;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+}
+
+body {
+    min-height: 100vh;
+    background: var(--color-bg-app);
+    color: var(--color-text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+}
+
+.page {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 24px 24px 72px;
+}
+
+h1 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    color: var(--color-text-strong);
+}
+
+h2 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    color: var(--color-text-strong);
+}
+
+p.lead {
+    margin: 0 0 16px;
+    color: var(--color-text-muted);
+    line-height: 1.8;
+}
+
+code {
+    font-family: var(--code-font-family);
+    font-size: 0.92em;
+    color: var(--color-text-formula);
+}
+
+/* --------------------------------------------------------------- 问题清单 */
+
+.problems {
+    margin: 0 0 20px;
+    padding: 12px 16px 12px 34px;
+    border: 1px solid var(--color-border-panel);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-panel);
+    color: var(--color-text-muted);
+    line-height: 1.8;
+}
+
+.problems ol {
+    margin: 0;
+    padding: 0 0 0 4px;
+}
+
+.problems li + li {
+    margin-top: 6px;
+}
+
+.problems b {
+    color: var(--color-text-strong);
+}
+
+/* ------------------------------------------------------------- 控制条 */
+
+.controls {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border-panel);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-header);
+}
+
+.ctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ctl__name {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.ctl__value {
+    min-width: 168px;
+    font-size: 12px;
+    color: var(--color-text-strong);
+    font-variant-numeric: tabular-nums;
+}
+
+.controls input[type="range"] {
+    width: 190px;
+}
+
+/* ----------------------------------------------------------------- 卡片 */
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+    gap: 18px;
+    margin-bottom: 26px;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--color-border-panel);
+    min-width: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-panel);
+}
+
+.card__lead {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.75;
+    color: var(--color-text-muted);
+}
+
+.card__note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.75;
+    color: var(--color-text-strong);
+}
+
+/* 演示窗口:外壳观感全部来自库(.window / .window-header / .window-body),
+   这里只把它从"桌面上绝对定位的窗口"改成"卡片里的一块",并给它可调高度. */
+.demo-window.window {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    height: var(--demo-window-h);
+    min-height: 0;
+}
+
+/* ------------------------------------------------------------- 演示块 */
+
+.demo-block {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 0 10px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    background: var(--color-bg-sunken);
+    box-shadow: inset 0 0 0 1px var(--color-border-panel);
+}
+
+.demo-block b {
+    font-weight: 600;
+    color: var(--color-text-strong);
+}
+
+.demo-block small {
+    font-size: 11px;
+    color: var(--color-text-hint);
+}
+
+/* 固定条:深色 + 裁好自己的文字.
+   从顶部排而不是居中:被压扁时看到的是"第一行还在,第二行没了",
+   而不是两行叠在一起(后者看起来像渲染坏了). */
+.demo-bar {
+    justify-content: flex-start;
+    background: var(--color-bg-header);
+    overflow: hidden;
+}
+
+/* 带长内容的滚动区:从顶部排,标签才看得见(居中的话标签会被挤出去) */
+.demo-main {
+    justify-content: flex-start;
+}
+
+/* 普通块 */
+.demo-plain {
+    background: var(--color-bg-sunken);
+}
+
+/* .ui-fill:吃掉剩余的那块 */
+.demo-fill {
+    background: var(--color-accent-tint);
+}
+
+/* 唯一子节点(编辑器 / 画布这类) */
+.demo-editor {
+    align-items: center;
+    background: var(--color-bg-sunken);
+}
+
+/* 滚动区里的长内容:12 行,用来判断"该不该滚,滚不滚得了" */
+.demo-inner {
+    display: flex;
+    flex-direction: column;
+}
+
+.demo-row {
+    padding: 3px 0;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border-divider);
+}
+
+/* ----------------------------------------------------- 实测结论的小标签 */
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    padding: 2px 8px;
+    border: 1px solid var(--color-border-panel);
+    border-radius: 999px;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted);
+    background: var(--color-bg-sunken);
+}
+
+.chip--ok {
+    border-color: var(--color-accent-border);
+    color: var(--color-text-strong);
+}
+
+.chip--bad {
+    border-color: var(--color-error-border);
+    color: var(--color-warning);
+    background: var(--color-warning-bg);
+}
+
+/* --------------------------------------------------------------- 图例 */
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 0 0 24px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.swatch {
+    width: 18px;
+    height: 12px;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px var(--color-border-panel);
+}
+
+.swatch--bar {
+    background: var(--color-bg-header);
+}
+
+.swatch--main {
+    background: var(--color-bg-sunken);
+}
+
+.swatch--fill {
+    background: var(--color-accent-tint);
+}
+
+/* 斜纹 = 显式滚动区 */
+.swatch--scroll {
+    background:
+        repeating-linear-gradient(135deg,
+            var(--color-fill-control-strong) 0 3px,
+            var(--color-bg-sunken) 3px 6px);
+}
+
+/* ----------------------------------------------------------- 代码块 */
+
+.rules {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 18px;
+}
+
+.rules section {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--color-border-panel);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-panel);
+}
+
+.rules pre {
+    margin: 0;
+    max-width: 100%;
+    padding: 10px;
+    overflow-x: auto;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-sunken);
+}
+
+.rules pre code {
+    font-family: var(--code-font-family);
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--color-text-muted);
+}

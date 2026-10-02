@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>窗口正文里怎么排 · miko_ui 演示</title>
+    <!--
+      样式表由 main.ts 引:库的 miko_ui/styles.css(现状,一个字没改)+ 本页的 demo.css
+      + 两份**方案原型**表(phase3.css / phase4.css,由开关控制 disabled).
+      原型表必须排在库的样式之后:它们与库的 `.window-body > *` 同特异度时靠文档顺序取胜,
+      写在 HTML 里会排在 Vite 注入的库样式之前 -- 见 main.ts 的 addProtoSheet 注释.
+    -->
+</head>
+
+<body>
+    <div class="page">
+        <h1>窗口正文里怎么排</h1>
+        <p class="lead">
+            每张卡片是一扇真窗口,外观全部来自库的 <code>.window / .window-header / .window-body</code>.
+            顶上切三档口径,拖一条高度滑杆,就能看见<b>库里今天那条你看不见的规则</b>干了什么,
+            以及方案要把它换成什么.
+        </p>
+
+        <div class="problems">
+            <b>现在的问题(白话版)</b>
+            <ol>
+                <li>
+                    库有一条<b>你没写</b>的规则:<code>.window-body &gt; * { flex: 1 1 auto; min-height: 0 }</code>.
+                    正文里的直接子节点<b>一律被拉满,并且可以被压扁</b>.所以"工具条 + 主体 + 底栏"三块会一起按内容比例
+                    分正文 -- 工具条被压扁,底栏被压扁;放两个普通块,它们会各分一半(谁也没声明过).
+                </li>
+                <li>
+                    窗口正文是 <code>overflow: hidden</code>:装不下的内容<b>不给你滚动条,直接裁掉</b>.
+                    想滚就得自己套一层 <code>overflow: auto</code>,手挂 <code>.ui-scrollbar</code>,
+                    还要沿每一层补 <code>min-height: 0</code>(漏一层就是"滚不动"或"被压扁").
+                </li>
+                <li>
+                    现有示例里那句 <code>.pane &gt; button { align-self: flex-start }</code> 就是这条规则的反作用:
+                    按钮被拉成整行宽,只好再写一句抵消它.
+                </li>
+            </ol>
+        </div>
+
+        <div id="controls" class="controls"></div>
+        <div id="cards" class="grid"></div>
+
+        <div class="legend">
+            <span><i class="swatch swatch--bar"></i>固定条(工具条 / 底栏):内容多高就该多高</span>
+            <span><i class="swatch swatch--main"></i>普通块</span>
+            <span><i class="swatch swatch--fill"></i><code>.ui-fill</code>:吃掉剩余</span>
+            <span><i class="swatch swatch--scroll"></i><code>.ui-scroll-area</code>:显式滚动区</span>
+            <span><i class="chip chip--bad">红</i>= 这一档有问题(被压扁 / 被拉高 / 够不到)</span>
+        </div>
+
+        <div class="rules">
+            <section>
+                <h2>库里今天这条(styles/desktop.css,一个字没改)</h2>
+                <pre><code>/* 窗口正文:确定高度 + 裁切都归它 */
+.window &gt; .window-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* ↓ 通吃:正文里每个直接子节点都被拉满,而且允许被压扁 */
+.window-body &gt; * {
+    flex: 1 1 auto;
+    min-height: 0;
+}</code></pre>
+            </section>
+            <section>
+                <h2>方案要换成这条(phase3.css + phase4.css,只作用于本页)</h2>
+                <pre><code>/* Phase 3:三条**显式**拉伸出口,特异度 (0,2,0),
+   比库那条 (0,1,0) 高,所以现在就生效 */
+.ui-panel-body &gt; :only-child,
+.ui-panel-body &gt; .ui-fill,
+.ui-panel-body &gt; .ui-scroll-area {
+    flex: 1 1 0;          /* basis 0:多个出口均分,不按内容比 */
+    min-height: 0;
+    min-width: 0;
+}
+.ui-scroll-area { overflow: auto; }
+
+/* Phase 4:默认不拉伸(与库那条同特异度,靠后加载取胜;
+   真正落地时是把库那条删掉,在 widgets.css 写这一条) */
+.ui-panel-body &gt; * { flex: 0 0 auto; }</code></pre>
+            </section>
+            <section>
+                <h2>卡片对应方案里的哪一条</h2>
+                <pre><code>① 唯一子节点
+   -> :only-child(回归项:三档必须一样)
+
+② 工具条 + 主体 + 底栏
+   -> 4.4 第 1 / 3 条:固定条定住,
+     溢出只发生在显式滚动区
+
+③ 两个普通块
+   -> 4.2 的另一面:溢出被裁
+
+④ 两个 .ui-fill
+   -> 4.4 第 1 条 / 决定 D6:均分</code></pre>
+            </section>
+        </div>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+</body>
+
+</html>
