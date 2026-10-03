@@ -299,7 +299,6 @@ describe('createSlider(系数滑块)', () => {
         expect(range.className).toBe('slider-field-range');
         expect(meta.className).toBe('slider-field-meta');
         expect(label.className).toBe('slider-field-label');
-        expect(handle.label.querySelector('.slider-field-tag')).toBeNull();
         expect(numberInput.type).toBe('number');
         expect(numberInput.className).toBe('slider-field-value');
         expect(reset.className).toBe('ui-button slider-field-reset');
@@ -331,19 +330,6 @@ describe('createSlider(系数滑块)', () => {
         expect(handle.reset.element.title).toBe('重置为 1');
     });
 
-    it('循环参数:名称后挂 cyclic 徽章,根节点标 is-cyclic,文案带循环提示', () => {
-        const handle = createSlider({ ...BASE, value: 0, label: '方位角', cyclic: true });
-        const tag = handle.label.querySelector<HTMLElement>('.slider-field-tag');
-
-        expect(handle.element.classList.contains('is-cyclic')).toBe(true);
-        expect(tag).not.toBeNull();
-        expect(tag?.textContent).toBe('cyclic');
-        // 名字不变色:语义标记只落在徽章上;空格只进可访问名.
-        expect(handle.label.textContent).toBe('方位角 cyclic');
-        expect(handle.number.input.getAttribute('aria-label')).toBe('方位角 数值(循环)');
-        expect(handle.reset.element.getAttribute('aria-label')).toBe('重置 方位角 为 0');
-    });
-
     it('hint 落成名称后的小字;format 同时用于数值框与重置标题', () => {
         const handle = createSlider({
             ...BASE,
@@ -358,6 +344,22 @@ describe('createSlider(系数滑块)', () => {
         expect((label.children[1] as StubElement).tagName).toBe('small');
         expect(handle.number.readText()).toBe('1.25');
         expect(handle.reset.element.title).toBe('重置为 1.25');
+    });
+
+    /**
+     * 滑块只有**一种姿态**:根节点不带任何变体类,名称行只有"名字 + 可选小字"
+     * 两个子节点.没有"循环/分类/类型"之类的第二种外观 -- 语义差异由调用方写进
+     * `label` / `hint`,或由调用方在句柄元素上自己挂类名,库不替它声明.
+     */
+    it('只有一种姿态:根节点无变体类,名称行只有名字与可选小字', () => {
+        const plain = createSlider({ ...BASE, label: '方位角' });
+        expect(plain.element.className).toBe('slider-field');
+        expect(plain.label.childNodes.length).toBe(1);
+
+        const withHint = createSlider({ ...BASE, label: '方位角', hint: '圆周参数' });
+        expect(withHint.element.className).toBe('slider-field');
+        expect(withHint.label.childNodes.length).toBe(2);
+        expect(withHint.label.textContent).toBe('方位角圆周参数');
     });
 
     it('拖动滑杆写回值源,数值框与 get() 同步', () => {

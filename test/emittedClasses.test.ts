@@ -95,7 +95,6 @@ const INTENTIONAL_HOOKS = new Map<string, string>([
     ['window-control-btn', '窗口标题栏控制按钮:外观全来自 .ui-button 基线,这里只是定位钩子(见 desktop.css)'],
     ['slider-field-reset', '系数滑块的重置按钮:同样是 .ui-button 基线,只是定位钩子(见 widgets/Button.ts)'],
     ['dock-action', 'Dock 的桌面动作按钮:外观与 .dock-btn 同源,只作定位钩子(见 desktop.css)'],
-    ['is-cyclic', '系数滑块的循环标记:具名语义钩子(测试与消费侧选择用),循环徽章的外观由 .slider-field-tag 承担'],
 ]);
 
 describe('类名契约:库产出的类名都有默认样式', () => {

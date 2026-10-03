@@ -1,15 +1,14 @@
 /**
  * `miko_ui` 的最小示例.
  *
- * 四个窗口:一个放两条**系数滑块**(普通参数 + 循环参数)与一个**计数按钮**,
+ * 四个窗口:一个放两条**系数滑块**(普通参数 + 周参数)与一个**计数按钮**,
  * 一个放它们的读数,一个放**菜单项**(直接显示 + 任意按钮触发),一个放
  * **诊断消息区**(提示随参数变化自动出现 / 消失).
  *
- * 循环参数靠两个选项(都在 `createSlider` 上):
- *    - `cyclic: true` 只管**外观**:名字后显示 `cyclic`,根节点加 `is-cyclic`
- *      高亮 -- 让"这个量在圆周上"看得见,不改变取值;
- *    - `normalize` 管**口径**:越界输入按区间长度回绕到 `[min, max)`.
- *      控件本身不认识圆周,回绕是消费者给的一条纯函数.这里输入 7 会看到 `7 - 2π`.
+ * "这个量在圆周上"是**调用方**的语义,库不管:控件只有一种姿态.提示只能写进
+ * `label` / `hint` 的文案 -- 这条滑块的名字里就直接写着周期,库不为它另立外观;
+ * 要回绕就自己给一条纯函数:`normalize` 管**口径**,越界输入按区间长度回绕到
+ * `[min, max)`,控件本身不认识圆周.这里输入 7 会看到 `7 - 2π`.
  *
  * 重置按钮是系数滑块自带的:`resetValue` 默认取建控件时的值,已经停在
  * 该值上(值与数值框文本都比)时按钮置灰.
@@ -78,12 +77,11 @@ const linearSlider = createSlider({
     label: '线性数值',
 });
 
-const cyclicSlider = createSlider({
+const angleSlider = createSlider({
     value: angle,
     ...ANGLE,
-    label: '方位角',
-    // 名字后挂一枚 `cyclic` 徽章(名字本身不变色),根节点标成循环参数.
-    cyclic: true,
+    // 名字里就能看出这是"绕着转"的量:周参数的值域提示写进名称,库不另立外观.
+    label: '方位角(周期 2π)',
     // 输入 7 -> 7 - 2π ≈ 0.717:`normalize` 只挂在数值框上,滑杆不会越界.
     normalize: wrapAngle,
     // 弧度显示到三位小数,免得数值框里一长串.
@@ -367,7 +365,7 @@ mountDesktop(root, {
                         { tag: 'div' },
                         { class: 'pane' },
                         linearSlider.element,
-                        cyclicSlider.element,
+                        angleSlider.element,
                         countButton.element,
                     )],
                 };

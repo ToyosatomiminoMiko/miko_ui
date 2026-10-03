@@ -30,7 +30,7 @@ npm run dev             # Vite 会打印实际端口
 | `mountDesktop(root, spec)` | 宿主由库建:`index.html` 只有一个空 `#app`,窗口层 / 吸附预览 / Dock / 每个窗口的外壳都是它按配置建的.窗口清单只换 `windows`,其余照用 `DEFAULT_DESKTOP_CONFIG`. |
 | `signal(50)` / `signal(0.6)` | 每条参数一个状态,滑块写它,读数读它. |
 | `createSlider({ value, label })` | 窗口「控件window」里的输入:名称 + 滑杆 + 数值框 + 重置组合成一条参数行,拖它写 signal. |
-| `createSlider({ cyclic: true, normalize })` | 循环参数的两半:**`cyclic` 只管外观**(名字后显示 `cyclic`,根节点加 `is-cyclic` 高亮),**`normalize` 管口径**(越界值回绕到 `[min, max)`,输入 7 得到 `7 - 2π`).循环语义在控件里只做提示,取值由消费者给的纯函数决定. |
+| `createSlider({ value, label, normalize })` | 周参数的口径:`normalize` 是**调用方给的纯函数**,把越界输入回绕到 `[min, max)`,输入 7 得到 `7 - 2π`.控件不认识圆周,也不知道自己在表示什么角 -- "这是周期量"只体现在调用方写的 `label` 文案里;**滑块只有一种姿态,库不为"循环"另立外观,也不给根节点加变体类**. |
 | `watchValue(value, ...)` | 窗口「读数window」订阅各自的 signal,把值写进只读读数;窗口「消息window」也走它 -- 订阅那条派生出来的提示清单,把每一版 `render` 进消息区. |
 | `createButton({ text })` | 窗口「控件window」里的计数按钮:`onClick` 只写 `count.value`(`0..255`,满了回 0),计数读数订阅同一个 signal.也是窗口「菜单window」里的浮层**触发器** -- 菜单不认识窗口标题栏,任意按钮都能触发. |
 | `MenuGroup` / `MenuEntry` | 菜单数据就是库的这两个类型(`value` / `text` / `hint` / `disabled`),示例**不另立一份镜像类型**. |

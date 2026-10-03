@@ -4,10 +4,10 @@
  * 它是"拖动改一个系数"的复合件,把三个更小的件配在一起:
  *
  * ```text
- * <div class="slider-field [is-cyclic]">       <- 根,样式由 .slider-field 一处控制
+ * <div class="slider-field">       <- 根,样式由 .slider-field 一处控制
  *   <input class="slider-field-range" type="range">   <- 粗调(RangeInput,类名由本件挂上)
  *   <div class="slider-field-meta">
- *     <label class="slider-field-label" for=滑杆>名称 <small>提示</small> <span class="slider-field-tag">cyclic</span></label>
+ *     <label class="slider-field-label" for=滑杆>名称 <small>提示</small></label>
  *     <input class="slider-field-value" type="number">  <- 精调(NumberField,类名由本件挂上)
  *     <button class="ui-button slider-field-reset">reset</button>  <- 重置(Button)
  *   </div>
@@ -68,8 +68,6 @@ export interface SliderOptions extends Omit<RangeInputOptions, 'ariaLabel'> {
     label: string;
     /** 名称后的小字提示(单位 / 说明);省略时不建那个 `<small>`. */
     hint?: string;
-    /** 循环类系数:名称后挂一枚 `cyclic` 徽章,并给根节点加 `is-cyclic`. */
-    cyclic?: boolean;
     /** 重置目标值;默认取建控件时 `value` 的值(声明值). */
     resetValue?: number;
     /** 值 -> 文本;默认 `String()`.数值框与重置按钮的标题共用同一个口径. */
@@ -135,7 +133,7 @@ export function createSlider(options: SliderOptions): SliderHandle {
         // 归一化只挂在数值框上:滑杆不会越界,再走一遍回绕反而会把"拖到 max"变成 min.
         normalize: options.normalize,
         // 可见 label 关联的是滑杆(一行里那个大热区);数值框单独命名.
-        ariaLabel: options.cyclic ? `${options.label} 数值(循环)` : `${options.label} 数值`,
+        ariaLabel: `${options.label} 数值`,
     });
     // 两个 input 的定位类名由本件挂上:RangeInput/NumberField 是裸件,外观交给复合件.
     range.element.classList.add('slider-field-range');
@@ -148,19 +146,12 @@ export function createSlider(options: SliderOptions): SliderHandle {
         ariaLabel: `重置 ${options.label} 为 ${format(resetValue)}`,
     });
 
-    // 循环参数在名字后挂一枚 `cyclic` 徽章.
-    // 名字与徽章之间那个空格只进可访问名(`<label for>` 的文本);flex 布局里
-    // 纯空白文本节点不渲染,视觉间距仍由 CSS 的 gap 给.
-    const tag = options.cyclic
-        ? create_element({ tag: 'span' }, { class: 'slider-field-tag' }, 'cyclic')
-        : null;
+    // 名称行只有两段:名字 + 可选小字提示;`hint` 省略时那个 `<small>` 不建.
     const label = create_element(
         { tag: 'label' },
         { class: 'slider-field-label' },
         options.label,
         options.hint === undefined ? null : create_element({ tag: 'small' }, {}, options.hint),
-        tag === null ? null : ' ',
-        tag,
     );
     label.htmlFor = range.input.id;
 
@@ -170,7 +161,6 @@ export function createSlider(options: SliderOptions): SliderHandle {
         range.element,
         create_element({ tag: 'div' }, { class: 'slider-field-meta' }, label, number.input, reset.element),
     );
-    if (options.cyclic) element.classList.add('is-cyclic');
 
     /**
      * 是否已停在目标值上:值取自值源,文本取自数值框.

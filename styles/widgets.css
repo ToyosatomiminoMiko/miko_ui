@@ -326,20 +326,6 @@
     white-space: nowrap;
 }
 
-/* 循环类系数:名字后那枚 `cyclic` 徽章,与消费者的"类型"标签同一套观感
-   (浅底 + 深色字,胶囊形).名字本身**不**变色:语义标记只落在徽章上. */
-.slider-field-tag {
-    flex: 0 0 auto;
-    padding: 2px 6px;
-    border-radius: var(--radius-pill);
-    background: var(--color-accent);
-    color: var(--color-badge-ink);
-    font-size: 10px;
-    line-height: 1.2;
-    text-align: center;
-    white-space: nowrap;
-}
-
 .slider-field-value {
     flex: none;
     width: var(--slider-field-value-width, 76px);
