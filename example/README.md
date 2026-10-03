@@ -93,8 +93,9 @@ CSS 导入的类型不在这里声明:库自己的 `src/css_modules.d.ts` 有一
 
 ## 子目录
 
-- **`layout/`** -- 窗口正文排布演示:三档口径(现状 / Phase 3 / Phase 4)+ 一条窗口高度滑杆,
-  并排看"唯一子节点""工具条 + 主体 + 底栏""两个普通块""两个 `.ui-fill`"在每一档下**实测**的高度
-  (被压扁 / 被拉高 / 可滚 / 越界被裁都会标红).跑法:`npm run dev` 后打开
-  <http://localhost:5173/layout/>.它只引库的样式表加**两份原型表**,库的 `src/` 与 `styles/`
-  一个字没改;细节见 [`layout/README.md`](./layout/README.md).
+- **`layout/`** -- 窗口正文排布演示:**graphcalc / 本示例里真实存在的五种正文**
+  (代码框 / 实体-求值列表 / 参数窗口 / 视图设置 / 本示例的读数窗口),每张卡片写着出处.
+  顶上一档开关在"现状(照抄今天自己写的 CSS)"与"方案(`createStack` + `createScrollArea`)"之间切,
+  卡片下面是现场量的数字(内容高 vs 可见高 / 滚不滚得动 / 行有没有被压 / 有没有被裁).
+  跑法:`npm run dev` 后打开 <http://localhost:5173/layout/>.它只引库的样式表加**两份原型表**,
+  库的 `src/` 与 `styles/` 一个字没改;细节见 [`layout/README.md`](./layout/README.md).

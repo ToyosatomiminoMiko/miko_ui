@@ -1,74 +1,67 @@
 # 窗口正文排布演示(`example/layout/`)
 
-一个**可打开,可拖着看**的演示页:把"窗口正文里怎么排"的几种写法并排摆出来,
-顶上切三档口径,拖一条窗口高度滑杆,当场看见现状哪里不对,方案改了什么.
+五张卡片 = **graphcalc / miko 示例里真实存在的五种窗口正文**(每张写着出处).
+顶上一档开关在两种写法之间切,拖窗口高度滑杆就能看见差别;卡片下面那排数字是现场量的.
 
 - 库的 `src/` 与 `styles/` **一个字没改**;
-- 页面里只有两份**原型**样式表(`phase3.css` / `phase4.css`),默认关闭,由开关打开;
-- 每张卡片下面的小标签是**现场量出来的**(实际高 vs 声明的内容高,滚不滚得了,有没有越界被裁),
-  不是写死的文案 -- 拖滑杆时它们跟着变.
+- 两份样式表都是这个演示页的**原型**,默认关闭:`now.css` 是"照抄 graphcalc / 示例今天自己写的 CSS",
+  `proto.css` 是"换成方案的两个原语";
+- 卡片里没有编出来的布局.上一版演示里那张"工具条 + 主体 + 底栏"**已删** --
+  graphcalc 六个窗口正文全是单子节点,没有这种布局.
 
 ## 怎么跑
 
-在库仓库根目录:
+库根目录:
 
 ```sh
 npm run dev          # = npm run build:dist && vite example
 ```
 
-然后打开 <http://localhost:5173/layout/>.
-
-也可以带参数直接进某一档(截图/复现用):
+打开 <http://localhost:5173/layout/>.带参数可直接进某一档(截图/复现用):
 
 ```
-http://localhost:5173/layout/?mode=current&h=263
-http://localhost:5173/layout/?mode=phase3&h=263
-http://localhost:5173/layout/?mode=phase4&h=263
+?mode=now&h=263     现状 + 窗口 263px
+?mode=next&h=100    方案 + 窗口 100px(看"窗口很矮"时的差别)
 ```
 
-## 三档口径是什么
+## 五张卡片
 
-| 档 | 打开的样式表 | 等价于 |
-| --- | --- | --- |
-| 现状 | 都不开 | 库今天的口径:`styles/desktop.css` 的 `.window-body > * { flex: 1 1 auto; min-height: 0 }` |
-| Phase 3 | `phase3.css` | 方案 4.2 的三条**显式拉伸出口** + 4.3 的 `.ui-scroll-area`(`overflow: auto`) |
-| Phase 4 | 两份都开 | 再加"直接子节点默认不拉伸"(`flex: 0 0 auto`) |
-
-两份原型表由 `main.ts` 动态 append 到 `<head>` 末尾,**必须排在库的样式之后**:
-`phase4.css` 的默认规则与库那条**同特异度**(都是 0,1,0),谁后加载谁赢
--- 这就是方案文档 4.2 讲的那条机制.写在 `index.html` 里的 `<link>` 会排在
-Vite 注入的库样式之前,反而输掉.
-
-## 四张卡片各演示什么
-
-| 卡片 | 演示 | 现状 | 方案 |
+| 卡片 | graphcalc / 示例里的出处 | 现状要写 | 方案要写 |
 | --- | --- | --- | --- |
-| ① 唯一子节点 | 编辑器 / 画布 / 单个 pane | 拉满正文 | 三档一样(回归项) |
-| ② 工具条 + 主体 + 底栏 | 最常写的三明治 | 三块按内容比例分正文:固定条被**压扁**,主体**不滚** | Phase 3 主体会滚但固定条被**拉高**;Phase 4 固定条定住,主体吃掉剩余并滚动(窗口再矮就裁掉底栏) |
-| ③ 两个普通块 | 没人声明过怎么分 | 两块被**压扁**成正文的一半左右 | Phase 4 各自保持 120px,总高超出部分**被裁** |
-| ④ 两个 `.ui-fill` | 谁吃剩余 | 按内容 40 : 200 分 | 均分(决定 D6) |
+| ① 代码框 | `appViews.ts:73-92` · `panels.css:22-27` | `.panel` 骨架 + `#editor-panel` 包一层 + 手挂 `.ui-scrollbar` | 不用改(唯一子节点由 `:only-child` 铺满) |
+| ② 实体 / 求值列表 | `appViews.ts:158-169`,`173-195` · `panels.css:78-94`,`112-144` | 4 层包裹 + 最里层 5 条 + 手挂类 | `createScrollArea({ child: createStack({ children: 条目 }) })` |
+| ③ 参数窗口 | `appViews.ts:104-114` · `panels.css:51-59` · `uiConfig.ts:162-167` | `#params-panel` 6 条 + `--params-panel-min-height` 令牌(还要 `applyUiConfig` 写 `:root`)+ 手挂类 | `createScrollArea({ minHeight: '120px', child: createStack({ gap: '10px', children: 行 }) })` |
+| ④ 视图设置 | `appViews.ts:215-218` · `panels.css:38-46` · `ViewPanel.ts:171/236/262` | `#view-controls` 8 条(一个元素同时当"滚动区 + 堆叠容器")+ 令牌 + 手挂类 | `createScrollArea({ minHeight: '120px', child: createStack({ children: [组1, 组2, 组3] }) })` |
+| ⑤ 示例读数窗口 | `example/example.css:45-51` | `.pane { justify-content: center }`(没有堆叠出口,也没有滚动出口) | `createScrollArea({ child: createStack({ gap: '12px', padding: '10px 16px' }) })` |
 
-## 现状的问题(白话)
+分组那一半不用造:④ 里的三组就是库的 `createControlGroup`(`.control-group` + `.control-title`).
 
-1. 库有一条**你没写**的规则:窗口正文的直接子节点一律被拉满,并且可以被压扁.
-   "工具条 + 主体 + 底栏"因此会被按内容比例切分,固定条被压扁;放两个普通块会各分一半.
-2. 窗口正文是 `overflow: hidden`:装不下的内容**不给你滚动条,直接裁掉**.想滚要自己
-   套 `overflow: auto`,手挂 `.ui-scrollbar`,还要沿每一层补 `min-height: 0`.
-3. 现有示例里 `.pane > button { align-self: flex-start }` 这类"反向抵消"就是这条规则的副作用
-   (按钮被拉成整行宽,只好再写一句压回去).
+## 从这五张卡片读出来的结论
 
-方案的完整口径,分期与决定见 `docs/value-text-window-layout-plan.md`(4.2 / 4.3 / 4.4 / D6).
-本目录只是那份方案的**可视化原型**,不是库的行为;真要落地按方案的 Phase 3 / Phase 4 改库.
+1. **真正缺的是"容器"那一半**:一个吃掉剩余高度,超出就滚的区,加一个按顺序堆叠的容器.
+   今天 `graphcalc` 在三处各写一遍(见上表),站点面板正文再写一遍(margin 节奏).
+2. **滚动条不该消费者手挂**:库的 `.ui-scrollbar` 是独立规定,graphcalc 手挂 14 处,站点漏挂 2 处;
+   滚动容器归库之后这件事该由库做(方案 4.5 选 A).
+3. **示例的读数窗口是个真实的小毛病**:它把读数垂直居中,窗口一矮,内容会被挤到正文顶上
+   (实测:正文 62px 时第一个读数在正文顶上方 35px,且没有滚动出口).
+4. **两个原语不需要 Phase 4 就能成立**:把 `proto.css` 里"默认不拉伸"那句注释掉再跑,
+   五张卡片的结果一字不差(出口规则特异度更高).所以方案可以先只做
+   `createStack` + `createScrollArea`,不动库的 `desktop.css`.
 
 ## 快照
 
-`shots/` 里是四种情形的截图(页面本身没改,只是固定了 `?mode=` / `?h=` 参数拍的):
+快照本身是生成物,**不保留在仓库里**(本机有清理进程会删未跟踪的图片);需要时按下表
+参数重拍即可(页面本身不用改):
 
-| 文件 | 参数 |
+| 想看的 | 参数 |
 | --- | --- |
-| `01-现状.png` | `?mode=current&h=263` -- 固定条被压扁,主体不滚 |
-| `02-Phase3-只加出口.png` | `?mode=phase3&h=263` -- 主体会滚了,但固定条被**拉高** |
-| `03-Phase4-默认不拉伸.png` | `?mode=phase4&h=263` -- 固定条定住,主体滚 |
-| `04-Phase4-窗口很矮-底栏被裁.png` | `?mode=phase4&h=100` -- Phase 4 的代价:底栏被裁 |
+| 现状,正常高度 | `?mode=now&h=263` |
+| 方案,正常高度 | `?mode=next&h=263` |
+| 现状,窗口很矮(读数够不到) | `?mode=now&h=100` |
+| 方案,窗口很矮(还能滚) | `?mode=next&h=100` |
 
-快照是生成物,删掉不影响演示;要重拍就按上表的参数跑 `?mode=&h=`.
+## 与方案文档的关系
+
+对应 `docs/value-text-window-layout-plan.md` 的 4.2 / 4.3 / 4.4.
+**但那份文档里"工具条 + 主体 + 底栏"这个例子是凭空造的**(它还把它当成 Phase 4 的理由),
+本演示页不再演示它;`Splitter` 同理(graphcalc 窗口化时把自己的分栏控制器删了).

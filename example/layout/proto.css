@@ -1,0 +1,63 @@
+/* ==========================================================================
+ * 方案原型 -- **只作用于这个演示页**,库的样式表一个字没改.
+ * --------------------------------------------------------------------------
+ * 对应 `docs/value-text-window-layout-plan.md` 4.2 / 4.3 / 4.4.这里把 Phase 3 与
+ * Phase 4 合成一份(演示里不需要分期),只包含两件事:
+ *
+ *   1. `createStack`  -> `.ui-stack`:按顺序堆叠 + 统一间距/内边距;
+ *   2. `createScrollArea` -> `.ui-scroll-area`:吃掉剩余高度,超出就滚.
+ *
+ * 为什么这份表必须排在库的样式之后:最后一条 `.ui-panel-body > *` 与库的
+ * `.window-body > *` **同特异度** (0,1,0),谁后加载谁赢 -- 本文件由 main.ts
+ * append 到 <head> 末尾,所以它赢(方案文档 4.2 讲的就是这条机制).
+ *
+ * 真正落地时:删掉库 `styles/desktop.css` 里那条通吃规则,把这三段写进
+ * `styles/widgets.css` 与新增的 `styles/layout.css`.
+ * ========================================================================== */
+
+/* 方案里这两个是库的 token(tokens.css):
+   --layout-gap / --layout-padding(方案 4.7). */
+:root {
+    --layout-gap: 8px;
+    --layout-padding: 8px;
+}
+
+/* ① 顺序堆叠:一块接一块往下排,间距统一.
+   这一件替掉 graphcalc `#view-controls` 里 display/flex-direction/gap/padding
+   那几行,以及站点面板正文靠 margin 排节奏的写法. */
+.ui-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--layout-gap);
+    padding: var(--layout-padding);
+    min-height: 0;
+    min-width: 0;
+}
+
+/* ② 滚动区:语义只有一个 -- 吃掉剩余高度,超出就滚.
+   下限(如参数窗口的 120px)走 `ScrollAreaOptions.minHeight`,不再需要
+   `--params-panel-min-height` 这类 :root 令牌.
+   滚动条外观仍只来自库的 `styles/scrollbar.css`:原语产出的元素同时挂着
+   `.ui-scrollbar`(方案 4.5 选 A),所以这里的滚动容器带两个类. */
+.ui-scroll-area {
+    overflow: auto;
+}
+
+/* 消费 `createScrollArea({ minHeight })` 的那一项:演示里用行内 `min-height` 表达
+   (见 main.ts 第 ③ 张卡片),所以这里不再需要额外的修饰类. */
+
+/* 三条**显式**拉伸出口:特异度 (0,2,0),高于库那条 (0,1,0),所以现在就生效.
+   basis 用 0:多个出口时均分剩余,不按内容比(方案 4.4 第 1 条 / 决定 D6). */
+.ui-panel-body > :only-child,
+.ui-panel-body > .ui-fill,
+.ui-panel-body > .ui-scroll-area {
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
+}
+
+/* Phase 4:默认不拉伸(直接子节点按内容高).
+   代价写在 ⑤:溢出不再被压缩,而是被裁 -- 所以滚动区必须显式声明. */
+.ui-panel-body > * {
+    flex: 0 0 auto;
+}

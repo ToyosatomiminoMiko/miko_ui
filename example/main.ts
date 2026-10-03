@@ -187,7 +187,8 @@ watchValue(menuChoice, (choice) => {
 
 const menuPane = create_element(
     { tag: 'div' },
-    { class: 'pane pane-menu' },
+    // 与其余三扇窗口同一条 `.pane`:正文按顺序从上往下堆叠,不做垂直居中.
+    { class: 'pane' },
     create_element({ tag: 'span' }, { class: 'pane-caption' }, '任意按钮触发(createMenu)'),
     create_element(
         { tag: 'div' },

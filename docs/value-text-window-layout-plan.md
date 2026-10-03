@@ -1,7 +1,8 @@
 # 数值/文本显示统一 · 窗口内布局确定:方案
 
-> 状态:**方案**(demo 阶段,未立项).本文只定"口径与接口",不产生代码改动.
-> 目标版本:`0.2.0`(**暂定**).
+> 状态:**方案**(demo 阶段,未立项).本文只定"口径与接口",**库的 `src/` 与 `styles/`
+> 不产生代码改动**;第三轮按结论改了 `example/` 的正文排布口径(见 9.10).
+> 目标版本:`0.2.0`(**暂定**;第三轮后它里面的破坏性只剩一处 -- 默认口径切档).
 >
 > **2026-10 第一轮评审**:先只审方案,不动代码;两处破坏性变更(D2 默认口径切档,
 > Phase 4 去掉正文拉伸通吃)**搁置,待消费者侧实验后再定**.
@@ -12,6 +13,7 @@
 >
 > 1. **Phase 4(去掉 `.window-body > *` 通吃)从"搁置待实验"改成可直接落地** --
 >    实测对两家现有布局**逐像素无影响**(4.2-a),而真实缺陷在别处(2.2 第 5 条);
+>    **(第三轮:后半句作废 -- 那个"真实缺陷"在真实层级里不存在,Phase 4 降级为可不做)**;
 > 2. **Phase 3(把 `.ui-panel-body` 改成列 flex)的风险被低估,收益被高估** --
 >    实测会打断面板正文的 margin 塌陷(4.6),而站点从"拉伸语义"里一分钱好处都
 >    拿不到(它的面板没有定高);建议改成 **opt-in**(7/D8);
@@ -19,6 +21,22 @@
 > 4. **初稿的两条"现状"写错了**:`formatNumber` 不是死代码(消费者在用,见 1.1),
 >    而"全库没有 `ResizeObserver`"也不成立 -- 库的编辑器层自己在用(见 1.2 与
 >    4.4 第 6 条).
+>
+> **2026-10 第三轮:布局结论已定(按两家真实结构复核 + headless 重测;可视化演示见
+> `example/layout/`)**.四条:
+>
+> - 初稿的"工具条 + 主体 + 底栏"**是凭空造的**:graphcalc 六个窗口正文全是单子节点,
+>   站点面板也没有定高,两家都没有这种布局.该形状从方案里删掉(第 8 节),**不再作为
+>   Phase 4 的理由**;
+> - **主目标 = 两个原语**:`createStack`(顺序堆叠)+ `createScrollArea`(吃剩余 + 滚).
+>   理由是同一段容器 CSS 在 graphcalc 三处 + 站点面板各写一遍(2.2 第 3 条);
+> - **Phase 4(默认不拉伸)降级为"可不做"**:真实元素上逐像素无差别,而且两个原语
+>   **不依赖它**(显式出口特异度更高).见 4.2-b,第 6 节,D13;
+> - **2.2 第 5 条与验收 9 作废**:`.process-header` / `.process-truncated` 在真实层级里
+>   根本吃不到 `.window-body > *`.顺带把示例的"垂直居中"这个真毛病改掉了(9.10).
+>
+> 另:下面的行号按写入时的 HEAD(commit `32d9f3b`);此后源码又动过一轮
+> (`d2134b1` 等),引用请以内容和符号名为准.已核对过的计数差异见 1.1 的脚注.
 >
 > 前置阅读:`README.md` 的「公开面」「三条设计约束」「边界契约」;
 > `src/shared/numberText.ts`;`styles/desktop.css` 的 `.window-body` 一节;
@@ -36,9 +54,12 @@
 - 数值/文本:一个可配置的**策略对象**(`ValueText<T>`)负责"值 ↔ 文本",
   编辑态与显示态各自一个预置,新增只读显示件 `createValueDisplay` /
   `createReadoutRow`;
-- 窗口内布局:正文的**默认排布规则写死**(不拉伸,除非显式声明),
-  外加一层布局原语(`createStack` / `createScrollArea` / `createSplitter`),
-  让"哪块固定,哪块吃掉剩余,哪块滚"从"消费者的约定"变成"库的契约".
+- 窗口内布局:**先给两个布局原语** -- `createStack`(按顺序堆叠,替掉消费者各写一遍的
+  `display:flex; flex-direction:column; gap` / margin 节奏)与 `createScrollArea`
+  (吃掉剩余高度,超出就滚,自带 `.ui-scrollbar`;可选 `minHeight` 下限);
+  "正文默认排布规则是否改写"(Phase 4)按第三轮结论**降级为可不做**,
+  `createSplitter` 按 D7 无限延后.目标是让"哪块吃掉剩余,哪块滚,东西按什么顺序摞"
+  从"消费者的约定"变成"库的契约".
 
 ## 1. 现状(事实清单)
 
@@ -83,14 +104,16 @@
 | `src/editor/EditorLineNumbers.ts:106` | `String(i)` | 行号是整数,不受影响 |
 
 **消费者侧实测(2026-10)**:数值->文本口径在 graphcalc 里是 **6 套并行**
---库的 `formatNumber`/`formatVector` 只覆盖其中 2 个文件 8 处
-(`adapters/entityText.ts:53-62`,`ui/evaluation/integralItem.ts:245`),另外 5 套是
+--库的 `formatNumber`/`formatVector` 只覆盖其中 2 个文件 **12 个调用点**(第三轮复核:
+`adapters/entityText.ts:53-62` 11 处 + `ui/evaluation/integralItem.ts:245` 1 处;初稿写
+"8 处",按行算才是 6 行),另外 5 套是
 `String(Number(toFixed(4)))`(`ui/view/ViewPanel.ts:66`),LaTeX 版
 (`math/latexNumber.ts:14-30`,注释自陈"与库的 `formatNumber` 同一档位"),
 不舍入的直出(`compiler/dsl/latex.ts:20-27`),刻度版
 (`render/core/tickLabel.ts:42`),以及 `${name}=${value}` 的裸拼
-(`ui/process/ProcessPanel.ts:47-51`).站点侧只有两处格式化,其中一处正是为了躲
-浮点尾巴而写的 `toFixed(2)`(`setting/page_opacity.ts:40-47`).
+(`ui/process/ProcessPanel.ts:47-51`).站点**主站**侧只有两处格式化,其中一处正是为了躲
+浮点尾巴而写的 `toFixed(2)`(`setting/page_opacity.ts:40-47`);整仓还有
+`src/4xx_page/451/ember/stats.ts:153-162` 的 5 处 `toFixed`(独立页的 HUD,不算主站口径).
 
 **所以要修正初稿的一句话**:`formatNumber` 确实是**库内零引用**,但**不是死代码**
 --graphcalc 引它,且另外几处是在"重新实现同一档位".消费者侧缺的不是这个函数,
@@ -149,26 +172,35 @@
 
 1. **`.window-body > *` 是通吃规则**.它同时表达了三件事:拉伸,给 `min-height:0`,
    隐式等分(多个直接子节点各拿 1 份 `flex-grow`).三件事都不该是默认值:
-   - 放两个 `<div>` 就直接对半分高,这从来没人声明过;
-   - 按钮被拉成整行宽(`example` 只好反向抵消);
-   - 想"上面一条工具条,下面吃掉剩余",得先知道这条规则存在.
+   - 放两个 `<div>` 就直接对半分高/按内容比压缩,这从来没人声明过(两家现有布局都是
+     单子节点,所以这条今天没人踩到,但它是一条**没有出口**的隐式约定);
+   - 按钮被拉成整行宽(`example` 只好反向抵消 -- 见 `example.css` 的 `.pane > button`);
+   - 顺带一提,库给的那条 `flex: 1 1 auto` 正是 graphcalc 单子节点窗口**今天**能铺满的
+     原因(`css/panels.css:19-21` 的注释明写"不要再写一遍").所以换掉它必须让
+     `:only-child` 顶上来 -- 这也是 Phase 4 只能"单独决策,可以往后放"的原因(4.2).
 2. **"正文里怎么排"没有库内契约**.graphcalc 为此写了一份注释当契约
    (`css/panels.css:19-21`:不要再写 `flex`),站点则发明了自己的节奏(`<br>` +
    `margin` + `gap`).同一件事两种做法,都不是库定的.
-3. **滚动没有出口**.正文是 `overflow:hidden`;要滚动,消费者得自己套一层
-   `overflow:auto` + 手挂 `.ui-scrollbar` + 在每一层上写 `min-height:0`
-   (漏一层就是"滚不动"或"被压扁").实测两家合计:**手挂 14 + 1 处,漏挂 2 处**
-   (1.0 表).
+3. **滚动没有出口,而且每个窗口都要重来一遍**.正文是 `overflow:hidden`;要滚动,消费者
+   得自己套一层 `overflow:auto` + 手挂 `.ui-scrollbar` + 在每一层上写 `min-height:0`
+   (漏一层就是"滚不动"或"被压扁").实测两家合计:**手挂 14 + 1 处,漏挂 2 处**(1.0 表).
+   更要紧的是这段 CSS 是同一件事抄三遍:graphcalc 的 `#view-controls`(8 条),
+   `#params-panel`(6 条 + 一个 `:root` 令牌),`.object-list-body`(5 条 + 4 层包裹),
+   站点面板正文再用 margin 排一遍 -- **这就是"主目标是两个原语"的理由**(第三轮).
 4. **定高内容的下限没有出口**.graphcalc 要"窗口被拖到太矮时,内容先压到 120px,
    再自己出滚动条,而不是把窗口撑破"(`css/panels.css:33-37`,`uiConfig.ts:158-161`).
    它现在的实现是**直接对抗**库的 `min-height:0`:自己定义两个 `min-height` 令牌,
    经 `applyUiConfig()` 写进 `:root`(见 4.3 的接口缺口).
-5. **"固定栏"今天并不固定(实测出来的真实缺陷)**.`flex: 0 0 auto` 在 graphcalc 的
-   全部应用 CSS 里只有 3 处,且都在行内小件上;`process` 窗口的 `.process-header`
-   与 `.process-truncated` **没有任何不可压缩保证**.headless Chromium 量下来
-   (4.2-b):正文高 263px 时装一条 40px 的固定块,它会被压成 **23.9px** -- 该固定的
-   被压扁,该滚的中段反而先保住空间.这条比"默认值不好看"硬得多,是 Phase 4 的
-   真正理由.
+5. ~~"固定栏"今天并不固定(初稿的 Phase 4 唯一硬理由)-- **2026-10 第三轮作废**~~.
+   初稿拿"正文高 263px 里塞 400px + 40px 两块"的**合成块**当证据,推出 `.process-header`
+   被压成 23.9px -- 在真实层级里不成立:那两个"固定栏"是窗口正文的**孙节点**
+   (`.window-body > .right-page > .process-panel > header`),`.window-body > *` 根本吃不到
+   它们;它们在 `.process-panel` 里是 `min-height:auto`(内容下限),而
+   `.process-steps`(`flex:1 1 auto; min-height:0`)先吸收全部收缩.
+   实测(真实结构 + graphcalc 真实 CSS,9 个窗口高 480->120px):`.process-header` 恒
+   **99px**,`.process-truncated` 恒 **29px**,`.process-steps` 始终可滚,现状与
+   "Phase 4 之后"**逐像素相同**.所以"该固定的被压扁"这个真实缺陷不存在,Phase 4 只能
+   算契约澄清(4.2-b,D13).
 6. **站点侧会为"面板正文改列 flex"付出代价(实测)**.站点 5 块面板的正文靠
    `margin` 间隔;改成列 flex 后 margin 不再塌陷,SETTING 页的组间距从 16px 变成
    26px(4.6).而它从"拉伸语义"里拿不到任何好处 -- 它的面板没有定高.
@@ -388,37 +420,43 @@ export function createReadoutRow<T>(
 ```text
    ③ 尺寸口径   --window-body-width / -height(JS 写的派生量)+ onGeometryChange
    ────────────────────────────────────────────────────────────────
-   ② 布局原语   createStack / createScrollArea / createSplitter(显式声明)
+   ② 布局原语   createStack / createScrollArea(本期;Splitter 按 D7 无限延后)
    ────────────────────────────────────────────────────────────────
-   ① 正文默认   不拉伸(按内容高),唯一子节点拉满,溢出裁切
+   ① 正文默认   唯一子节点拉满;直接子节点不拉伸 / 溢出裁切 = Phase 4,**可不做**
 ```
 
 原则:**默认值是确定的,拉伸是显式的**.现在正好相反.
 
-### 4.2 ① 正文默认口径:把通吃规则换成"默认不拉伸 + 显式拉伸"
+> **第三轮**:①②两层的分工变了 -- **②是主目标**(顺序堆叠 + 滚动出口),
+> ①是可选的契约澄清,而且两个原语不依赖 ①(见 4.2-b / D13).所以本期只落 ②.
+
+### 4.2 ① 正文默认口径:先落"显式拉伸";默认值是否改写另议(Phase 4 可不做)
 
 **先说实测(2026-10,headless Chromium 154,对库真实样式表,未改任何仓库)**.
 
 **a. 去掉通吃规则,对两家现有布局是 no-op** -- 两家窗口正文全是单子节点
-(graphcalc 6/6,示例 3/3),`:only-child` 兜住了:
+(graphcalc 6/6,示例 4/4),`:only-child` 兜住了:
 
 | 场景 | 现状(`1 1 auto`) | 方案(`0 0 auto` + `:only-child{flex:1 1 0}`) |
 | --- | --- | --- |
 | 单子节点,内容矮 | child **263.0** | child **263.0** |
 | 单子节点,内容 500px 超高 | child **263.0** | child **263.0** |
 
-**b. "压扁 vs 裁切"的差别是真的**(正文高 263px,里面放 400px + 40px 两块):
+**b. 真实元素上的复测(第三轮,推翻初稿的外推)**:graphcalc `process` 窗口的真实层级
+(`window-body > .right-page > .process-panel > header + steps + truncated`,真实 CSS)在
+9 个窗口高(480 / 400 / 340 / 300 / 263 / 240 / 200 / 160 / 120px)下,`.process-header`
+恒 **99px**,`.process-truncated` 恒 **29px**,`.process-steps` 始终可滚 -- 现状与
+"Phase 4 之后"**逐像素相同**(原因见 2.2 第 5 条:那两个"固定栏"是孙节点,
+`.window-body > *` 吃不到).
 
-| | 现状 | 方案 |
-| --- | --- | --- |
-| 第一块(内容 400) | 压成 **239.1** | 保持 **400** |
-| 第二块(内容 40) | 压成 **23.9** | 保持 **40** |
-| 第二块是否可见 | 可见 | **被 `overflow:hidden` 裁掉** |
+初稿那张"239.1 / 23.9"的表是**合成块**测的(两块直接放进窗口正文,才吃得到通吃规则);
+那个场景两家消费者都没有,已作废.同一份合成结构换个层级就复现不出来,这也是
+"抽象地造形状"的代价.
 
-即:现状会把一条 40px 的固定条压成 24px;方案保留尺寸但**静默裁掉溢出** --
-所以"默认确定"必须配"显式滚动区",这正是 4.4 第 3 条.换句话说,**Phase 4 不是
-审美调整,它修的是 2.2 第 5 条那个真实缺陷**(graphcalc `process` 窗口的固定栏今天
-会被压扁).
+**所以 Phase 4 的定位要改**:它不是"修一个真实缺陷",而是"把'唯一子节点铺满,其余按内容高'
+从一条巧合的默认值写成契约".而三条显式出口(`:only-child` / `.ui-fill` / `.ui-scroll-area`)
+**不依赖它**就能生效(第三轮实测:把 4.2 下面那条 `> *` 注释掉重跑,五张真实结构的卡片
+结果一字不差).结论:**Phase 3 先做,Phase 4 可不做**(第 6 节,D13).
 
 契约写在**面板正文这一层**(窗口复用面板,见 4.6):
 
@@ -431,14 +469,16 @@ export function createReadoutRow<T>(
 }
 
 /* 直接子节点默认**按内容高排**:不拉伸,也不被压扁.
+   **这一条是 Phase 4 的可选部分(第三轮降级为可不做)**:下面的显式出口不依赖它.
    为什么不留 CSS 默认的 `0 1 auto`:它允许压缩 -- 内容比正文高时会被压扁
    而不是被裁掉(画布/图片尤其明显).`0 0 auto` 让溢出表现为裁切,与
    `.window-body` 的 `overflow:hidden` 一致,也让"确定"有个唯一答案. */
 .ui-panel-body > * { flex: 0 0 auto; }
 
-/* 两条显式拉伸出口(特异度 0,2,0 > 上面那条 0,1,0,顺序无关):
+/* 三条显式拉伸出口(特异度 0,2,0 > 上面那条 0,1,0,顺序无关)**是 Phase 3 的全部**:
    - 唯一子节点:编辑器 / 画布 / 单个 pane 占满正文这个常见情形;
-   - .ui-fill:多个区域里明确声明"这块吃掉剩余".
+   - .ui-fill:多个区域里明确声明"这块吃掉剩余";
+   - .ui-scroll-area:显式滚动区(语义见 4.3).
    basis 用 0 而不是 auto:多个 fill 时**均分**剩余高度,不按内容比(见 4.4 第 1 条). */
 .ui-panel-body > :only-child,
 .ui-panel-body > .ui-fill,
@@ -448,8 +488,15 @@ export function createReadoutRow<T>(
     min-width: 0;
 }
 
-/* styles/desktop.css:窗口只是覆盖面板的 padding 与溢出 */
+/* styles/desktop.css:窗口正文自己要是**列 flex**(窗口这一半照旧,见 4.6/D8-A),
+   相对面板的差异只有 padding 与 overflow.`flex: 1 1 auto; min-height: 0`
+   由上面的 `.ui-panel-body` 给,这里不抄第二份(graphcalc `panels.css:19-21` 的
+   同一条教训).
+   **注意**:Phase 4 删的是 `.window-body > *` 那条通吃规则,不是下面这一段 --
+   `display` / `flex-direction` 必须留着,漏一条窗口正文就塌成内容高. */
 .window > .window-body {
+    display: flex;
+    flex-direction: column;
     padding: 0;
     overflow: hidden;
 }
@@ -479,9 +526,9 @@ export function createReadoutRow<T>(
 `.window-body > * { flex: 1 1 auto }` 的 `(0,1,0)`,所以布局原语在 Phase 3
 就能直接生效,不必等 Phase 4.而"默认不拉伸"那条与旧规则**同特异度**,谁赢由
 `styles.css` 的导入顺序决定(桌面在后 -> 旧规则赢),所以它只能和"删掉旧规则"
-一起做 -- 这就是 Phase 4 存在的原因.
+一起做 -- 这也是 Phase 4 必须单独立项,也因此可以一直往后放的原因.
 
-### 4.3 ② 布局原语(三个,不多不少)
+### 4.3 ② 布局原语(本期两个:Stack + ScrollArea;Splitter 见 D7)
 
 ```ts
 // src/layout/Stack.ts
@@ -577,13 +624,16 @@ export function createSplitter(options: SplitterOptions): {
 
 ### 4.4 确定的六条不变量(写成契约,不是注释)
 
+> **第三轮注**:六条是**目标契约**.其中第 1 条"直接子节点不拉伸"依赖 Phase 4,
+> 已降级为可不做;其余五条在 Phase 3(两个布局原语 + 三条显式出口)就成立.
+
 1. **直接子节点不拉伸**;只有 `.ui-fill` / `:only-child` / 布局原语自己声明的
    `fill` 拉满.多个 fill 用 `flex: 1 1 0`,**均分**剩余高度(不是按内容比).
-2. **分配顺序 = DOM 顺序**:固定的头/工具条在上,吃掉剩余的在中,固定的尾在下;
+2. **分配顺序 = DOM 顺序**:先出现的在上,吃掉剩余的在中,收尾的在下;
    库不提供 `order` 之类的视觉错位.
 3. **溢出只发生在显式声明的滚动区**;`.window-body` 自身 `overflow:hidden`,
-   裁切而不是压缩(所以子节点是 `0 0 auto`).实测见 4.2-b:**溢出会被静默裁掉**,
-   这正是"必须显式声明滚动区"的代价与理由.
+   裁切而不是压缩(所以子节点是 `0 0 auto` -- 这一半是 Phase 4 的可选部分).
+   实测见 4.2-b:**溢出会被静默裁掉**,这正是"必须显式声明滚动区"的代价与理由.
 4. **滚动区必须整体滚**:`createScrollArea` 产出的容器同时带 `ui-scroll-area` 与
    `ui-scrollbar`(见 4.5 的决定),它的 `min-height` 由原语自己写,消费者不必
    再沿链补.
@@ -601,8 +651,8 @@ export function createSplitter(options: SplitterOptions): {
    的一部分,不是"库不许用 `ResizeObserver`".
    **初稿在这里写错了**(2026-10 更正):原文说"不引 `ResizeObserver`(与「不用批处理,
    不引调度器」同一条约束,也是 900 行 DOM 桩还能用的前提)"-- 三条都不成立:
-   - 库**已经在用** `ResizeObserver`:`EditorHighlight.ts:89` 与
-     `EditorLineNumbers.ts:90`(理由写在 `EditorHighlight.ts:85-88`:面板折叠/拖宽
+   - 库**已经在用** `ResizeObserver`:`EditorHighlight.ts:87` 与
+     `EditorLineNumbers.ts:87`(理由写在 `EditorHighlight.ts:85-88`:面板折叠/拖宽
      会改变编辑器尺寸,滚动位置可能被浏览器夹回去,而且**不一定补发 `scroll`
      事件**);
    - 它**不影响**测试:`src/testing/domStub.ts:681` 的 `StubResizeObserver` 提供了
@@ -688,6 +738,12 @@ A 方案直接消灭这 17 个点.
 应用窗口名令牌(库内零引用,只服务 graphcalc),已退回应用.判据很硬:**库的样式表
 里有没有 `var()` 读它?** 没有就别加.建议在库侧补一条机器守卫(第 5 节).
 
+**第三轮给这条判据加个限定**:它只适用于**尺寸类** token -- 库里有 17 个配色/字体
+token(`--color-bg-app` / `--color-syntax-*` / `--katex-font-size` ...)在库内一次
+`var()` 都没被读到,却正是**给消费者的主题面**(`--katex-font-size` 只被 graphcalc 的
+`css/process.css` 读).照字面做成守卫会把它们全判违规,所以守卫要写成"被库的样式读
+**或**被 JS/消费者读",并且只对尺寸类生效.
+
 ### 4.8 新样式表的分发三门(2026-10 新增)
 
 `styles/layout.css` 是新的一份分组入口,它要过三道门,漏一道就是"库改了但消费侧
@@ -715,14 +771,15 @@ graphcalc 引的是聚合入口 `miko_ui/styles.css`,所以第 1 门过了它就
 | `src/index.ts` | 补导出(`ValueDisplay`,布局组) | 1 / 3 |
 | `src/layout/Stack.ts` / `ScrollArea.ts` / `splitterGeometry.ts` / `Splitter.ts` | 新增布局组(三个原语都要 `class` 出口;`ScrollArea` 要 `minHeight`) | 3 / 5 |
 | `styles/layout.css` + `styles/styles.css` + `package.json` 的 `exports` | 新增 `./styles/layout.css` 并挂进总入口(4.8 第 1 门) | 3 |
-| `styles/desktop.css` | 删掉 `> *` 通吃;窗口正文只留 `padding:0` + `overflow:hidden` | 4 |
+| `styles/desktop.css` | **(Phase 4,已降级为可不做)** 删掉 `.window-body > *` 通吃规则.注意 `.window > .window-body` 自己那几条(`display:flex` / `flex-direction:column` / `flex:1 1 auto` / `min-height:0`)**必须保留** -- 它们才是窗口正文的列 flex;相对面板的差异只剩 `padding:0` 与 `overflow:hidden` | 4(可不做) |
 | `styles/tokens.css` | 三个 `--layout-*`;**已清出两个消费者域名令牌(2026-10)** | 3 / 已完成 |
 | `src/theme/tokens.ts` | 同步删掉那两个令牌的 JS 镜像 | 已完成 |
 | `src/theme/tokens.test.ts`(或新 `test/tokensContract.test.ts`) | **守卫**:`tokens.css` 的 CSS 兜底值 ↔ `DEFAULT_DESKTOP_CONFIG` 逐条同值(2026-10 起直接读 CSS 文本);库 token 名里不出现消费者域名(至少禁止已知应用词).原"与 `DEFAULT_THEME_TOKENS` 键集合一致"一项随那层 JS 镜像删除而作废(见 4.7 的收敛记录) | 3 / 部分已完成 |
 | `test/emittedClasses.test.ts` | 不加白名单(新类全部有真规则);若采用 4.5-A 则加正向断言 | 3 |
 | `test/layoutStyles.test.ts`(新) | 解析 CSS 文本守 4.2 / 4.4 的形式断言 | 3 |
 | `test/scrollbarStyles.test.ts` | 按 4.5 的决定改注释并加断言 | 3 |
-| `example/main.ts` / `example/example.css` | 读数改用 `createReadoutRow`,正文改用 `createStack`;删掉自写的 `.readout*` 与 `.pane` | 1 / 3 |
+| `example/main.ts` / `example/example.css` | **已做(第三轮)**:窗口正文口径改成"按顺序从上往下堆叠" -- `.pane` 去掉 `justify-content:center`,删掉多余的 `.pane-menu`;读数字形与 `.readout*` 暂留.**待 Phase 1/3**:读数改用 `createReadoutRow`,正文改用 `createStack`,再把 `.readout*` 与 `.pane` 删掉 | 第三轮 / 1 / 3 |
+| `example/layout/`(新) | **已做(第三轮)**:五张**真实结构**卡片(代码框 / 实体-求值列表 / 参数窗口 / 视图设置 / 示例读数窗口)+ "现状 / 方案"开关 + 现场实测标签.不是库的一部分,不进 npm 包;`package.json` 的 `files` 不含 `example/`,所以不用改分发 | 第三轮 |
 | **`miko_graphcalc` `src/config/styleLayers.test.ts` / `cssPalette.test.ts`** | 库新增样式表时**必须**把 `./styles/layout.css` 补进两份 LIB_CSS 列表(4.8 第 2 门) | 3 |
 | **`Toyosatomimiko.github.io` `src/main.ts`** | 逐份 import 库样式表,新增 `styles/layout.css` 要显式加一行(4.8 第 3 门) | 3 |
 | **`miko_graphcalc` `css/panels.css`** | 走 D8-A 则零改动;走 D8-B 则把 `.diagnostic-list` 等 margin/百分比间距改到新原语 | 3 |
@@ -732,8 +789,9 @@ graphcalc 引的是聚合入口 `miko_ui/styles.css`,所以第 1 门过了它就
 
 ## 6. 分期与发布
 
-两处破坏性变更(默认口径切档,去掉 `> *` 通吃)**合并成一次 `0.2.0`**,
-但先让非破坏性的脚手架先上线,消费者先吃一层,破坏性那一步才没有回头路.
+两处破坏性变更(默认口径切档,去掉 `> *` 通吃)**第三轮后只剩一处**:默认口径切档.
+Phase 4 那些"去掉通吃"的改动已降级为可不做(真实元素上无差别,原语也不依赖它),
+所以 `0.2.0` 只带 Phase 2 这一处破坏性改动;Phase 4 将来真要做,单独发一次 minor.
 **2026-10 的实测把 Phase 3 与 Phase 4 的位置对调了**:
 
 | Phase | 内容 | 破坏性 | 闸门 |
@@ -741,8 +799,8 @@ graphcalc 引的是聚合入口 `miko_ui/styles.css`,所以第 1 门过了它就
 | 0 | 口径层(策略工厂 + 预置 + parse + `syntax` + 单测) | 无(纯新增/等价重写) | `npm run build` |
 | 1 | 显示件 + 样式 + `text?` 选项 + 示例改用显示件 | 无(默认仍 `String`) | `npm run build` + 示例目视 |
 | 2 | 默认口径切到 `NUMBER_TEXT_EDIT` / `NUMBER_TEXT_DISPLAY` | **有**(默认文本变化) | 消费者同步改;`RELEASING.md` 顺序:先发库 |
-| 3 | 布局原语(Stack / ScrollArea / tokens / layout.css)+ 三条**显式拉伸**出口 + CSS 契约测试 + **4.8 的三门** | 面板正文排布**可选**(D8-A 则无) | 示例目视 + 契约测试 + **站点 `npm run smoke:home`** |
-| 4 | 加"直接子节点不拉伸"默认并删掉旧 `.window-body > *` 通吃 | **有**(多子节点不再等分/拉伸),但**实测对两家现有布局零影响**(4.2-a) | 示例目视 + graphcalc 目视(`process` 窗口拖矮时固定栏不再被压扁) |
+| 3 | **两个布局原语**(`createStack` / `createScrollArea`)+ tokens + `layout.css` + 三条**显式拉伸**出口 + CSS 契约测试 + **4.8 的三门** | 面板正文排布**可选**(D8-A 则无) | 示例目视 + 契约测试 + **站点 `npm run smoke:home`**(走 D8-B 前先补组间距断言,见 9.5) |
+| 4 | **不做(第三轮降级为可不做)**:加"直接子节点不拉伸"默认并删掉旧 `.window-body > *` 通吃 | 若做则**有**(多子节点不再等分/拉伸),但实测对两家现有布局**逐像素零影响**(4.2-a/b),且两个原语不依赖它 | 真要做:先按 4.2-b 的真实结构复测 + 一次 minor + 回归证据 |
 | 5 | `Splitter`(带键盘与拖拽) | 无(新增) | **需求不足,见 7/D7;可无限延后** |
 
 **发布顺序(2026-10 更正)**:初稿写"库先推 `main` 出滚动资产,两个应用仓库再
@@ -776,13 +834,19 @@ graphcalc 引的是聚合入口 `miko_ui/styles.css`,所以第 1 门过了它就
 | D10 | `ValueText` 是否拆出 `syntax` 轴 | **建议拆**(3.2):同一个档位要服务纯文本 / LaTeX / 编辑三种语法,graphcalc 已经为 LaTeX 重抄了一遍档位 |
 | D11 | 是否新增 `createStage`(定尺寸媒体槽) | **待议,优先级高于 Splitter**:站点 OLED 定死 1024x512,RBT 只有 1200x640 属性(CSS 零规则,窄视口被 `body{overflow-x:hidden}` 直接裁掉),而 metro_window 自己实现了整套 `ResizeObserver` + 150ms 防抖 + `dpr` 追猎 + 16:9 cover 后备缓冲.这是三家(含 451)各写一遍的东西 |
 | D12 | 面板的尺寸变化出口 | **本方案不提供**(4.4 第 6 条的缺口):`onGeometryChange` 只服务窗口,面板没有 id 可订阅.站点只能自己 `ResizeObserver`.要不要给面板一条出口,列进下一轮 |
+| D13 | Phase 4(`.ui-panel-body > * { flex: 0 0 auto }`)是否落地 | **可不做 / 延后**(第三轮):真实元素上逐像素无差别(4.2-b),两个原语不依赖它(4.2);它的价值只是把"唯一子节点铺满,其余按内容高"写进契约,代价却是改库的默认语义 + 一次破坏性发版.要做时先补真实结构回归证据 |
 
 ## 8. 不做的事(明确划出去)
 
+- **不做"工具条 + 主体 + 底栏"这种形状**(第三轮):初稿拿它当 Phase 4 的唯一理由,
+  但 graphcalc 六个窗口正文全是**单子节点**,站点面板也没有定高,两家都没有这种布局.
+  没有消费者的形状不写进契约;真出现了就用 `createStack` + `createScrollArea` 拼,
+  不需要为它新增原语.
 - **布局原语不做 JS 测量排版**:原语与窗口正文的排布靠纯 CSS 表达,尺寸变化用
   `onGeometryChange`(第 4.4 第 6 条).**不是**"库不许用 `ResizeObserver`" --
   库的编辑器层已经在用(2 处),测试桩里有替身;消费者侧本来也在用
-  (graphcalc 的 `RenderController` 1 处,站点 2 处,另有库编辑器层自带的 2 处).
+  (graphcalc 的 `RenderController` 1 处,站点 2 处:`metro_window/src/metro_window.ts:337`
+  与 `451/ember/index.ts:323`,另有库编辑器层自带的 2 处).
 - **不加运行时依赖**:没有 CSS-in-JS,没有 `Intl` 数据包,`katex` 仍是唯一 peer.
 - **不在库里放消费者域名的东西**(token 名,窗口名,面板名).**2026-10 已清理**
   两个令牌;判据:**库的样式表里有没有 `var()` 读它?** 没有就不许加,并补机器守卫
@@ -815,14 +879,22 @@ graphcalc 引的是聚合入口 `miko_ui/styles.css`,所以第 1 门过了它就
 4. `npm test` 的 `emittedClasses` 不需要为新类扩白名单;`tokensContract` 守住
    "库 token 里没有消费者域名".
 5. **布局的验收闸门是站点的真浏览器冒烟,不是库的示例目视**:
-   `ToyosatomimikoMiko.github.io` 的 `npm run smoke:home`(headless Chromium,已在
-   断言 `#setting .ui-panel-body > fieldset.setting-group` 的数量与布局)必须全绿.
+   `ToyosatomimikoMiko.github.io` 的 `npm run smoke:home`(headless Chromium,现 60 项)
+   必须全绿 -- 它已经在断言 `#setting .ui-panel-body > fieldset.setting-group` 数量=3,
+   `.bgrow` 的 gap 等.但**第三轮核对出一条缺口:它没有任何"组间距"断言**,所以 D8-B 那条
+   16->26 的回归它抓不到;走 D8-B 之前必须先补一条间距断言(加在 4.6 那个位置).
    理由:面板正文的 margin/`<br>` 节奏只有站点有,库的示例抓不到(4.6 实测).
-6. 示例里出现一个窗口:固定工具条 + `fill` 主体 + 滚动区 + `Splitter`,
-   窗口被拖到任意小尺寸时,固定条不被压扁,滚动区出现滚动条,没有任何内容越界.
-   -- **`Splitter` 那一项按 D7 降级后,改为"固定工具条 + fill 主体 + 滚动区"**.
+6. 示例里出现一个窗口:**一个显式滚动区 + 顺序堆叠的分组**(形状照 graphcalc 的"视图设置"
+   窗口),窗口被拖到任意小尺寸时行高不变,滚动区出现滚动条,没有任何内容越界.
+   -- 初稿那句"固定工具条 + `fill` 主体 + 滚动区 + `Splitter`"里的固定条与 `Splitter`
+   都已删(第 8 节 / D7);要看的形状见 `example/layout/` 的五张卡片.
 7. `example/example.css` 里不再有 `.readout*` 与 `.pane`(全部由库的原语承担).
 8. 示例的"读数"窗口:拖滑杆时数字不跳字(`tabular-nums`),`title` 里是全精度值.
-9. **graphcalc 侧的回归项(实测出来的真实缺陷)**:`process` 窗口拖到很矮时,
-   `.process-header` 与 `.process-truncated` 不再被压扁(Phase 4 之后),
-   `.process-steps` 仍然滚.
+9. ~~**graphcalc 侧的回归项(实测出来的真实缺陷)**~~ **作废(第三轮)**:该"缺陷"在真实
+   层级里不存在 -- `.process-header` / `.process-truncated` 是窗口正文的**孙节点**,
+   吃不到 `.window-body > *`;9 个窗口高实测恒为 **99px / 29px**,Phase 4 前后逐像素相同
+   (2.2 第 5 条,4.2-b).
+10. **示例的正文口径(第三轮已改,可当场验收)**:`example/example.css` 的 `.pane` 不再有
+    `justify-content: center`,四扇窗口一律按顺序从上往下堆叠;把读数窗口拖矮,内容从顶部
+    开始,不再被挤到正文顶上(改之前:正文 62px 时第一个读数在正文顶上方 35px).
+    原语落地后,这里的 `.pane` 与 `.readout*` 再换成 `createStack` / `createReadoutRow`.

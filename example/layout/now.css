@@ -1,0 +1,103 @@
+/* ==========================================================================
+ * 现状档要打开的样式表:**照抄 graphcalc / miko 示例今天自己写的那几条**.
+ * --------------------------------------------------------------------------
+ * 只在"现状"档打开.它代表"库不给容器原语时,消费者必须自己写的东西" --
+ * 每一条都标了出处,数值与出处逐字一致(不是演示编的).
+ *
+ * 与库的关系:库的 `styles/desktop.css` 仍然在生效(窗口正文是列 flex +
+ * `overflow: hidden`,直接子节点被 `.window-body > *` 拉满),这一份是消费者
+ * 在这一层之上补的排布.
+ * ========================================================================== */
+
+/* ③ 参数窗口的下限令牌.方案里它由 `ScrollAreaOptions.minHeight` 取代;
+   今天它来自 UI_CONFIG,经 applyUiConfig 写进 :root
+   (graphcalc src/config/uiConfig.ts:162-167 / src/app/applyUiConfig.ts:37-38). */
+:root {
+    --now-panel-min-height: 120px;
+}
+
+/* ① 源码窗口:graphcalc css/panels.css:22-27(刻意不写 flex:1 1 auto) */
+.now-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.now-editor {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* ② 实体 / 求值列表:graphcalc css/panels.css:78-94 + 112-144(四层) */
+.now-object-panel-column {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.now-object-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    overflow: hidden;
+}
+
+.now-object-list-column {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.now-object-list-body {
+    flex: 1;
+    min-height: 0;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+}
+
+/* ③ 参数窗口:graphcalc css/panels.css:51-59(整块滚 + 每行固定高) */
+.now-right-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.now-params-panel {
+    flex: 1 1 auto;
+    min-height: var(--now-panel-min-height);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+/* ④ 视图设置:graphcalc css/panels.css:38-46.
+   注意它**一个元素干两件事**:既是滚动区,又是那摞分组的堆叠容器. */
+.now-view-controls {
+    flex: 1 1 auto;
+    min-height: var(--now-panel-min-height);
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ⑤ miko 示例的读数窗口:example/example.css:45-51.
+   `justify-content: center` 就是"没有堆叠出口时拿居中等价"的那一下. */
+.now-pane {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 16px;
+}

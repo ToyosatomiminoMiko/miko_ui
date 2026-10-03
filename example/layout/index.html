@@ -4,40 +4,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>窗口正文里怎么排 · miko_ui 演示</title>
-    <!--
-      样式表由 main.ts 引:库的 miko_ui/styles.css(现状,一个字没改)+ 本页的 demo.css
-      + 两份**方案原型**表(phase3.css / phase4.css,由开关控制 disabled).
-      原型表必须排在库的样式之后:它们与库的 `.window-body > *` 同特异度时靠文档顺序取胜,
-      写在 HTML 里会排在 Vite 注入的库样式之前 -- 见 main.ts 的 addProtoSheet 注释.
-    -->
+    <title>窗口正文里怎么排 · 按 graphcalc/示例的真实结构</title>
 </head>
 
 <body>
     <div class="page">
         <h1>窗口正文里怎么排</h1>
         <p class="lead">
-            每张卡片是一扇真窗口,外观全部来自库的 <code>.window / .window-header / .window-body</code>.
-            顶上切三档口径,拖一条高度滑杆,就能看见<b>库里今天那条你看不见的规则</b>干了什么,
-            以及方案要把它换成什么.
+            五张卡片 = <b>graphcalc / miko 示例里真实存在的五种正文</b>(每张都写出处).
+            顶上切两档:<b>现状</b>照抄它们今天自己写的那几行 CSS,<b>方案</b>换成库的两个原语
+            <code>createStack</code> / <code>createScrollArea</code>.右边挂着窗口高度滑杆,
+            每张卡片下面的数字是现场量的.
         </p>
 
         <div class="problems">
-            <b>现在的问题(白话版)</b>
+            <b>现在真正缺的是什么(从这五张卡片里读出来)</b>
             <ol>
                 <li>
-                    库有一条<b>你没写</b>的规则:<code>.window-body &gt; * { flex: 1 1 auto; min-height: 0 }</code>.
-                    正文里的直接子节点<b>一律被拉满,并且可以被压扁</b>.所以"工具条 + 主体 + 底栏"三块会一起按内容比例
-                    分正文 -- 工具条被压扁,底栏被压扁;放两个普通块,它们会各分一半(谁也没声明过).
+                    <b>分组那一半库已经有了</b>:graphcalc 的视图设置 = 一个滚动容器 +
+                    N 个 <code>createControlGroup</code> 分组,每行固定高.分组件是库的,不用再造.
                 </li>
                 <li>
-                    窗口正文是 <code>overflow: hidden</code>:装不下的内容<b>不给你滚动条,直接裁掉</b>.
-                    想滚就得自己套一层 <code>overflow: auto</code>,手挂 <code>.ui-scrollbar</code>,
-                    还要沿每一层补 <code>min-height: 0</code>(漏一层就是"滚不动"或"被压扁").
+                    <b>缺的是容器那一半</b>:"一个吃掉剩余高度,超出就滚的区" + "里面按顺序摞,间距统一".
+                    今天这两件事消费者要各写一遍:<code>graphcalc</code> 的
+                    <code>#view-controls</code>(8 行 CSS),<code>#params-panel</code>(6 行 + 1 个
+                    <code>:root</code> 令牌),<code>.object-list-body</code>(5 行 + 4 层包裹),
+                    站点面板正文再写一遍(margin 节奏).
                 </li>
                 <li>
-                    现有示例里那句 <code>.pane &gt; button { align-self: flex-start }</code> 就是这条规则的反作用:
-                    按钮被拉成整行宽,只好再写一句抵消它.
+                    <b>滚动条要手挂</b>:库的 <code>.ui-scrollbar</code> 是单独一条规定,组件不认识它 --
+                    graphcalc 手挂了 14 处,站点漏挂 2 处.滚动容器归库之后,这件事就该由库做.
+                </li>
+                <li>
+                    <b>示例的读数窗口只能用"垂直居中"凑</b>(<code>example.css</code> 的
+                    <code>.pane { justify-content: center }</code>):因为没有"从上往下摞"的出口.
+                    见第 ⑤ 张卡片.
                 </li>
             </ol>
         </div>
@@ -46,63 +47,85 @@
         <div id="cards" class="grid"></div>
 
         <div class="legend">
-            <span><i class="swatch swatch--bar"></i>固定条(工具条 / 底栏):内容多高就该多高</span>
-            <span><i class="swatch swatch--main"></i>普通块</span>
-            <span><i class="swatch swatch--fill"></i><code>.ui-fill</code>:吃掉剩余</span>
-            <span><i class="swatch swatch--scroll"></i><code>.ui-scroll-area</code>:显式滚动区</span>
-            <span><i class="chip chip--bad">红</i>= 这一档有问题(被压扁 / 被拉高 / 够不到)</span>
+            <span><i class="swatch swatch--scroll"></i>滚动区(吃掉剩余,超出就滚)</span>
+            <span><i class="swatch swatch--group"></i><code>.control-group</code>:库已有的分组件</span>
+            <span><i class="chip chip--bad">红</i>= 这一档有问题(滚不动 / 行被压 / 越界被裁)</span>
         </div>
 
         <div class="rules">
             <section>
-                <h2>库里今天这条(styles/desktop.css,一个字没改)</h2>
-                <pre><code>/* 窗口正文:确定高度 + 裁切都归它 */
-.window &gt; .window-body {
-    display: flex;
+                <h2>现状:消费者自己写(照抄 graphcalc / 示例)</h2>
+                <pre><code>/* graphcalc css/panels.css:38-46 视图设置 */
+#view-controls {
+    flex: 1 1 auto;                                /* 吃剩余 */
+    min-height: var(--view-controls-min-height);   /* :root 令牌 */
+    overflow-y: auto;                              /* 滚 */
+    padding: 8px;
+    display: flex;                                 /* 顺序堆叠 */
     flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 0;
-    padding: 0;
-    overflow: hidden;
+    gap: 8px;
+}
+/* 再加 appViews.ts:215-218 手挂 .ui-scrollbar */
+
+/* 参数窗口 panels.css:51-59:同一件事再写一遍 */
+#params-panel {
+    flex: 1 1 auto; min-height: var(--params-panel-min-height);
+    padding: 8px; display: flex; flex-direction: column;
+    gap: 10px; overflow-y: auto;
 }
 
-/* ↓ 通吃:正文里每个直接子节点都被拉满,而且允许被压扁 */
-.window-body &gt; * {
-    flex: 1 1 auto;
-    min-height: 0;
-}</code></pre>
+/* 实体/求值列表 panels.css:78-94 + 112-144:四层包裹 */
+.object-panel-column { flex: 1; min-height: 0; display: flex;
+                       flex-direction: column; }
+#object-panel        { flex: 1; min-height: 0; display: flex;
+                       flex-direction: column; padding: 8px; overflow: hidden; }
+.object-list-column  { min-width: 0; display: flex; flex-direction: column;
+                       overflow: hidden; }
+.object-list-body    { flex: 1; min-height: 0; padding: 6px; display: flex;
+                       flex-direction: column; gap: 6px; overflow-y: auto; }
+
+/* 令牌还得从 UI_CONFIG 经 applyUiConfig 写进 :root
+   (uiConfig.ts:162-167, applyUiConfig.ts:37-38) */</code></pre>
             </section>
             <section>
-                <h2>方案要换成这条(phase3.css + phase4.css,只作用于本页)</h2>
-                <pre><code>/* Phase 3:三条**显式**拉伸出口,特异度 (0,2,0),
-   比库那条 (0,1,0) 高,所以现在就生效 */
-.ui-panel-body &gt; :only-child,
-.ui-panel-body &gt; .ui-fill,
-.ui-panel-body &gt; .ui-scroll-area {
-    flex: 1 1 0;          /* basis 0:多个出口均分,不按内容比 */
-    min-height: 0;
-    min-width: 0;
-}
-.ui-scroll-area { overflow: auto; }
+                <h2>方案:库给两个原语(其余不动)</h2>
+                <pre><code>/* createStack:按顺序堆叠 + 统一间距/内边距 */
+createStack({
+    gap: '8px',
+    padding: '8px',
+    children: [ group1, group2, group3 ],
+})
 
-/* Phase 4:默认不拉伸(与库那条同特异度,靠后加载取胜;
-   真正落地时是把库那条删掉,在 widgets.css 写这一条) */
-.ui-panel-body &gt; * { flex: 0 0 auto; }</code></pre>
+/* createScrollArea:吃掉剩余 + 滚 + 可选下限 + 自带 .ui-scrollbar */
+createScrollArea({ minHeight: '120px', child: stack })
+
+/* 视图设置窗口的正文 = 上面两行,替代
+   #view-controls 的 8 行 + :root 令牌 + 手挂类 */
+/* 参数窗口同理(只改 gap:10px);
+   实体列表 = scrollArea > stack > 条目;
+   代码框 = 唯一子节点铺满,原语不插手(见 ①) */
+
+/* Phase 4 那一半:默认不拉伸,只有三个出口吃剩余
+   (:only-child / .ui-fill / .ui-scroll-area) */</code></pre>
             </section>
             <section>
-                <h2>卡片对应方案里的哪一条</h2>
-                <pre><code>① 唯一子节点
-   -> :only-child(回归项:三档必须一样)
+                <h2>这次<b>不</b>做的东西(没有消费者)</h2>
+                <pre><code>× "工具条 + 主体 + 底栏" 三明治
+    graphcalc 六个窗口正文全是**单子节点**,
+    没有这种布局.方案初稿拿它当 Phase 4
+    的理由,是凭空造的 -- 演示里已删.
 
-② 工具条 + 主体 + 底栏
-   -> 4.4 第 1 / 3 条:固定条定住,
-     溢出只发生在显式滚动区
+× Splitter 分栏
+    graphcalc 窗口化时把自己的分栏控制器
+    删了(RightSplitController / #right-splitter).
 
-③ 两个普通块
-   -> 4.2 的另一面:溢出被裁
+× 表格件 / 折叠面板 / 搜索框
+    分组已经有 createControlGroup,
+    再往上没有真实需求.
 
-④ 两个 .ui-fill
-   -> 4.4 第 1 条 / 决定 D6:均分</code></pre>
+√ 只做:createStack(顺序堆叠)
+      + createScrollArea(吃剩余 + 滚)
+  理由就是左边那几段 CSS 的重复部分.</code></pre>
             </section>
         </div>
     </div>

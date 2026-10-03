@@ -1,12 +1,13 @@
 /* ==========================================================================
  * 排布演示页自己的外观.
  * --------------------------------------------------------------------------
- * 本文件**不写任何布局契约**:
+ * 本文件**不写排布契约**:
  *   - 窗口正文的现状规则在库的 `miko_ui/styles.css`;
- *   - 方案的两档原型在 `phase3.css` / `phase4.css`.
- * 这里只管"演示页长什么样"以及演示块的配色/纹理.
+ *   - "现状"档的消费者 CSS 在 `now.css`;
+ *   - "方案"档的两个原语在 `proto.css`.
+ * 这里只管演示页长什么样,以及演示块(定高行 / 代码行 / 读数行)的配色.
  *
- * 颜色全部走库的 token(tokens.css):演示页不是库,但这样看上去才是同一套东西.
+ * 颜色全走库的 token(tokens.css):演示页不是库,但这样看上去才是同一套东西.
  * ========================================================================== */
 
 :root {
@@ -80,7 +81,7 @@ code {
 }
 
 .problems li + li {
-    margin-top: 6px;
+    margin-top: 8px;
 }
 
 .problems b {
@@ -124,7 +125,7 @@ code {
 }
 
 .controls input[type="range"] {
-    width: 190px;
+    width: 180px;
 }
 
 /* ----------------------------------------------------------------- 卡片 */
@@ -140,9 +141,9 @@ code {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
     padding: 12px;
     border: 1px solid var(--color-border-panel);
-    min-width: 0;
     border-radius: var(--radius-md);
     background: var(--color-bg-panel);
 }
@@ -154,11 +155,11 @@ code {
     color: var(--color-text-muted);
 }
 
-.card__note {
+.card__source {
     margin: 0;
-    font-size: 12px;
-    line-height: 1.75;
-    color: var(--color-text-strong);
+    font-family: var(--code-font-family);
+    font-size: 11px;
+    color: var(--color-text-hint);
 }
 
 /* 演示窗口:外壳观感全部来自库(.window / .window-header / .window-body),
@@ -172,72 +173,96 @@ code {
     min-height: 0;
 }
 
-/* ------------------------------------------------------------- 演示块 */
+/* ------------------------------------------------- 演示块:定高的行 / 项 */
 
-.demo-block {
+/* 行是"内容撑高"的:`min-height` 给出它该有的高度,内容(文字)自己也有高度,
+   所以它压不动 -- 与 graphcalc/库里的真实行一致(容器该滚,而不是行该被压扁).
+   main.ts 里的 `data-want` 就是它声明的高度,测量时拿它对比. */
+.demo-item {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
+    align-items: center;
+    gap: 8px;
     padding: 0 10px;
     font-size: 12px;
     border-radius: var(--radius-sm);
-    color: var(--color-text);
     background: var(--color-bg-sunken);
     box-shadow: inset 0 0 0 1px var(--color-border-panel);
 }
 
-.demo-block b {
-    font-weight: 600;
+.demo-item b {
+    font-weight: 500;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 代码框里的行 */
+.demo-code {
+    background: var(--color-bg-sunken);
+    font-family: var(--code-font-family);
+    font-size: 11px;
+    line-height: 15px;
+    color: var(--color-text-muted);
+}
+
+.demo-code-lines {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.demo-code-line {
+    white-space: pre;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 示例的读数行:名字在左,值贴右 */
+.demo-readout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-sunken);
+    box-shadow: inset 0 0 0 1px var(--color-border-panel);
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.demo-readout b {
+    font-variant-numeric: tabular-nums;
     color: var(--color-text-strong);
 }
 
-.demo-block small {
-    font-size: 11px;
-    color: var(--color-text-hint);
-}
+/* ------------------------------------------- "现状要写 / 方案要写" 两行 */
 
-/* 固定条:深色 + 裁好自己的文字.
-   从顶部排而不是居中:被压扁时看到的是"第一行还在,第二行没了",
-   而不是两行叠在一起(后者看起来像渲染坏了). */
-.demo-bar {
-    justify-content: flex-start;
-    background: var(--color-bg-header);
-    overflow: hidden;
-}
-
-/* 带长内容的滚动区:从顶部排,标签才看得见(居中的话标签会被挤出去) */
-.demo-main {
-    justify-content: flex-start;
-}
-
-/* 普通块 */
-.demo-plain {
-    background: var(--color-bg-sunken);
-}
-
-/* .ui-fill:吃掉剩余的那块 */
-.demo-fill {
-    background: var(--color-accent-tint);
-}
-
-/* 唯一子节点(编辑器 / 画布这类) */
-.demo-editor {
-    align-items: center;
-    background: var(--color-bg-sunken);
-}
-
-/* 滚动区里的长内容:12 行,用来判断"该不该滚,滚不滚得了" */
-.demo-inner {
-    display: flex;
-    flex-direction: column;
-}
-
-.demo-row {
-    padding: 3px 0;
-    font-size: 11px;
+.writes {
+    margin: 0;
+    padding: 6px 8px 6px 10px;
+    border-left: 2px solid transparent;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 12px;
+    line-height: 1.7;
     color: var(--color-text-muted);
-    border-bottom: 1px solid var(--color-border-divider);
+    background: var(--color-bg-sunken);
+}
+
+.writes b {
+    color: var(--color-text-hint);
+    margin-right: 6px;
+}
+
+/* 当前档位对应的那一行亮起来:窗口里看到的写法就是它 */
+.writes.is-active {
+    border-left-color: var(--color-accent-border);
+    color: var(--color-text-strong);
+}
+
+.writes.is-active b {
+    color: var(--color-text-active);
 }
 
 /* ----------------------------------------------------- 实测结论的小标签 */
@@ -293,24 +318,17 @@ code {
     box-shadow: inset 0 0 0 1px var(--color-border-panel);
 }
 
-.swatch--bar {
-    background: var(--color-bg-header);
-}
-
-.swatch--main {
-    background: var(--color-bg-sunken);
-}
-
-.swatch--fill {
-    background: var(--color-accent-tint);
-}
-
-/* 斜纹 = 显式滚动区 */
+/* 斜纹 = 滚动区 */
 .swatch--scroll {
     background:
         repeating-linear-gradient(135deg,
             var(--color-fill-control-strong) 0 3px,
             var(--color-bg-sunken) 3px 6px);
+}
+
+/* 分组件 */
+.swatch--group {
+    background: var(--color-accent-tint);
 }
 
 /* ----------------------------------------------------------- 代码块 */
@@ -330,8 +348,8 @@ code {
 }
 
 .rules pre {
-    margin: 0;
     max-width: 100%;
+    margin: 0;
     padding: 10px;
     overflow-x: auto;
     border-radius: var(--radius-sm);
