@@ -1,8 +1,9 @@
 /**
  * `miko_ui` 的最小示例.
  *
- * 三个窗口:一个放两条**系数滑块**(普通参数 + 循环参数)与一个**计数按钮**,
- * 一个放它们的读数,一个放**菜单项**(直接显示 + 任意按钮触发).
+ * 四个窗口:一个放两条**系数滑块**(普通参数 + 循环参数)与一个**计数按钮**,
+ * 一个放它们的读数,一个放**菜单项**(直接显示 + 任意按钮触发),一个放
+ * **诊断消息区**(提示随参数变化自动出现 / 消失).
  *
  * 循环参数靠两个选项(都在 `createSlider` 上):
  *    - `cyclic: true` 只管**外观**:名字后显示 `cyclic`,根节点加 `is-cyclic`
@@ -20,13 +21,16 @@ import {
     DEFAULT_DESKTOP_CONFIG,
     createButton,
     createMenu,
+    createMessageArea,
     createSlider,
     create_element,
+    computed,
     mountDesktop,
     signal,
     watchValue,
     type DesktopConfig,
     type MenuGroup,
+    type MessageEntry,
     type Signal,
     type WindowConfigEntry,
 } from 'miko_ui';
@@ -49,6 +53,12 @@ const linear = signal(50);
 const angle = signal(0.6);
 /** 计数值:`0..255`,满了再按一下回到 `0`. */
 const count = signal(0);
+
+/**
+ * 计数的上限口径:写值的按钮与下面出提示的诊断**读同一个数**.
+ * 写成两处字面量(`255`)的话,"上限改了"只会在其中一处生效.
+ */
+const COUNT_MAX = 255;
 
 /**
  * 循环参数的回绕口径:把任意输入落回 `[min, max)` 半开区间.
@@ -84,7 +94,7 @@ const cyclicSlider = createSlider({
 /** 建控件与接线分开:按钮不认识读数窗口,它只改自己这一份状态. */
 const countButton = createButton({ text: '计数 +1' });
 countButton.onClick(() => {
-    count.value = count.value >= 255 ? 0 : count.value + 1;
+    count.value = count.value >= COUNT_MAX ? 0 : count.value + 1;
 });
 
 // ── 窗口二:读数(只读显示,订阅各自的 signal)────────────────────────────
@@ -178,14 +188,14 @@ watchValue(menuChoice, (choice) => {
 const menuPane = create_element(
     { tag: 'div' },
     { class: 'pane pane-menu' },
-    create_element({ tag: 'span' }, { class: 'menu-caption' }, '任意按钮触发(createMenu)'),
+    create_element({ tag: 'span' }, { class: 'pane-caption' }, '任意按钮触发(createMenu)'),
     create_element(
         { tag: 'div' },
         { class: 'menu-anchor' },
         menuTrigger.element,
         popoverMenu.panel,
     ),
-    create_element({ tag: 'span' }, { class: 'menu-caption' }, '直接显示(role="menu")'),
+    create_element({ tag: 'span' }, { class: 'pane-caption' }, '直接显示(role="menu")'),
     staticMenu.panel,
 );
 // 点浮层外关闭:绑定的根就是这张菜单所在的正文.
@@ -195,6 +205,73 @@ const menuReadout = createReadout<string | null>(
     '菜单选择',
     menuChoice,
     (value) => value ?? '未选',
+);
+
+// ── 窗口四:诊断消息区(容器由库建,示例只给条目)────────────────────────
+/**
+ * 出提示的门槛:这是**示例自己的领域口径**.
+ *
+ * 库只认识 `warning` / `error` 两个等级与一行文字,不认识"多少算超限" --
+ * 所以"什么情况该报警"必须留在消费侧,库里一个字都没有.
+ */
+const LINEAR_WARN = 80;
+const LINEAR_ERROR = 95;
+/** 方位角离 `±π` 多近算"贴边":`π` 与 `-π` 是圆周上的同一点. */
+const ANGLE_WARN = Math.PI - 0.15;
+
+/**
+ * 当前该显示哪些提示(纯函数:读状态,不写状态,也不认识窗口).
+ *
+ * 文案里的阈值直接用上面那几个常量插值,所以提示与判据不会各说各话.
+ */
+function collectMessages(): MessageEntry[] {
+    const entries: MessageEntry[] = [];
+    const value = linear.value;
+
+    if (value > LINEAR_WARN) {
+        entries.push({ level: 'warning', message: `线性数值超过 ${LINEAR_WARN}:渲染精度下降` });
+    }
+    if (value > LINEAR_ERROR) {
+        entries.push({ level: 'error', message: `线性数值超过 ${LINEAR_ERROR}:采样被裁到上限` });
+    }
+    if (Math.abs(angle.value) > ANGLE_WARN) {
+        entries.push({ level: 'warning', message: '方位角接近 ±π:两端在圆周上是同一点' });
+    }
+    if (count.value >= COUNT_MAX) {
+        entries.push({ level: 'warning', message: `计数到 ${COUNT_MAX}:再按一下回到 0` });
+    }
+    return entries;
+}
+
+/**
+ * 消息区容器由库建:`div.message-area[aria-live=polite]` 的框体 / 列表节奏 /
+ * 滚动都在 `styles/feedback.css`,示例不写一行外观.
+ *
+ * 挂 `ui-scrollbar` 是**消费方的一笔决定**:滚动条外观是单独的一条规定
+ * (`styles/scrollbar.css`),消息区与它互不认识 -- 不挂也能滚,只是用系统滚动条.
+ */
+const messageArea = createMessageArea({ class: 'ui-scrollbar' });
+
+/**
+ * 提示清单是**派生值**:`computed` 里读到的每个 signal 都是依赖,任一变化就重算,
+ * 所以"参数变了要更新提示"不需要任何手工同步.
+ *
+ * 落 DOM 走 `render()` 而不是 `clear()` + 逐条 `add()`:前者在内容一致时**一次
+ * DOM 操作都不做** -- 拖滑块时同一批提示不会被每帧重放(容器带 `aria-live`,
+ * 重放等于读屏一直念同一句话).
+ */
+const messages = computed(collectMessages);
+watchValue(messages, (entries) => messageArea.list.render(entries));
+
+const messagePane = create_element(
+    { tag: 'div' },
+    { class: 'pane' },
+    create_element(
+        { tag: 'span' },
+        { class: 'pane-caption' },
+        `提示随参数出现:线性数值 > ${LINEAR_WARN} / > ${LINEAR_ERROR},方位角接近 ±π,计数到 ${COUNT_MAX}`,
+    ),
+    messageArea.element,
 );
 
 // ── 窗口清单:只换 `windows`,其余照用库的默认值 ──────────────────────────
@@ -238,6 +315,22 @@ const WINDOWS: readonly WindowConfigEntry[] = [
         },
         minSize: { w: 280, h: 300 },
     },
+    {
+        id: 'messages',
+        title: '消息window',
+        dock: { label: '消息dock' },
+        defaultGeometry: {
+            // 与菜单窗口同一列,接在它下面.
+            x: { at: 448 },
+            y: { at: 16 },
+            w: { at: 380 },
+            // 高度锚在**桌面底边**:消息区吃掉这一列剩下的高度,提示多了自己滚,
+            // 所以换一个屏高不用改这个数(见 `RelativeGeometry` 的 `from: 'bottom'`).
+            h: { from: 'bottom', inset: 16 },
+            after: { id: 'menu', gap: 12 },
+        },
+        minSize: { w: 280, h: 140 },
+    },
 ];
 
 const CONFIG: DesktopConfig = { ...DEFAULT_DESKTOP_CONFIG, windows: WINDOWS };
@@ -271,6 +364,8 @@ mountDesktop(root, {
                 };
             case 'menu':
                 return { body: [menuPane] };
+            case 'messages':
+                return { body: [messagePane] };
             default:
                 return { body: [] };
         }

@@ -53,7 +53,8 @@ export * from './desktop/WindowResize';
 export * from './desktop/Dock';
 export * from './desktop/SnapPreview';
 
-// 反馈件:消息/诊断列表(零领域依赖)
+// 反馈件:消息区容器 + 消息/诊断列表(零领域依赖)
+export * from './feedback/MessageArea';
 export * from './feedback/MessageList';
 
 // 编辑器外壳:分词与配色由消费者注入

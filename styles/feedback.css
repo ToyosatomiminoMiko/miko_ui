@@ -1,14 +1,40 @@
 /* ==========================================================================
- * miko_ui 反馈件样式:消息 / 诊断列表(`src/feedback/MessageList.ts`).
+ * miko_ui 反馈件样式:消息区容器 + 消息 / 诊断条目
+ * (`src/feedback/MessageArea.ts` / `src/feedback/MessageList.ts`).
  * --------------------------------------------------------------------------
- * `MessageList` 产出 `.diagnostic` / `.diagnostic-warning` / `.diagnostic-error`,
- * 而样式属于库这一侧(见 `scripts/check_ui_boundary.py` 的 `emitted-classes`).
+ * 两件东西,两个类名:
  *
- * 容器(列表摆在哪,占多高,能不能滚)归消费者:这里只给**条目**的默认观感.
- * 消费者要给列表排布,给自己的容器类写增量即可,不需要覆盖下面任何一条.
+ *   .message-area   容器:`MessageArea` 产出 -- 框体 + 列表节奏 + 滚动
+ *   .diagnostic*    条目:`MessageList` 产出 -- 内边距 + 配色
+ *
+ * 两者的样式都属于库这一侧(见 `test/emittedClasses.test.ts`:库产出的类名要么
+ * 有默认规则,要么显式声明为定位钩子 -- 都没有的话,消费者会被迫给库的类写外观,
+ * 而消费侧的 `styleLayers.test.ts` 恰好禁止这件事).
+ *
+ * 留给消费者的只有三件,都不需要覆盖下面任何一条:摆在哪,占多高(或要不要收起),
+ * 以及要不要挂 `ui-scrollbar`(滚动条是单独的一条规定,见 `styles/scrollbar.css`).
+ * 字体与字号也归消费者:本件让文本**继承**宿主,不替消费方挑字体.
  *
  * 配色只走 token,不写字面量(与库其它样式表一致).
  * ========================================================================== */
+
+/* 消息区:一列条目,自己是滚动容器.
+   `flex: 1 1 auto` + `min-height: 0` 是"在 flex 列父级里吃掉剩余高度"的那条默认
+   (直接放进 `.window-body` 时与 `.window-body > *` 同值,重复无害);少了
+   `min-height: 0`,列表内部的 `overflow-y` 永远不会触发 -- 这是 flex 子项按内容
+   算最小高度的老坑. */
+.message-area {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 6px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border-panel);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-sunken);
+}
 
 .diagnostic {
     padding: 4px 8px;

@@ -1,10 +1,14 @@
 # `miko_ui` 最小示例
 
-三个窗口:一个放两条**系数滑块**(普通参数 + 循环参数)与一个**计数按钮**,
-一个放它们的读数,一个放**菜单**.拖滑块(或改数值框)读数跟着变;按钮按一下
-计数 +1,到 255 再按回到 0;菜单项点一下,当前项与窗口「读数window」里的"菜单选择"
-一起变.按钮在窗口「控件window」里,计数与读数在窗口「读数window」里 -- 跨窗口没有一行
-同步代码.
+四个窗口:一个放两条**系数滑块**(普通参数 + 循环参数)与一个**计数按钮**,
+一个放它们的读数,一个放**菜单**,一个放**错误 / 警告消息区**.拖滑块(或改数值框)
+读数跟着变;按钮按一下计数 +1,到 255 再按回到 0;菜单项点一下,当前项与窗口
+「读数window」里的"菜单选择"一起变.按钮在窗口「控件window」里,计数与读数在窗口
+「读数window」里 -- 跨窗口没有一行同步代码.
+
+窗口「消息window」放一个 `createMessageArea()` 建的消息区:该显示哪些提示是从
+**现有三个 signal 算出来的派生值**,参数一进门槛提示就出现,退回去就消失 --
+示例里没有第二份"当前提示"状态,也没有一行"值变了去刷提示"的同步代码.
 
 窗口「菜单window」用同一个 `createMenu` 摆了两次:一次给 `trigger`(普通按钮,
 浮层),一次不给(常驻面板).摆树 / 分组 / 当前项 / 开合全在库里,示例只给数据与
@@ -27,12 +31,16 @@ npm run dev             # Vite 会打印实际端口
 | `signal(50)` / `signal(0.6)` | 每条参数一个状态,滑块写它,读数读它. |
 | `createSlider({ value, label })` | 窗口「控件window」里的输入:名称 + 滑杆 + 数值框 + 重置组合成一条参数行,拖它写 signal. |
 | `createSlider({ cyclic: true, normalize })` | 循环参数的两半:**`cyclic` 只管外观**(名字后显示 `cyclic`,根节点加 `is-cyclic` 高亮),**`normalize` 管口径**(越界值回绕到 `[min, max)`,输入 7 得到 `7 - 2π`).循环语义在控件里只做提示,取值由消费者给的纯函数决定. |
-| `watchValue(value, ...)` | 窗口「读数window」订阅各自的 signal,把值写进只读读数. |
+| `watchValue(value, ...)` | 窗口「读数window」订阅各自的 signal,把值写进只读读数;窗口「消息window」也走它 -- 订阅那条派生出来的提示清单,把每一版 `render` 进消息区. |
 | `createButton({ text })` | 窗口「控件window」里的计数按钮:`onClick` 只写 `count.value`(`0..255`,满了回 0),计数读数订阅同一个 signal.也是窗口「菜单window」里的浮层**触发器** -- 菜单不认识窗口标题栏,任意按钮都能触发. |
 | `MenuGroup` / `MenuEntry` | 菜单数据就是库的这两个类型(`value` / `text` / `hint` / `disabled`),示例**不另立一份镜像类型**. |
 | `createMenu({ groups, ariaLabel, trigger?, panel? })` | 窗口「菜单window」的全部结构:摆 `role="menu"` 面板,按分组套 `role="group"` 与组标题,建出菜单项.给 `trigger` 就是浮层(自己建 `Popover`,面板叠 `.menu-popover`),不给就是常驻面板. |
 | `MenuHandle.onSelect` | 唯一的业务回调:拿到被点项的 `value`;浮层**先关再回调**,回调抛错也不会僵在屏幕上. |
 | `MenuHandle.setActive` | 当前项只有一个来源:两份菜单都把选中的 `value` 写进 `menuChoice`,再由它刷各自的当前项(高亮 + `aria-current`). |
+| `createMessageArea({ class })` | 窗口「消息window」里的容器:`div.message-area[aria-live=polite]` 的框体 / 列表节奏 / 滚动 / 播报属性都在库里,示例只给一笔 `ui-scrollbar`.容器不给消费者留"要不要写 `aria-live`"这个坑 -- 漏了它,增量渲染就白做(见下). |
+| `computed(() => MessageEntry[])` | 提示清单是派生值:它读到的三个 signal 任一变化就重算,所以"什么情况报警"只有这一处,没有第二份"当前提示"状态. |
+| `MessageList.render(entries)` | 唯一的落 DOM 入口:内容一致时**一次 DOM 操作都不做**,所以拖滑块时同一批提示不会被每帧重放(容器带 `aria-live`,重放等于读屏一直念同一句). |
+| `MessageEntry` | 一条提示的形状(`level` 只有 `warning` / `error` + 一行文字),示例直接用库的类型,不另立镜像. |
 
 控件与展示件**互不认识**:滑块只知道往 signal 里写,读数只知道读 signal.
 数据只有一份,所以中间不需要任何"值变了去同步另一个窗口"的手工回路.
@@ -42,18 +50,23 @@ npm run dev             # Vite 会打印实际端口
 `.menu-item-hint`,浮层位置是库的 `.menu-anchor` + `.menu-popover`.示例的
 `example.css` 只剩页面级规则与窗口正文排布.
 
-示例唯一挂的一笔类名是面板上的 **`ui-scrollbar`**:面板有 `max-height`,内容多了
-会滚动,而滚动条是库的**另一条独立规定**(`styles/scrollbar.css`)--菜单件不认识
-它,它也不认识菜单件,所以"这份面板要不要统一滚动条外观"由消费者挂类决定.
-不给这个类,面板仍然能滚,只是用系统滚动条(下游应用挂在标题栏浮层那颗面板上).
+示例唯一挂的类名是 **`ui-scrollbar`**,挂在两处会溢出的容器上(菜单面板与消息区):
+面板有 `max-height`,消息区自己 `overflow-y: auto`,内容多了都会滚动,而滚动条是库的
+**另一条独立规定**(`styles/scrollbar.css`)-- 两件都不认识它,它也不认识它们,所以
+"这份容器要不要统一滚动条外观"由消费者挂类决定.不给这个类,照样能滚,只是用系统
+滚动条(下游应用挂在标题栏浮层那颗面板上).
+
+消息区的**外观也一行都不在示例里**:框体 / 条目内边距 / 配色分别是库的
+`.message-area` 与 `.diagnostic` / `.diagnostic-warning` / `.diagnostic-error`
+(`styles/feedback.css`).示例给它的只有"摆在窗口正文的哪一列".
 
 ## 目录
 
 ```text
 example/
   index.html      只有一个 #app 的页面
-  main.ts         全部示例代码(状态 -> 两条滑块/一个按钮/三条读数/两处菜单 -> 三个窗口)
-  example.css     页面级规则 + 窗口正文的排布与读数字形(菜单外观在库的 widgets.css)
+  main.ts         全部示例代码(状态 -> 两条滑块/一个按钮/四条读数/两处菜单/一列提示 -> 四个窗口)
+  example.css     页面级规则 + 窗口正文的排布,说明行与读数字形(菜单与消息区外观都在库的样式表)
 ```
 
 CSS 导入的类型不在这里声明:库自己的 `src/css_modules.d.ts` 有一条全局的
@@ -72,7 +85,11 @@ CSS 导入的类型不在这里声明:库自己的 `src/css_modules.d.ts` 有一
 - 菜单的**直接显示**与**任意按钮触发**是同一个 `createMenu`:差别只是给不给
   `trigger`,触发器是一颗普通 `createButton`,库侧没有任何"窗口标题栏"的前提;
 - 菜单的声明侧只有数据 + 一条 `onSelect`,结构 / 当前项 / 开合 / 外观
-  全在库侧.
+  全在库侧;
+- 消息区的**容器**也是库建的:`aria-live` 与 `MessageList.render()` 的"内容一致时
+  零 DOM 操作"是一对配套的默认,示例没有机会漏写其中一个;
+- 提示是派生值:`computed` 依赖的那三个 signal 一变清单就重算,示例里没有第二份
+  "当前提示"状态,也没有"值变了去刷提示"的回路.
 
 ## 子目录
 

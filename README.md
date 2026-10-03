@@ -222,7 +222,7 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | `shared/` | 跨组件共用的交互与行外壳:键盘唯一出口,唯一拖拽实现,行缓存,数值文本,行外壳 |
 | `desktop/` | 桌面窗口系统:装配入口(`mountDesktop` / 窗口槽位),窗口管理器与几何 / 拖动 / 吸附 / 停靠件,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
 | `editor/` | 编辑器外壳:整套结构装配,行号栏,高亮层(分词与槽宽由消费者注入),以及保住原生撤销栈的程序化写入 |
-| `feedback/` | 消息 / 诊断列表(零领域依赖) |
+| `feedback/` | 消息区容器(`MessageArea`:框体 + 列表节奏 + 滚动 + `aria-live`)与消息 / 诊断条目(`MessageList`),零领域依赖 |
 | `formula/` | KaTeX 公式件与复制反馈(`katex` 是**可选** peer) |
 | `theme/` | `applyTheme(root, tokens)`:把一组 CSS 变量写到根元素上(库的默认主题只有 `styles/tokens.css` 一份,JS 侧不留镜像) |
 | `testing/` | **测试入口**(独立子路径 `miko_ui/testing`,不进主入口):手写 DOM 桩,复刻了真 DOM 里踩过的坑,并给出 `document.execCommand` / `navigator.clipboard` 两条可断言通道 |
