@@ -263,7 +263,9 @@ radius.subscribe((value) => renderer.setPointRadius(value));
    破坏性变更.
 2. **不用批处理,不引调度器**:`effect` 同步执行(`set()` 返回时订阅者已经跑
    完),所以库的更新路径不依赖 rAF/微任务 -- 这也是那套 900 行手写 DOM 桩
-   还能继续用的前提.
+   还能继续用的前提.代价是**一次写 = 一次提交**:分开写多份状态时,读它们的
+   `computed` 会先按中间态评一次再按终态评一次,中间态对订阅者可见 -- 一次交互
+   尽量只写一个 signal(理由与推论见 `src/reactive/index.ts` 开头的四条硬约束).
 3. **`root` 注入**:建节点,挂全局监听都从调用方给的 root 走,不读全局
    `document` / `window`;同页两个实例,嵌进别人的页面,Shadow DOM 都靠这一条.
 

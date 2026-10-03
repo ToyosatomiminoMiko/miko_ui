@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import * as reactive from './index';
 import {
+    SIGNAL_BRAND,
     computed,
     effect,
     isSignal,
@@ -12,6 +13,7 @@ import {
     setValue,
     signal,
     watchValue,
+    type Signal,
 } from './index';
 
 describe('signal', () => {
@@ -156,7 +158,65 @@ describe('值源工具(ValueSource)', () => {
     });
 });
 
-describe('U7 的三条约束', () => {
+describe('包装层:实例形状与值转换', () => {
+    it('方法全在原型上:实例只有一个不可枚举的内部槽', () => {
+        const source = signal(1);
+
+        // 自有**字符串**属性为零:664 B/条 与 128 B/条 的差别就在这里(见 index.ts 文件头).
+        expect(Object.keys(source)).toEqual([]);
+        expect(Object.prototype.hasOwnProperty.call(source, 'value')).toBe(false);
+        expect(Object.prototype.hasOwnProperty.call(source, 'peek')).toBe(false);
+        expect(Object.prototype.hasOwnProperty.call(source, 'subscribe')).toBe(false);
+
+        // 内部槽是一个**不可枚举**的模块私有 Symbol:对象展开 / JSON 都带不走它.
+        const slots = Object.getOwnPropertySymbols(source);
+        expect(slots).toHaveLength(1);
+        expect(Object.getOwnPropertyDescriptor(source, slots[0])?.enumerable).toBe(false);
+        expect({ ...source }).toEqual({});
+
+        // 品牌位挂在原型上,判据(读一次 brand)不变.
+        expect(isSignal(source)).toBe(true);
+        expect(Object.prototype.hasOwnProperty.call(source, SIGNAL_BRAND)).toBe(false);
+    });
+
+    it('值转换与内层一致:String / 一元加 / JSON 拿到的是值本身', () => {
+        const source = signal(3);
+        const doubled = computed(() => source.value * 2);
+
+        expect(String(source)).toBe('3');
+        expect(`${source}`).toBe('3');
+        expect(+source).toBe(3);
+        expect(JSON.stringify({ source })).toBe('{"source":3}');
+
+        expect(String(doubled)).toBe('6');
+        expect(+doubled).toBe(6);
+        expect(JSON.stringify(doubled)).toBe('6');
+    });
+
+    it('setter 只在可写包装上:给 computed 写值抛 TypeError', () => {
+        const source = signal(1);
+        const doubled = computed(() => source.value * 2);
+
+        expect(() => {
+            (doubled as Signal<number>).value = 5;
+        }).toThrow(TypeError);
+        expect(doubled.value).toBe(2);
+    });
+
+    it('异步 compute 在类型上被拒(运行期不建任何东西)', () => {
+        // 这一行是**编译期**契约:`npm run typecheck` 会在这里报错,报错文案就是理由.
+        // 包在未调用的函数里,所以运行期什么都不建 -- 依赖跟踪是同步的,异步
+        // compute 会"算一次就冻住",不能等到运行期才发现.
+        const rejected = () => {
+            // @ts-expect-error 异步 compute:await 之后读到的 signal 不会建立依赖
+            return computed(async () => 1);
+        };
+
+        expect(typeof rejected).toBe('function');
+    });
+});
+
+describe('U7 的硬约束', () => {
     it('公开面里没有批处理入口(也不拿它做批处理)', () => {
         // 更新路径不引调度器:转出 batch 就等于把它开放给消费者.
         expect('batch' in reactive).toBe(false);

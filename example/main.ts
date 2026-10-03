@@ -229,12 +229,31 @@ function collectMessages(): MessageEntry[] {
     const entries: MessageEntry[] = [];
     const value = linear.value;
 
-    if (value > LINEAR_WARN) {
-        entries.push({ level: 'warning', message: `线性数值超过 ${LINEAR_WARN}:渲染精度下降` });
+    /*
+     * 两根阈值线把线性数值切成三段(正常 / 精度下降 / 被裁),这不是"两个互相
+     * 独立的条件":`> LINEAR_ERROR` 的数**必然**也 `> LINEAR_WARN`,它们是同一
+     * 根轴上的一档比一档宽.所以写成 switch 的档位语义:
+     *
+     * - `switch` 只落到**第一个**为真的 case,所以 case 必须从高阈值往低阈值写;
+     * - 落到"被裁"这一档时**故意落穿**(该 case 不写 break)到警告档,把两档提示
+     *   都补上.漏了落穿就会吃掉 warning 那条,这是 switch 与串 if 唯一的差别.
+     *
+     * 提示顺序因此是"先 error 后 warning":越严重越靠前.
+     */
+    switch (true) {
+        case value > LINEAR_ERROR:
+            entries.push({ level: 'error', message: `线性数值超过 ${LINEAR_ERROR}:采样被裁到上限` });
+        // 落穿是刻意的:能走到这一档的值必然也越过了下面那条警告线.
+        case value > LINEAR_WARN:
+            entries.push({ level: 'warning', message: `线性数值超过 ${LINEAR_WARN}:渲染精度下降` });
+            break;
     }
-    if (value > LINEAR_ERROR) {
-        entries.push({ level: 'error', message: `线性数值超过 ${LINEAR_ERROR}:采样被裁到上限` });
-    }
+
+    /*
+     * 方位角与计数各是一根**独立**的线,和上面的档位无关:两件事可以同时成立.
+     * 所以不能塞进同一条 switch -- switch 一次只落一个 case,同时成立时后一条
+     * 提示会被静默吃掉.各自一条 if 才是与语义对齐的写法.
+     */
     if (Math.abs(angle.value) > ANGLE_WARN) {
         entries.push({ level: 'warning', message: '方位角接近 ±π:两端在圆周上是同一点' });
     }
