@@ -975,6 +975,7 @@ Phase 4 那些"去掉通吃"的改动已降级为可不做(真实元素上无差
 | D11 | 是否新增 `createStage`(定尺寸媒体槽) | **待议,优先级高于 Splitter**:站点 OLED 定死 1024x512,RBT 只有 1200x640 属性(CSS 零规则,窄视口被 `body{overflow-x:hidden}` 直接裁掉),而 metro_window 自己实现了整套 `ResizeObserver` + 150ms 防抖 + `dpr` 追猎 + 16:9 cover 后备缓冲.这是三家(含 451)各写一遍的东西 |
 | D12 | 面板的尺寸变化出口 | **本方案不提供**(4.4 第 6 条的缺口):`onGeometryChange` 只服务窗口,面板没有 id 可订阅.站点只能自己 `ResizeObserver`.要不要给面板一条出口,列进下一轮 |
 | D13 | Phase 4(`.ui-panel-body > * { flex: 0 0 auto }`)是否落地 | **可不做 / 延后**(第三轮):真实元素上逐像素无差别(4.2-b),两个原语不依赖它(4.2);它的价值只是把"唯一子节点铺满,其余按内容高"写进契约,代价却是改库的默认语义 + 一次破坏性发版.要做时先补真实结构回归证据 |
+| D14 | **第二个消费者(站点 `ToyosatomiminoMiko.github.io`)是否也脱掉直接依赖 katex** | **暂缓(2026-10,由消费者侧实测提出)**.现状:该站 `package.json` 仍声明 `katex`,`src/ieee754/ieee754.ts:36-37` 直接 `import katex` + `import 'katex/dist/katex.min.css'`,`:366` 调 `katex.render`, `vite.config.ts` 的 `dedupe` 里仍有 `'katex'`;它**零使用**库的 `createFormulaElement`,所以第五轮的 `.ui-formula` 规则对它无影响.卡点:它的 `IEEE754_KATEX_OPTIONS`(`src/ieee754/config.ts:402-409`)是 **`displayMode: true`**,而库的 `createFormulaElement` 固定 `displayMode: false` -- 第五轮还刻意把 `displayMode` 从 `FormulaRenderer` 签名里去掉(模板缓存键只有 LaTeX,同串两种排法会串模板).所以"要脱"的前提是**库里先补一个带 displayMode 的渲染出口,并把 displayMode 并进模板缓存键**;那是一条独立的公共面改动,和"计算器不许直接依赖 katex"是两回事.另:该站 `README.md:552` 与 `vite.config.ts:93` 仍写着"库只有 signals-core 一个运行时依赖,katex 是可选 peer",这两处**无论脱不脱都要改**,已过期 |
 
 ## 8. 不做的事(明确划出去)
 
