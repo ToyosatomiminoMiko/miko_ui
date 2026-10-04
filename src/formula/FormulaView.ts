@@ -40,6 +40,19 @@ const FORMULA_TEMPLATE_CACHE_LIMIT = 512;
 const COPY_FORMULA_LABEL = '复制公式 TeX';
 
 /**
+ * 公式根节点的基线类:{@link createFormulaElement} 的每个产物都带(规则见
+ * `styles/widgets.css` 的 `.ui-formula > .katex`).
+ *
+ * 为什么必须有一个库自有的类:KaTeX 自带样式表把 `.katex` 的字号写死成
+ * `font: normal 1.21em ...`(0,1,0),而库要消费自己的主题令牌 `--katex-font-size`.
+ * 单类选择器与它**同特异度**,只比样式表先后 -- `katex.min.css` 由库引在前面,
+ * 消费侧写 `.katex { font-size: var(--katex-font-size) }` 因此常常静默失效
+ * (实测:应用规则在产物 ~18.7KB 处,KaTeX 自带在 ~34.5KB 处).挂一个库自有类才能
+ * 写出 `.ui-formula > .katex`(0,2,0),与顺序无关.
+ */
+const FORMULA_CLASS = 'ui-formula';
+
+/**
  * 公式渲染器:把一段 LaTeX **排进**给定元素.
  *
  * 刻意只有两个参数(没有 KaTeX 的 `displayMode`):库的公开路径
@@ -129,6 +142,9 @@ function renderLatexInto(latex: string, element: HTMLElement): void {
 /**
  * LaTeX -> 公式 DOM.
  *
+ * 根节点**总带** {@link FORMULA_CLASS},消费者类名跟在后面(与 `createButton` /
+ * `createValueDisplay` 同一条"基线在前,消费者在后"的约定).
+ *
  * `copyable` 控制是否挂 `data-tex`(FormulaCopyController 的复制钩子):
  * - 可复制(缺省):需要鼠标与键盘都能取到原始 TeX 的公式;
  * - 不可复制:公式落在 `<details>` / `<summary>` 这类原生开合热区内时,
@@ -147,7 +163,7 @@ export function createFormulaElement(
     root?: DomRoot,
 ): HTMLElement {
     const element = rootDocument(root).createElement('span');
-    if (className) element.className = className;
+    element.className = className ? `${FORMULA_CLASS} ${className}` : FORMULA_CLASS;
     renderLatexInto(latex, element);
 
     if (copyable) {

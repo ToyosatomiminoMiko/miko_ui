@@ -139,21 +139,25 @@
     --radius-round: 0px;
 
     /* -- 代码与公式的排版量:默认值只有这一份(JS 侧不再有镜像,见文件头) --
-       `--code-*` 都由 editor.css / widgets.css 的 `var()` 读;
-       `--katex-font-size` 库内不读,由消费侧读它定 KaTeX 渲染字号
-       (2026-10 确认有应用侧调用,保留). */
+       `--code-*` 由 editor.css / widgets.css 读,`--katex-font-size` 由 widgets.css 的
+       `.ui-formula > .katex` 读 -- **2026-10 起库自己消费它**.此前它只写着"由消费侧
+       读",而消费侧写的 `.katex { font-size: var(--katex-font-size) }` 与 KaTeX 自带的
+       `.katex { font: normal 1.21em ... }` 同特异度,又排在它前面,所以那条令牌长期
+       空转(下游实测的字节顺序见 widgets.css 的对应注释).
+       默认值取 KaTeX 自己的 `1.21em`:不配置的消费者观感不变,要放大就改这个令牌. */
     --code-font-family: 'JetBrains Mono Slashed', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --code-font-size: 16px;
     --code-line-height: 1.2;
     --code-tab-size: 4;
-    --katex-font-size: 1.5em;
+    --katex-font-size: 1.21em;
     --code-gutter-width: 32px;
 
     /* "某块内容被压到多矮就该自己出滚动条"是应用自己的口径
        它由消费侧的 UI 配置在运行期写进 `:root`,不需要库给一份带应用名的默认值.
-       判据很硬:**库的样式表里有没有 `var()` 读它?** 没有就别加 -- 应用自己的
-       尺寸下限写进应用各自的 `:root`.颜色板与 `--katex-font-size` 是另一回事:
-       它们本来就只由消费侧读,属于"消费者要覆盖的主题面",不是应用域名令牌. */
+       判据很硬:**库的样式表里有没有 `var()` 读它,或库的 JS / 消费者读它?**
+       都没有就别加 -- 应用自己的尺寸下限写进应用各自的 `:root`.
+       `--color-*` 那一片是**消费者主题面**:库的样式只读其中一部分,剩下的留着
+       就是让人按语义覆盖的,不是应用域名令牌(判据的限定见方案文档 4.7). */
 
     /* 静态面板(`.ui-panel`)的两个内边距.窗口复用面板的框体,但它的标题栏是
        固定高度,正文不留内边距(见 `desktop.css` 的 `.window ...` 覆盖),所以

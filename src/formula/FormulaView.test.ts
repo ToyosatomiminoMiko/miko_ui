@@ -25,15 +25,20 @@ afterEach(() => {
 });
 
 describe('createFormulaElement', () => {
-    it('可复制公式:带 data-tex 与键盘/角色语义', () => {
+    it('可复制公式:带 data-tex 与键盘/角色语义,基线类在消费者类之前', () => {
         const element = createFormulaElement('x^2', 'object-expr');
 
-        expect(element.className).toBe('object-expr');
+        // 基线类必须在前面:消费者的类要靠"在后面"才盖得住库的默认规则.
+        expect(element.className).toBe('ui-formula object-expr');
         expect(element.dataset.tex).toBe('x^2');
         expect(element.tabIndex).toBe(0);
         expect(element.getAttribute('role')).toBe('button');
         expect(element.getAttribute('aria-label')).toBe('复制公式 TeX');
         expect(element.textContent).toBe('x^2');
+    });
+
+    it('不给消费者类也带基线类(令牌 `--katex-font-size` 靠它才选得到)', () => {
+        expect(createFormulaElement('x^2').className).toBe('ui-formula');
     });
 
     it('不可复制公式:不带任何复制/焦点属性', () => {

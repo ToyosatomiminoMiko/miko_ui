@@ -206,10 +206,20 @@ interface ResolvedNumberText {
     readonly exact: boolean;
 }
 
-/** 定点分支(`|v|` 落在 `[low, high)` 内):`digits` 位 + 可选去尾零. */
+/**
+ * 定点分支(`|v|` 落在 `[low, high)` 内):`digits` 位 + 可选去尾零.
+ *
+ * 舍入到零的**负数**要先去符号:`(-0.00004).toFixed(4)` 给 `-0.0000`,但它数值上
+ * 就是零,负号只是舍入产物(对照 `String(Number('-0.0000')) === '0'`).不去的话
+ * "定点 n 位去尾零"会输出 `-0`,与调用方照 JS 语义写的
+ * `String(Number(v.toFixed(n)))` 差一个字符 -- 这条是 2026-10 由消费者侧的
+ * ViewPanel 迁移实测逼出来的(逐字符比对时只差这一格).
+ */
 function renderFixed(value: number, o: ResolvedNumberText): string {
     const fixed = value.toFixed(o.digits);
-    return o.trimZeros ? fixed.replace(/\.?0+$/, '') : fixed;
+    // `Number('-0.0000') === 0`(-0 与 0 相等),所以这一条同时命中正负两种零.
+    const unsigned = Number(fixed) === 0 ? fixed.replace(/^-/, '') : fixed;
+    return o.trimZeros ? unsigned.replace(/\.?0+$/, '') : unsigned;
 }
 
 /** 指数分支:尾数位数由 `exponentialDigits` 定,LaTeX 语法额外去掉尾数尾零. */

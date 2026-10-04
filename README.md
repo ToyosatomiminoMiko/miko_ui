@@ -253,6 +253,20 @@ createReadoutRow('方位角', { value: angle, text: angleText });
 3. **只有显示档允许舍入,全精度走 `title`.** 读数显示 `0.3`,`title` 给
    `0.30000000000000004` -- 这是"提高小数位直到看得出来"那种做法的替代物.
 
+**要"定点 n 位去零"这种旧口径的逐字符复刻,得显式关掉指数回退**:
+
+```ts
+// 等价于 String(Number(v.toFixed(4))):定点 4 位,去尾零,任何有限值都不切 e 记法
+const point = numberText({ syntax: 'edit', digits: 4, exponentialAt: { low: 0, high: Infinity } });
+```
+
+只写 `digits: 4` 不够,两处会差:①不带 `syntax: 'edit'` 就是**显示档**,`NaN` 输出
+`'NaN'` 过不了 `assertEditSafe`,`NumberField` 构造期直接抛;②默认档在
+`[1e-4, 1e6)` 之外会切成 `1.0000e-5` 这类 `e` 记法(旧口径给 `0`).`high: Infinity`
+让定点分支吃下全部有限值;非有限值仍给空串(与旧文本被浏览器消毒成空串同效).
+`numberText` 的另一条相关约定:定点档遇到**舍入到零的负数**(如 `-0.001` 配 2 位)
+输出 `0` / `0.00`,不吐舍入产物的 `-0`.
+
 **只读读数**用 `createValueDisplay`(单个 `<output>`)或 `createReadoutRow`(复用
 `.control-row` 的整行).它默认**不播报**:HTML-AAM 把 `<output>` 映射成隐式 live
 region,拖动滑杆时每帧都变,所以库里固定写 `aria-live="off"`,`announce: true` 才交给
@@ -282,6 +296,13 @@ createReadoutRow('方位角', {
 `installDomStub()` 就够.要在桩里跑别的渲染器就 `installDomStub({ formula: 'keep' })`
 保留当前渲染器,或用 `setFormulaRenderer(null)` 换回真 KaTeX -- "装桩"与"换渲染器"
 没有先后顺序的要求.
+
+**字号由库消费自己的令牌**:每个公式根节点都带基线类 `.ui-formula`,库的
+`styles/widgets.css` 里有一条 `.ui-formula > .katex { font-size: var(--katex-font-size) }`
+把令牌落到 KaTeX 的产物上.选择器是两个类(0,2,0),压得过 KaTeX 自带的
+`.katex { font: normal 1.21em ... }`,与样式表先后无关 -- 消费侧因此**不再需要**写
+`.katex { font-size: ... }`(单类选择器与 KaTeX 同特异度,又排在它前面,是必输的);
+要改字号就改 `--katex-font-size`(默认 `1.21em`,即 KaTeX 原值).
 
 **不归这一层管的东西**:`input.min` / `input.max` / `input.step` /
 `<input type="range">.value` 这类 DOM **机器属性**.`String(v)` 是无损的机器序列化,

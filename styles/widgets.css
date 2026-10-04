@@ -17,6 +17,7 @@
  *   .object-row / .row-main / .row-actions  行外壳三件套(`shared/rowDom.ts`)
  *   .diagnostic*           反馈条目的默认观感在 `feedback.css`
  *   .is-copied / .is-error 复制反馈的状态(见 `formula/FormulaCopyController.ts`)
+ *   .ui-formula            公式根节点(`formula/FormulaView.ts`;KaTeX 产物在它里面)
  *
  * 只写**结构与交互**,不写主题:颜色/圆角/间距一律 var(--...),默认值在
  * `tokens.css`,消费者可以整份覆盖.
@@ -237,6 +238,29 @@
     font-size: 12px;
     color: var(--color-text-strong);
     font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+ * 公式(KaTeX)
+ * ========================================================================== */
+
+/* `createFormulaElement` 的每个产物都带 `.ui-formula`(消费者类跟在后面,见
+   `formula/FormulaView.ts`),KaTeX 排出来的 `.katex` 是它的直接子节点.
+
+   这条规则是**库消费自己的令牌**:`--katex-font-size` 从 2026-10 起由库读,
+   消费侧不再需要写 `.katex { font-size: var(--katex-font-size) }`.
+
+   选择器故意是 0,2,0(`.ui-formula` + `.katex`)而不是单类:KaTeX 自带样式表
+   把字号写在 `.katex { font: normal 1.21em KaTeX_Main, ... }` 里(0,1,0),
+   而 `katex.min.css` 由库引在消费侧样式之前 -- 单类选择器与它同特异度,
+   只比先后,必输(下游实测:应用规则在产物 ~18.7KB 处,KaTeX 自带在 ~34.5KB 处,
+   于是 `--katex-font-size` 长期空转).0,2,0 与顺序无关.
+
+   想改字号请改**令牌**,不要在这里比特异度:`--katex-font-size` 就是这条规则的
+   唯一输入;这条规则只覆盖 `font-size` 一个 longhand,KaTeX 的 font-family 与
+   line-height 仍由它自己那份 `font` 简写提供. */
+.ui-formula > .katex {
+    font-size: var(--katex-font-size);
 }
 
 /* ==========================================================================

@@ -175,6 +175,35 @@ describe("numberText:语法 'edit'", () => {
         expect(numberText({ syntax: 'edit', digits: 2 }).toText(0.9)).toBe('0.9');
     });
 
+    it('定点档把"舍入到零的负数"归到零:不吐 -0 / -0.0000', () => {
+        // 默认指数门槛下 digits:2 仍走定点:|-0.001| 落在 [1e-4, 1e6) 里,而
+        // toFixed(2) 给 "-0.00".负号只是舍入产物,数值上就是零.
+        expect(numberText({ syntax: 'edit', digits: 2 }).toText(-0.001)).toBe('0');
+        expect(numberText({ syntax: 'edit', digits: 2, trimZeros: false }).toText(-0.001)).toBe('0.00');
+    });
+
+    it('"定点 n 位去零"要逐字符等于 String(Number(v.toFixed(n)))', () => {
+        // 消费者侧 ViewPanel 的旧口径就是 String(Number(v.toFixed(4))).库要复刻它
+        // 必须显式关掉指数回退(默认档在 [1e-4, 1e6) 之外会切成 e 记法),再配合上面的
+        // "舍入到零去符号" -- 两件事缺一条都会差字符.
+        const point = numberText({
+            syntax: 'edit',
+            digits: 4,
+            exponentialAt: { low: 0, high: Infinity },
+        });
+        const cases = [
+            0, -0, 0.2, 1.5, 1 / 3, 0.1 + 0.2, 0.00004, -0.00004, 5e-5,
+            1e-5, 1e-7, 123456.789, 1e7, 1e21, -1e21, Number.MAX_SAFE_INTEGER,
+        ];
+        for (const value of cases) {
+            expect(point.toText(value)).toBe(String(Number(value.toFixed(4))));
+        }
+        expect(assertEditSafe(point)).toBe(true);
+        // 非有限值:库给空串;旧写法给 "NaN"/"Infinity",而浏览器对它们做的就是
+        // 消毒成空串 -- 同效,而且库这条路不必依赖浏览器的消毒.
+        expect(point.toText(Number.NaN)).toBe('');
+    });
+
     it('带 suffix 的编辑档直接抛(number 输入框会把它消毒成空串)', () => {
         expect(() => numberText({ syntax: 'edit', suffix: '%' })).toThrow(TypeError);
         // 显示档带后缀是正当用法

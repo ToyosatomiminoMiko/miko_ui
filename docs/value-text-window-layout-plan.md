@@ -15,9 +15,26 @@
 >    与既有 `format`/`parse` 并存,加而不删";落地时选了**只留 `text`** -- 同一件事留
 >    两条入口正是这次统一要消灭的东西.代价是两个消费者**各一处**机械迁移:站点
 >    `src/setting/page_opacity.ts:75` 的 `format: formatOpacity`,graphcalc
->    `src/ui/view/ViewPanel.ts:155` 的 `format: formatPointValue`,无一是行为变更
+>    `src/ui/view/ViewPanel.ts:155` 的 `format: formatPointValue`
 >    (前者的期望文本 `"0.90"` 仍由 `numberText({ syntax: 'edit', digits: 2, trimZeros: false })`
->    产出,后者等价于 `digits: 4`).
+>    产出).
+>
+>    **2026-10 更正(消费者实测)**:这里原写"后者等价于 `digits: 4`"**不成立**,三处都不
+>    成立:①不带 `syntax: 'edit'` 的 `numberText({ digits: 4 })` 是**显示档**,`NaN` 输出
+>    `'NaN'` 过不了 `assertEditSafe`,`NumberField` 构造期直接抛(这条最硬);②即使给了
+>    `syntax: 'edit'`,默认档在 `[1e-4, 1e6)` 之外会切成 `e+n`(`1e-5` -> `1.0000e-5`,
+>    而旧口径 `String(Number(v.toFixed(4)))` 给 `0`);③`trimZeros: false` 又把 `0.2`
+>    写成 `0.2000`(那是站点 opacity 那个档位,不是这个).
+>
+>    **真正的等价写法**是
+>    `numberText({ syntax: 'edit', digits: 4, exponentialAt: { low: 0, high: Infinity } })`
+>    -- 显式关掉指数回退(`high: Infinity` 恒成立,定点分支吃下全部有限值),再加本轮
+>    修掉的"舍入到零去符号"(`-0.00004` 原本给 `-0`,旧口径给 `0`);两者齐了才对每一个
+>    有限值逐字符等于 `String(Number(v.toFixed(4)))`,非有限值给空串(与旧文本被浏览器
+>    消毒成空串同效),且 `assertEditSafe` 为真.单测 `numberText.test.ts` 的
+>    「"定点 n 位去零"要逐字符等于 String(Number(v.toFixed(n)))」逐值钉住了这条.
+>    消费者这轮用一份 6 行自定义 `ValueText` 达到同样效果(逐字符保持既有显示),
+>    **不迁移也不违反契约** -- 库给的就是"口径可以自己实现"这个出口.
 > 2. **编辑档默认改成"无损",而不是第 3.3 节的"6 位定点 + 放宽指数门槛".**理由:
 >    定点位数一旦少于控件 `step` 的小数位,用户只要编辑一下输入框,值就会被**静默
 >    量化**(拖动 / 输入 / 失焦三步都不报错,也没有任何断言会红).`NUMBER_TEXT_EDIT`
@@ -83,7 +100,38 @@
 > 那条 dedupe 原本的理由正是"让 `vi.mock('katex')` 拦得住库",现在理由消失;
 > ④删 `src/math/latexNumber.ts`,调用点改用 `numberText({ syntax: 'latex' })`
 > (档位同值,既有断言逐条保留);⑤要"排出来的公式读数"就在显示件上传 `render`
-> (别在应用里再拼一格 DOM).
+> (别在应用里再拼一格 DOM);⑥删掉 `panels.css` 2 条 + `process.css` 2 条的
+> `.katex { font-size: var(--katex-font-size) }`,以及 `uiConfig.ts` 的 `katexFontSize`
+> 与 `applyUiConfig.ts` 写 `--katex-font-size` 的那一段 -- 库现在自己消费这个令牌
+> (见下一条).
+>
+> **2026-10 第五轮补(消费者实测的两条)**
+>
+> 1. **样式接缝闭环:`--katex-font-size` 由库自己消费.**此前它只写着"由消费侧读",
+>    而消费侧那条 `.katex { font-size: ... }` 与 KaTeX 自带的
+>    `.katex { font: normal 1.21em ... }` **同特异度**,又排在 `katex.min.css` 之前,
+>    只能比先后 -- 必输.下游实测的字节偏移:`panels.css`/`process.css` 的 4 条规则在
+>    产物 ~18.7KB 处,KaTeX 自带在 ~34.5KB 处(该产物 CSS 依次为 18702 / 19510 /
+>    21761 / 22594 与 35031).所以 `katexFontSize: 1.5` 长期**空转**(他们的文档里
+>    "1.5em = 24px"是旧结论,实际渲染是 1.21em = 19.36px).落法:
+>    - `createFormulaElement` 的产物**总带**基线类 `.ui-formula`(消费者类跟在后面,
+>      与 `ui-button` / `ui-readout-value` 同一条"基线在前"的约定);
+>    - `styles/widgets.css` 加一条 `.ui-formula > .katex { font-size: var(--katex-font-size) }`
+>      -- **(0,2,0) 与顺序无关**,而且只覆盖 `font-size` 这一个 longhand,KaTeX 的
+>      font-family / line-height 仍由它自己的简写提供;
+>    - `--katex-font-size` 的默认值从 `1.5em` 改成 **`1.21em`(KaTeX 自己的值)**:
+>      令牌从"空转"变成"真生效"的那一刻,库的默认值必须等于引擎原值,否则所有不配置
+>      的消费者都会在一次 minor 里悄悄变大;要放大就改令牌(配置过的消费侧本来就会写);
+>    - 新增 `test/formulaFontSize.test.ts` 守三件事:唯一消费点,选择器是 0,2,0 且
+>      不包 `:where(`(本库其它基线类的习惯写法,用在这里会把特异度清零,掉回必输局),
+>      以及 CSS 里的类名就是 TS 里产出的那个.
+> 2. **`-0` 缺陷修正 + 一条文档更正.**第四轮记录里"`-0` 在每条分支上本来就输出 `0`"
+>    只对**负零**成立:定点档遇到"舍入到零的负数"(如 `(-0.00004).toFixed(4)` 给
+>    `-0.0000`)会输出 `-0`,而调用方照 JS 语义写的 `String(Number(v.toFixed(n)))`
+>    给 `0`.已在 `renderFixed` 里去掉这个舍入产物的符号,并加单测.同一条链上还更正了
+>    第四轮那句"graphcalc ViewPanel 那处等价于 `digits: 4`"(见第 1 条偏离的更正块):
+>    等价写法是 `syntax: 'edit'` + `exponentialAt: { low: 0, high: Infinity }`(关掉
+>    指数回退),不是裸的 `digits: 4`.
 >
 > **2026-10 第一轮评审**:先只审方案,不动代码;两处破坏性变更(D2 默认口径切档,
 > Phase 4 去掉正文拉伸通吃)**搁置,待消费者侧实验后再定**.
@@ -820,10 +868,14 @@ A 方案直接消灭这 17 个点.
 里有没有 `var()` 读它?** 没有就别加.建议在库侧补一条机器守卫(第 5 节).
 
 **第三轮给这条判据加个限定**:它只适用于**尺寸类** token -- 库里有 17 个配色/字体
-token(`--color-bg-app` / `--color-syntax-*` / `--katex-font-size` ...)在库内一次
-`var()` 都没被读到,却正是**给消费者的主题面**(`--katex-font-size` 只被 graphcalc 的
-`css/process.css` 读).照字面做成守卫会把它们全判违规,所以守卫要写成"被库的样式读
+token(`--color-bg-app` / `--color-syntax-*` ...)在库内一次 `var()` 都没被读到,却正是
+**给消费者的主题面**.照字面做成守卫会把它们全判违规,所以守卫要写成"被库的样式读
 **或**被 JS/消费者读",并且只对尺寸类生效.
+
+> **2026-10 第五轮订正**:这段原文拿 `--katex-font-size` 当"只被消费侧读"的例子,
+> 已经不成立 -- 该令牌现在由库的 `widgets.css` 读(`.ui-formula > .katex`,见
+> 五轮补第 1 条),它因此从"消费者主题面"变成"库内真读的令牌";剩下的主题面例子
+> 以 `--color-*` 为准.
 
 ### 4.8 新样式表的分发三门(2026-10 新增)
 
@@ -847,7 +899,10 @@ graphcalc 引的是聚合入口 `miko_ui/styles.css`,所以第 1 门过了它就
 | `src/shared/numberText.ts` | 重写为策略工厂 + 两个预置 + `parseNumber` + `syntax` 轴;保留 `formatNumber` / `formatVector` 旧签名与行为 | 0 |
 | `src/shared/numberText.test.ts` | 补策略与边界用例(含编辑档语法正则,`syntax: 'latex'`,`digits` 覆盖) | 0 |
 | `src/widgets/ValueDisplay.ts` | 新增 `createValueDisplay` / `createReadoutRow`;**第五轮补 `render?: (text) => Node` 出口**(公式读数) | 1 / 第五轮 |
-| `src/formula/FormulaView.ts` | **第五轮**:渲染器出口 `setFormulaRenderer` + 文本替身 `TEXT_FORMULA_RENDERER`;缓存随渲染器整体失效 | 第五轮 |
+| `src/formula/FormulaView.ts` | **第五轮**:渲染器出口 `setFormulaRenderer` + 文本替身 `TEXT_FORMULA_RENDERER`;缓存随渲染器整体失效.**第五轮补**:产物总带基线类 `.ui-formula`(令牌要选得到它) | 第五轮 |
+| `styles/widgets.css` + `styles/tokens.css` | **第五轮补**:`.ui-formula > .katex { font-size: var(--katex-font-size) }`(0,2,0,压过 KaTeX 自带);`--katex-font-size` 默认 `1.5em` -> `1.21em`(引擎原值) | 第五轮补 |
+| `test/formulaFontSize.test.ts`(新) | **第五轮补**:守"令牌唯一消费点 + 选择器 0,2,0 且不包 `:where(` + CSS 类名 = TS 产出" | 第五轮补 |
+| `src/shared/numberText.ts` + 其单测 | **第五轮补**:`renderFixed` 去掉"舍入到零"的负号(不再吐 `-0`);单测逐值钉住 `String(Number(v.toFixed(n)))` 等价写法 | 第五轮补 |
 | `src/testing/domStub.ts` | **第五轮**:`installDomStub()` 自动装公式文本替身(消费者测试不再 `vi.mock('katex')`) | 第五轮 |
 | `package.json` + `package-lock.json` + `scripts/check_ui_boundary.py` | **第五轮**:`katex` 从可选 peer 移进 `dependencies`;守卫改成"允许且要求 `dependencies` 带 katex,`peerDependencies` 为空" | 第五轮 |
 | `example/main.ts` / `example/example.css` | **第五轮**:多一条 `方位角(公式)` 读数(口径 `syntax: 'latex'` + `render` 走库的 `createFormulaElement`) | 第五轮 |
@@ -992,4 +1047,9 @@ Phase 4 那些"去掉通吃"的改动已降级为可不做(真实元素上无差
       仍然通过 -- 靠的是 `installDomStub()` 自动装的文本替身(库自己的
       `FormulaView.test.ts` 就是这条路的样板);
     - 读数的 `render` 出口把 `numberText({ syntax: 'latex' })` 排成 KaTeX DOM
-      (示例窗口里那条 `方位角(公式)` 可目视;`title` 仍是全精度纯文本).
+      (示例窗口里那条 `方位角(公式)` 可目视;`title` 仍是全精度纯文本);
+    - **样式接缝闭合(第五轮补)**:消费侧那 4 条 `.katex { font-size: ... }` 与
+      `--katex-font-size` 的写入都删掉之后,字号仍由库控制 -- 浏览器的
+      `getComputedStyle(.katex).fontSize` 等于 `--katex-font-size` × 宿主 font-size
+      (默认 `1.21em`);`test/formulaFontSize.test.ts` 守选择器特异度,防止有人把它
+      改回单类或 `:where(...)` 而静默失效.
