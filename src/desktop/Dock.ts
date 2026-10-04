@@ -15,10 +15,9 @@
  * 为什么不把按钮写死在标记里:加一个窗口要改两处(标记与清单)就会漂移,而
  * "清单是唯一真相源"是硬约束.
  */
-import { type WindowConfigEntry, type WindowId } from './types';
+import { type WindowConfigEntry, type WindowId, type WindowState } from './types';
 import { createButton } from '../widgets/Button';
 import { create_element } from '../widgets/dom';
-import type { WindowState } from './WindowManager';
 
 /** 桌面动作区:唯一的全局入口是一键复位. */
 export interface DockHandlers {

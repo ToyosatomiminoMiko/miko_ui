@@ -9,13 +9,22 @@
  *    (几何交给 `.is-maximized` 的 `inset`).它不写类名,也**不碰 `z-index`**.
  * 2. **状态的唯一写入点**是 `_applyState`:状态类 `is-maximized` / `is-hidden`
  *    都在这里切,并刷新 `inert` / `aria-hidden` / Dock 的激活态与隐藏态
- *    (`is-focused` 由 `focus()` 写,`is-dragging` 只是拖动期间的瞬态类).
+ *    (`is-focused` 由 `focus()` 写,`is-dragging` 只是手势期间的瞬态类).
  *
  * 运行期 `z-index` 只由 `focus()` 提升.几何必须逐条 `setProperty` 落地,不能用
  * `cssText`(它会连 `z-index` 一起清掉),否则拖动第一帧窗口就会掉到后面.
+ *
+ * 两种手势(标题栏拖动 / 八根手柄的缩放)在本类里是**同一形状**的三步:起手时
+ * `_gestureBegin` + 记下这次手势自己的基准,每次增量交给 `WindowGeometry` 的纯
+ * 函数解释,收尾时 `_gestureEnd` 并按原因决定要不要落地结果.差别只在解释函数
+ * (平移 `moveGeometry` + 磁吸 / 缩放 `resizeGeometry`)与拖动独有的"松手才生效"
+ * 意图(`pendingSnap` / `pendingRestore`).
  */
-import { type DesktopConfig, type WindowConfigEntry, type WindowId, type WindowSlot } from './types';
-import { bindDragGesture } from '../shared/dragGesture';
+// `WindowState` 的定义在 `desktop/types.ts`(管理器 / Dock / 缩放闸门三处共消费);
+// 这里**不**转出口:本文件与 `types` 同时被 `index.ts` 星号导出,同一个名字走两条
+// 星号导出会变成歧义,`WindowState` 反而会从公开面消失.消费者从包根拿到的名字不变.
+import { type DesktopConfig, type WindowConfigEntry, type WindowId, type WindowSlot, type WindowState } from './types';
+import { bindDragGesture, type DragEndReason } from '../shared/dragGesture';
 import { childNodes, type Child } from '../widgets/dom';
 import { createDock, type DockHandle } from './Dock';
 import {
@@ -23,18 +32,18 @@ import {
     fitGeometry,
     magnetize,
     moveGeometry,
+    resizeGeometry,
     resolveRelativeGeometries,
     resolveEdgeSnap,
     type Desktop,
     type AbsoluteGeometry,
     type Limits,
+    type ResizeDirection,
     type SnapKind,
 } from './WindowGeometry';
 import { clearGeometry, createWindowFrame, writeGeometry, type WindowActionButton, type WindowFrameHandle } from './WindowFrame';
 import { bindWindowResize } from './WindowResize';
 import { createSnapPreview, type SnapPreviewHandle } from './SnapPreview';
-
-export type WindowState = 'normal' | 'maximized' | 'minimized';
 
 /**
  * 标题栏"双击最大化"的判定阈值(ms).
@@ -75,6 +84,13 @@ interface Entry {
     state: WindowState;
     /** 每个窗口一份:拖动/缩放的指针监听在它上面 abort. */
     readonly gesture: AbortController;
+    /**
+     * 该窗口当前进行中的手势数(标题栏拖动 / 八根手柄的缩放).
+     *
+     * 用计数而不是布尔:两个指针(多点触控)可以同时拖一个窗口的两条边,谁先
+     * 松手都不该把还在进行的那次手势的 `is-dragging` 一并摘掉.
+     */
+    gestures: number;
     /** 该窗口当前的 z-index(`focus()` 写;几何写入不得碰它). */
     zIndex: number;
 }
@@ -195,6 +211,7 @@ export class WindowManager {
                 restore: null,
                 state: 'normal',
                 gesture: new AbortController(),
+                gestures: 0,
                 // 初始 z 按清单顺序递增:没有焦点时"可见窗口中 z 最高者"才有确定含义.
                 zIndex: this.z,
             };
@@ -211,9 +228,14 @@ export class WindowManager {
             this._bindWindowMove(entry);
             this._bindWindowRaise(entry);
             for (const handle of frame.handles) {
-                bindWindowResize(handle.element, entry.gesture.signal, handle.direction,
-                    (next) => this.setGeometry(spec.id, next),
-                    { geometry: () => entry.geometry, state: () => entry.state });
+                bindWindowResize(handle.element, entry.gesture.signal, handle.direction, {
+                    // 最大化态下缩放无意义(几何由 CSS 类接管,手柄也被 CSS 藏着):
+                    // 这里是第二道闸,不依赖样式表也算得对.
+                    canStart: () => entry.state === 'normal',
+                    onStart: () => this._gestureBegin(entry),
+                    onResize: (direction, dx, dy) => this._resizeBy(spec.id, direction, dx, dy),
+                    onEnd: () => this._gestureEnd(entry),
+                });
             }
 
             this._applyGeometry(spec.id);
@@ -545,7 +567,7 @@ export class WindowManager {
             onStart: () => {
                 pendingRestore = entry.state === 'maximized';
                 unsnapped = null;
-                entry.frame.element.classList.add('is-dragging');
+                this._gestureBegin(entry);
                 this.focus(id);
             },
             onDelta: (dx, dy, event) => {
@@ -575,12 +597,17 @@ export class WindowManager {
 
                 this.setGeometry(id, next);
             },
-            onEnd: () => {
+            onEnd: (reason: DragEndReason) => {
                 unsnapped = null;
-                entry.frame.element.classList.remove('is-dragging');
+                pendingRestore = false;
+                this._gestureEnd(entry);
                 this.snapPreview?.hide();
                 const snap = this.pendingSnap;
                 this.pendingSnap = null;
+                // 只有真的松手才算"用户决定放到这里".pointercancel 与 abort
+                // (dispose)不是:把半屏/最大化落下去等于凭空改状态,后者还会在
+                // 窗口正在被拆掉的时候写一遍几何.
+                if (reason !== 'pointerup') return;
                 if (!snap || snap.id !== id) return;
                 // 预览与落地调的是同一个纯函数算出来的几何.
                 if (snap.kind === 'maximize') this.setMaximized(id, true);
@@ -624,10 +651,48 @@ export class WindowManager {
         this.focus(id);
     }
 
+    /**
+     * 起手 / 收尾一对:窗口级 `is-dragging` 的唯一写入点.
+     *
+     * 拖动与缩放共用同一个类:它的 CSS 消费者(`.window.is-dragging .window-body
+     * { pointer-events: none }`)要覆盖的正是"手在窗口上"这件事,不该因为这次
+     * 手势是从标题栏还是从手柄起手而分家.共用件自己那枚 handle 上的 `is-dragging`
+     * 归它管,这里只管窗口这一层.
+     */
+    private _gestureBegin(entry: Entry): void {
+        entry.gestures += 1;
+        entry.frame.element.classList.add('is-dragging');
+    }
+
+    private _gestureEnd(entry: Entry): void {
+        entry.gestures = Math.max(0, entry.gestures - 1);
+        if (entry.gestures === 0) entry.frame.element.classList.remove('is-dragging');
+    }
+
+    /**
+     * 缩放的几何写入:移动边跟手,对边不动(语义见 `resizeGeometry`).
+     *
+     * 仍然只走 `setGeometry`:它那一次 `clampGeometry` 对本函数的结果是恒等
+     * (输出已经满足全部上下界),保留它是为了让"运行期几何只有一个出口"这条
+     * 约束不出现例外.
+     */
+    private _resizeBy(id: WindowId, direction: ResizeDirection, dx: number, dy: number): void {
+        const entry = this._require(id);
+        this.setGeometry(id, resizeGeometry(entry.geometry, direction, dx, dy, this._limits(entry)));
+    }
+
+    /**
+     * 参与磁吸的其它窗口几何.
+     *
+     * **只有普通态窗口参与**.最小化的不可见;最大化的在屏幕上铺的是工作区
+     * (由 `.is-maximized` 的 inset 负责),而 `entry.geometry` 保留的是"最大化
+     * 之前"那份坐标(还原要用它),拿它当候选边会吸到一条**看不见的边**--把
+     * 窗口停在半空中,用户看不出为什么.
+     */
     private _otherGeometries(id: WindowId): AbsoluteGeometry[] {
         const others: AbsoluteGeometry[] = [];
         for (const entry of this.entries.values()) {
-            if (entry.spec.id === id || this._hidden(entry)) continue;
+            if (entry.spec.id === id || entry.state !== 'normal') continue;
             others.push(entry.geometry);
         }
         return others;

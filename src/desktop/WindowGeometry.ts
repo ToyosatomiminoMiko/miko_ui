@@ -1,5 +1,5 @@
 /**
- * 窗口几何:锚点换算 / 夹取 / 吸附判定的**纯函数**.
+ * 窗口几何:锚点换算 / 夹取 / 八向缩放 / 吸附判定的**纯函数**.
  *
  * 本文件不引用任何 DOM(不 import `document`,`getComputedStyle`,也不认识
  * 元素);真正把结果写进页面的是 `WindowManager` + `WindowFrame.writeGeometry`.
@@ -19,7 +19,7 @@
  * 排布);②夹取/移动/吸附这些**运行期**变换.窗口那一侧既不解析锚点,也不认识
  * `after` / `split`.
  *
- * 三条数值口径(唯一一份,别在别处再发明):
+ * 数值口径(唯一一份,别在别处再发明):
  * - 桌面被顶部 Dock(任务栏)切成两段:`[0, dockReserve)` 是任务栏,
  *   `dockReserve` 之下才是窗口的**工作区**.所以 y 轴的默认坐标原点在工作区
  *   上沿,`y: { at }` 由本文件统一加上 `dockReserve`,消费者不用自己加.
@@ -29,6 +29,9 @@
  *   `y ∈ [dockReserve, dH - headerMinVisible]`.标题栏是唯一的手动入口,既不能
  *   被拖进顶部任务栏,也不能被拖出桌底.
  *   `bind()` 的初始几何同样要过一遍 `fitGeometry`,否则"默认值"会成为唯一的例外.
+ * - **夹取有两种语义,不能互换**:`clampGeometry` 是**平移**语义(x/y 与 w/h
+ *   各自夹,夹的是整体位置),`resizeGeometry` 是**缩放**语义(固定边不动,
+ *   夹的是尺寸).混用会在缩放时把窗口整体推走,见两个函数各自的说明.
  * - 最大化**没有几何函数**:进入这个态时行内四条属性被清掉,几何交给
  *   `styles/desktop.css` 的 `.is-maximized`(`inset`),所以这里也不存在
  *   "最大化矩形"的第二份实现.
@@ -359,6 +362,101 @@ export function fitGeometry(g: AbsoluteGeometry, limits: Limits): AbsoluteGeomet
         x: clamp(clamped.x, 0, Math.max(0, limits.desktop.w - clamped.w)),
         y: clamp(clamped.y, top, Math.max(top, limits.desktop.h - clamped.h)),
     };
+}
+
+// ---------------------------------------------------------------------------
+// 八向缩放:方向 + 增量 -> 新几何.与平移一样分两步 -- `applyResize` 只做算术,
+// 夹取由 `resizeGeometry` 那一遍统一做.
+// ---------------------------------------------------------------------------
+
+/** 八向缩放的方向;角是两轴之并(如 `se` 同时命中 `s` 与 `e`). */
+export type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+
+/** 方向 + 增量 -> 未夹取的几何(纯算术;夹取见 {@link resizeGeometry}). */
+export function applyResize(
+    g: AbsoluteGeometry,
+    direction: ResizeDirection,
+    dx: number,
+    dy: number,
+): AbsoluteGeometry {
+    let { x, y, w, h } = g;
+
+    if (direction.includes('e')) w += dx;
+    if (direction.includes('s')) h += dy;
+    // 西/北:坐标与尺寸一起动(要让窗口"看着不动,边在跑",只能两边一起改).
+    if (direction.includes('w')) {
+        x += dx;
+        w -= dx;
+    }
+    if (direction.includes('n')) {
+        y += dy;
+        h -= dy;
+    }
+    return { x, y, w, h };
+}
+
+/**
+ * 缩放的几何解释与夹取(唯一一份):**移动边跟手,对边不动**.
+ *
+ * 为什么不能用 `clampGeometry` 收尾:`clampGeometry` 是**平移**语义 -- x/y 与
+ * w/h 各自夹一次,等价于"把这个矩形整体塞回合法区".缩放下两者会互相污染:
+ *
+ * - 北边拖到工作区上沿时,`y` 被夹在 `dockReserve`,而 `h -= dy` 那一半照旧生效,
+ *   于是**底边继续往下跑**,窗口比指针要求的更高;
+ * - 西边拖到最小宽度时,`w` 被夹在 `min.w`,而 `x += dx` 那一半照旧生效,于是
+ *   窗口**整体右移**(看着像平移而不是缩放).
+ *
+ * 所以这里先只夹**尺寸**,再由固定边反推坐标:固定边是常量,另一条边跟着指针,
+ * 撞到界就停在界上.上下界与 `clampGeometry` 同一组口径(见文件头第 3 条),
+ * 另外把"标题栏仍抓得到"折成尺寸的界(下详).
+ *
+ * 输出**已经满足 `clampGeometry` 的全部不变量**(对该结果再夹一次是恒等),
+ * 所以调用方仍可以走"几何唯一出口"那条路而不必为缩放开例外.
+ */
+export function resizeGeometry(
+    g: AbsoluteGeometry,
+    direction: ResizeDirection,
+    dx: number,
+    dy: number,
+    limits: Limits,
+): AbsoluteGeometry {
+    const desktop = limits.desktop;
+    const maxW = Math.max(limits.min.w, desktop.w);
+    const maxH = Math.max(limits.min.h, desktop.h);
+    const top = workAreaTop(desktop);
+
+    let { x, y, w, h } = g;
+
+    // 横向:先定宽,再由固定边反推 x(东边在动 = 西边固定,反之亦然).
+    if (direction.includes('e')) {
+        const left = x;
+        // 西边固定:窗口在桌内的横向重叠不得少于 edgeKeep,即 w >= edgeKeep - left.
+        // left >= 0 时这条被 min.w 盖住;只有窗口已经挂在桌左外侧时才生效.
+        w = clamp(w + dx, Math.max(limits.min.w, limits.edgeKeep - left), maxW);
+        x = left;
+    } else if (direction.includes('w')) {
+        const right = x + w;
+        // 东边固定:同理,x <= dW - edgeKeep 等价于 w >= right - (dW - edgeKeep).
+        // 少了这条,把西边往右拖到最小宽度之后,窗口会滑到桌外再也点不到.
+        w = clamp(w - dx, Math.max(limits.min.w, right - (desktop.w - limits.edgeKeep)), maxW);
+        x = right - w;
+    }
+
+    // 纵向:固定边是南边(n 在动)/ 北边(s 在动).
+    if (direction.includes('s')) {
+        h = clamp(h + dy, limits.min.h, maxH);
+    } else if (direction.includes('n')) {
+        const bottom = y + h;
+        // 底边固定:上边既不能顶进任务栏(工作区上沿),也不能沉到桌底之下
+        // (标题栏必须还抓得到).两条都折成高度的上下界 -- 夹高度而不是夹 y,
+        // 否则就又回到"底边跟着跑"的老问题.
+        const low = Math.max(limits.min.h, bottom - (desktop.h - limits.headerMinVisible));
+        const high = Math.max(low, Math.min(maxH, bottom - top));
+        h = clamp(h - dy, low, high);
+        y = bottom - h;
+    }
+
+    return { x, y, w, h };
 }
 
 /** 边缘吸附的三种落点(与 `resolveEdgeSnap` 的返回同域). */

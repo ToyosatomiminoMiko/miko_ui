@@ -62,6 +62,32 @@ function titleOf(layer: StubElement, id: FixtureWindowId): StubElement {
     return windowOf(layer, id).querySelector('.window-title') as unknown as StubElement;
 }
 
+/** 某一根缩放手柄(`n` / `se` ...). */
+function handleOf(layer: StubElement, id: FixtureWindowId, direction: string): StubElement {
+    const found = windowOf(layer, id).querySelector(`[data-window-resize="${direction}"]`);
+    if (!found) throw new Error(`找不到窗口 ${id} 的 ${direction} 手柄`);
+    return found as unknown as StubElement;
+}
+
+/** 在某根手柄上拖一次(按下 -> 若干次移动 -> 松开/取消). */
+function dragHandle(
+    layer: StubElement,
+    id: FixtureWindowId,
+    direction: string,
+    steps: readonly { x: number; y: number }[],
+    end: 'pointerup' | 'pointercancel' = 'pointerup',
+    pointerId = 1,
+): void {
+    const handle = handleOf(layer, id, direction);
+    const first = steps[0];
+    handle.dispatch('pointerdown', { clientX: first.x, clientY: first.y, pointerId });
+    for (const step of steps.slice(1)) {
+        handle.dispatch('pointermove', { clientX: step.x, clientY: step.y, pointerId });
+    }
+    const last = steps[steps.length - 1];
+    handle.dispatch(end, { clientX: last.x, clientY: last.y, pointerId });
+}
+
 /** 在标题栏上拖一次(按下 -> 移动 -> 松开). */
 function dragTitle(
     layer: StubElement,
@@ -558,6 +584,98 @@ describe('拖动 / 吸附', () => {
 
         expect(manager.getState('source')).toBe('normal');
         expect(manager.getGeometry('source')).toEqual({ ...before, x: before.x + 20, y: before.y + 20 });
+    });
+
+    it('pointercancel 不落地吸附:只有松手才算"用户决定放到这里"', () => {
+        const { layer, snap, manager } = setup();
+        const title = titleOf(layer, 'source');
+
+        title.dispatch('pointerdown', { clientX: 600, clientY: 300, pointerId: 1 });
+        title.dispatch('pointermove', { clientX: 4, clientY: 300, pointerId: 1 });
+        expect(snap.classList.contains('is-open')).toBe(true);
+        const dragged = manager.getGeometry('source');
+
+        title.dispatch('pointercancel', { clientX: 4, clientY: 300, pointerId: 1 });
+
+        expect(snap.classList.contains('is-open')).toBe(false);
+        expect(windowOf(layer, 'source').classList.contains('is-dragging')).toBe(false);
+        // 半屏落点(0,40,640,760)没有被写进去.
+        expect(manager.getGeometry('source')).toEqual(dragged);
+    });
+
+    it('最大化窗口不参与磁吸(旧几何是幽灵边,会把别的窗口停在半空)', () => {
+        const { layer, manager } = setup();
+        // objects 普通态的顶边在 524;最大化之后屏幕上没有这条边了.
+        manager.setMaximized('objects', true);
+
+        const title = titleOf(layer, 'source');
+        title.dispatch('pointerdown', { clientX: 600, clientY: 300, pointerId: 1 });
+        // source 的 y 从 56 拖到 522:距幽灵边 524 只有 2px,落在磁吸阈值(8)内.
+        title.dispatch('pointermove', { clientX: 600, clientY: 766, pointerId: 1 });
+        title.dispatch('pointerup', { clientX: 600, clientY: 766, pointerId: 1 });
+
+        expect(manager.getGeometry('source').y).toBe(522);
+    });
+});
+
+describe('缩放', () => {
+    it('北边拖到工作区上沿:停止长高,底边不动(旧行为是底边继续往下跑)', () => {
+        const { layer, manager } = setup();
+        const start = manager.getGeometry('source');
+
+        // 一共往上拖 80px,但 y 只放得下 16px(56 -> 40).
+        dragHandle(layer, 'source', 'n', [
+            { x: 200, y: 60 },
+            ...Array.from({ length: 8 }, (_, index) => ({ x: 200, y: 60 - (index + 1) * 10 })),
+        ]);
+
+        const end = manager.getGeometry('source');
+        expect(end.y).toBe(WINDOW.dockReserve);
+        expect(end.y + end.h).toBe(start.y + start.h);
+        expect(end.h).toBe(start.h + 16);
+    });
+
+    it('西边拖过最小宽度:宽度夹在 minSize,窗口整体不平移', () => {
+        const { layer, manager } = setup();
+        const start = manager.getGeometry('source');
+        const right = start.x + start.w;
+
+        dragHandle(layer, 'source', 'w', [
+            { x: 16, y: 300 },
+            ...Array.from({ length: 40 }, (_, index) => ({ x: 16 + (index + 1) * 10, y: 300 })),
+        ]);
+
+        const end = manager.getGeometry('source');
+        expect(end.w).toBe(300);
+        expect(end.x + end.w).toBe(right);
+    });
+
+    it('缩放手柄拖动时窗口挂 is-dragging(与标题栏拖动同一个类)', () => {
+        const { layer, manager } = setup();
+        const handle = handleOf(layer, 'source', 'se');
+        const element = windowOf(layer, 'source');
+
+        handle.dispatch('pointerdown', { clientX: 400, clientY: 500, pointerId: 1 });
+        expect(element.classList.contains('is-dragging')).toBe(true);
+
+        handle.dispatch('pointermove', { clientX: 410, clientY: 505, pointerId: 1 });
+        expect(manager.getGeometry('source')).toEqual({ x: 16, y: 56, w: 430, h: 511 });
+
+        handle.dispatch('pointerup', { clientX: 410, clientY: 505, pointerId: 1 });
+        expect(element.classList.contains('is-dragging')).toBe(false);
+    });
+
+    it('最大化态下拖手柄:不起手,几何与状态都不动', () => {
+        const { layer, manager } = setup();
+        manager.setMaximized('source', true);
+        const before = manager.getGeometry('source');
+        const element = windowOf(layer, 'source');
+
+        dragHandle(layer, 'source', 'se', [{ x: 400, y: 500 }, { x: 500, y: 600 }]);
+
+        expect(element.classList.contains('is-dragging')).toBe(false);
+        expect(manager.getState('source')).toBe('maximized');
+        expect(manager.getGeometry('source')).toEqual(before);
     });
 });
 

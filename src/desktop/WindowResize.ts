@@ -1,75 +1,62 @@
 /**
- * 八向缩放的**几何解释**(纯函数)与手柄绑定.
+ * 八向缩放的**手柄绑定**:把某根手柄上的指针位移翻译成 `(方向, dx, dy)` 回调.
+ *
+ * 本模块只做 DOM 接线,不认识 x/y/w/h:几何解释(`applyResize`)与夹取
+ * (`resizeGeometry`)都是 `WindowGeometry.ts` 的纯函数,方向来自手柄的
+ * `data-window-resize`,窗口状态由调用方通过 `canStart` 表达.这样拖动与缩放
+ * 两条路径的形状就一致了 -- 管理器起手,共用件报增量,纯函数解释,管理器落地.
  *
  * 拖动只有 `shared/dragGesture.ts` 一份,光标只由 CSS 给(起手时读
  * `getComputedStyle(handle).cursor`),`is-dragging` 由共用件负责,解绑走
- * `{ signal }`.本模块只做一件事:把 `(方向, dx, dy)` 翻译成 `x/y/w/h` 的改变.
- *
- * 三条必守的细节(否则会出现"拖不动""窗口跳""拖到自己身上"):
- * 1. `west`/`north` 必须**同时**动 `x/y` 与 `w/h`:只改尺寸会让窗口"看着不动,
- *    右边却在跑";
- * 2. `applyResize` **不夹取**:`w -= dx` 与 `x += dx` 之间插夹取会把窗口整体
- *    往右推,夹取必须由调用方在累加后统一做一次(`WindowManager` 的
- *    `setGeometry` 过 `clampGeometry`);
- * 3. 至少 `edgeKeep` 宽留在桌内,这条同样由调用方那次夹取保证.
+ * `{ signal }`.
  */
 import { bindDragGesture } from '../shared/dragGesture';
-import type { AbsoluteGeometry } from './WindowGeometry';
-import type { WindowState } from './WindowManager';
+import type { ResizeDirection } from './WindowGeometry';
 
-export type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+// 方向词表与纯算术住在几何模块:别处(含消费者)从本模块拿到的名字不变.
+export type { ResizeDirection } from './WindowGeometry';
+export { applyResize, resizeGeometry } from './WindowGeometry';
 
 /**
  * 八根手柄的方向清单:顺序即 DOM 顺序.
  *
- * 角 = 两轴并集,所以下面的判断用 `includes`:一个 `se` 同时命中 `e` 与 `s`.
+ * 角 = 两轴并集,所以 `WindowGeometry` 里的判断用 `includes`:一个 `se` 同时
+ * 命中 `e` 与 `s`.
  */
 export const RESIZE_DIRECTIONS: readonly ResizeDirection[] = [
     'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw',
 ];
 
-/** 方向 + 增量 -> 未夹取的几何(纯算术). */
-export function applyResize(
-    g: AbsoluteGeometry,
-    direction: ResizeDirection,
-    dx: number,
-    dy: number,
-): AbsoluteGeometry {
-    let { x, y, w, h } = g;
-
-    if (direction.includes('e')) w += dx;
-    if (direction.includes('s')) h += dy;
-    // 西/北:坐标与尺寸一起动(见文件头第 1 条).
-    if (direction.includes('w')) {
-        x += dx;
-        w -= dx;
-    }
-    if (direction.includes('n')) {
-        y += dy;
-        h -= dy;
-    }
-    return { x, y, w, h };
+/** 一次缩放要回调的事:可否起手 / 起手 / 每次位移 / 收尾. */
+export interface WindowResizeHandlers {
+    /**
+     * 是否允许这次按下起手(默认允许).返回 false 时共用件什么都不做:不起手,
+     * 不换光标,不加 `is-dragging`,也不 `preventDefault`.
+     *
+     * 窗口用它表达"最大化态下缩放无意义"(几何由 CSS 类接管).CSS 那边会把
+     * 手柄一起隐藏,这里是第二道闸:不依赖样式表也算得对.
+     */
+    canStart?(): boolean;
+    /** 已起手(`preventDefault` 完成,光标已换). */
+    onStart(): void;
+    /** 每次位移:方向 + 本次的像素增量(原样,未解释). */
+    onResize(direction: ResizeDirection, dx: number, dy: number): void;
+    /** 松手 / 取消 / 被解绑. */
+    onEnd(): void;
 }
 
-/** 手柄绑定要读的窗口侧状态(几何与状态都是唯一真相源,不读 DOM 类名). */
-export interface ResizeContext {
-    geometry(): AbsoluteGeometry;
-    state(): WindowState;
-}
-
-/** 把某根手柄接到 `applyResize` 上;DOM 部分只做这一件事. */
+/** 把某根手柄接到回调上;DOM 部分只做这一件事. */
 export function bindWindowResize(
     handle: HTMLElement,
     signal: AbortSignal,
     direction: ResizeDirection,
-    onGeometry: (next: AbsoluteGeometry) => void,
-    read: ResizeContext,
+    handlers: WindowResizeHandlers,
 ): void {
     bindDragGesture(handle, signal, {
-        // 最大化态下缩放无意义(几何由 CSS 类接管),直接不起手.
-        canStart: () => read.state() === 'normal',
-        onStart: () => {},
-        onDelta: (dx, dy) => onGeometry(applyResize(read.geometry(), direction, dx, dy)),
-        onEnd: () => {},
+        canStart: () => handlers.canStart?.() ?? true,
+        onStart: () => handlers.onStart(),
+        onDelta: (dx, dy) => handlers.onResize(direction, dx, dy),
+        // 缩放没有"松手才生效"的待落地状态,所以取消与松手一样只做收尾.
+        onEnd: () => handlers.onEnd(),
     });
 }

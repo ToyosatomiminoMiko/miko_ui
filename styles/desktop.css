@@ -88,7 +88,8 @@
     border-bottom-color: var(--color-accent-line);
 }
 
-/* 拖动中:正文不接收指针(拖到数字输入框上方不会误触). */
+/* 拖动/缩放中:正文不接收指针(拖到数字输入框上方不会误触).
+   类由 WindowManager 统一挂(拖动与缩放共用一个计数,见 `_gestureBegin`). */
 .window.is-dragging .window-body {
     pointer-events: none;
 }
@@ -278,6 +279,14 @@
     bottom: -3px;
     right: -3px;
     cursor: nwse-resize;
+}
+
+/* 最大化:几何由 `.is-maximized` 的 inset 接管,缩放没有意义.
+   手柄的命中区/光标/悬停高亮都写在这个文件里,所以"不可缩放"必须在这里也表达
+   一次:只靠 TS 里那道 canStart 闸门的话,窗口边上照样是 resize 光标与高亮,
+   拖下去却没反应(观感是"拖不动",而不是"这里不能拖"). */
+.window.is-maximized .resize-handle {
+    display: none;
 }
 
 /* ==========================================================================

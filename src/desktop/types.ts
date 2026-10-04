@@ -13,6 +13,13 @@
 export type WindowId = string;
 
 /**
+ * 窗口的三种状态.住在这里(而不是 `WindowManager`)是因为它被三处共消费:
+ * 管理器自己 / `Dock` 的按钮态 / 缩放的起手闸门.放在管理器里会让
+ * `WindowResize -> WindowManager -> WindowResize` 首尾相接,分层就断了.
+ */
+export type WindowState = 'normal' | 'maximized' | 'minimized';
+
+/**
  * 标题栏上的挂载槽位.
  *
  * 这是窗口标题栏的**唯一一套位置词汇**:配置用 `slot` 声明节点进哪里,
@@ -27,7 +34,7 @@ export type WindowSlot = 'title' | 'actions' | 'overlays';
  * 只有"最小化 / 最大化"两个:没有真正的进程可关,`close` 与 `minimize` 在观感上
  * 就是同一件事(都是把窗口藏起来),留着只会多一个语义重复的按钮;`fullscreen`
  * 与 `maximize` 的差别也只剩"遮不遮任务栏",而任务栏不该被遮,所以这两个动作
- * 连同它们的状态都不提供(窗口状态见 `WindowManager` 的 `WindowState`).
+ * 连同它们的状态都不提供(窗口状态见本文件的 `WindowState`).
  */
 export type WindowActionId = 'minimize' | 'maximize';
 

@@ -1,13 +1,20 @@
 /**
- * 八向缩放的几何解释.
+ * 八向缩放的**手柄绑定**:方向 + 指针增量 -> 回调.
+ *
+ * 几何解释与夹取是 `WindowGeometry.ts` 的纯函数,这里只验 DOM 接线(起手闸门,
+ * 增量原样透传,起手/收尾成对).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type StubElement } from '../testing/domStub';
-import type { AbsoluteGeometry } from './WindowGeometry';
-import type { WindowState } from './WindowManager';
-import { applyResize, bindWindowResize, RESIZE_DIRECTIONS } from './WindowResize';
+import type { ResizeDirection } from './WindowGeometry';
+import {
+    applyResize,
+    bindWindowResize,
+    RESIZE_DIRECTIONS,
+    type WindowResizeHandlers,
+} from './WindowResize';
 
-const START: AbsoluteGeometry = { x: 100, y: 200, w: 400, h: 300 };
+const START = { x: 100, y: 200, w: 400, h: 300 };
 
 beforeEach(() => {
     installDomStub();
@@ -46,66 +53,95 @@ describe('applyResize', () => {
 });
 
 describe('bindWindowResize', () => {
-    function setup(state: WindowState = 'normal'): {
+    interface Calls {
+        started: number;
+        ended: number;
+        readonly moves: { direction: ResizeDirection; dx: number; dy: number }[];
+    }
+
+    function setup(options: { canStart?: () => boolean } = {}): {
         handle: StubElement;
-        calls: AbsoluteGeometry[];
+        calls: Calls;
         controller: AbortController;
-        setState(next: WindowState): void;
     } {
         const handle = document.createElement('div') as unknown as StubElement;
         // 真标记里八根手柄的光标由 styles/desktop.css 给;桩不解析样式表,拖动读到的
         // 光标要像真标记那样写在元素上.
         handle.style.cursor = 'nwse-resize';
 
-        let current = state;
-        const calls: AbsoluteGeometry[] = [];
+        const calls: Calls = { started: 0, ended: 0, moves: [] };
+        const handlers: WindowResizeHandlers = {
+            canStart: options.canStart,
+            onStart: () => { calls.started += 1; },
+            onResize: (direction, dx, dy) => calls.moves.push({ direction, dx, dy }),
+            onEnd: () => { calls.ended += 1; },
+        };
         const controller = new AbortController();
         bindWindowResize(
             handle as unknown as HTMLElement,
             controller.signal,
             'se',
-            (next) => calls.push(next),
-            { geometry: () => START, state: () => current },
+            handlers,
         );
-        return { handle, calls, controller, setState: (next) => { current = next; } };
+        return { handle, calls, controller };
     }
 
-    it('拖一根手柄:增量经 applyResize 解释后回调', () => {
+    it('拖一根手柄:方向与每次增量原样透传,起手/收尾各一次', () => {
         const { handle, calls } = setup();
 
         handle.dispatch('pointerdown', { clientX: 500, clientY: 500, pointerId: 1 });
         expect(handle.classList.contains('is-dragging')).toBe(true);
+        expect(calls.started).toBe(1);
 
         handle.dispatch('pointermove', { clientX: 510, clientY: 505, pointerId: 1 });
-        expect(calls).toEqual([{ x: 100, y: 200, w: 410, h: 305 }]);
-
-        // 增量:第二次只按 5px/3px 解释(不累计成 15px/8px);几何由调用方给,
-        // 本模块只负责"这一次的增量 -> 几何".
         handle.dispatch('pointermove', { clientX: 515, clientY: 508, pointerId: 1 });
-        expect(calls[1]).toEqual({ x: 100, y: 200, w: 405, h: 303 });
+        // 增量,不是"起点 + 总位移":第二次只报 5px/3px.
+        expect(calls.moves).toEqual([
+            { direction: 'se', dx: 10, dy: 5 },
+            { direction: 'se', dx: 5, dy: 3 },
+        ]);
 
         handle.dispatch('pointerup', { clientX: 515, clientY: 508, pointerId: 1 });
         expect(handle.classList.contains('is-dragging')).toBe(false);
+        expect(calls.ended).toBe(1);
     });
 
-    it('最大化/全屏态下不起手', () => {
-        const { handle, calls, setState } = setup();
-        setState('maximized');
+    it('canStart 返回 false 时完全不起手(最大化态的闸门)', () => {
+        const { handle, calls } = setup({ canStart: () => false });
 
         handle.dispatch('pointerdown', { clientX: 500, clientY: 500, pointerId: 1 });
         handle.dispatch('pointermove', { clientX: 600, clientY: 600, pointerId: 1 });
 
         expect(handle.classList.contains('is-dragging')).toBe(false);
-        expect(calls).toEqual([]);
+        expect(calls.started).toBe(0);
+        expect(calls.moves).toEqual([]);
+        expect(calls.ended).toBe(0);
     });
 
-    it('signal abort 后不再起手', () => {
+    it('pointercancel 也算收尾(缩放没有待落地的结果,取消与松手同路)', () => {
+        const { handle, calls } = setup();
+
+        handle.dispatch('pointerdown', { clientX: 500, clientY: 500, pointerId: 1 });
+        handle.dispatch('pointermove', { clientX: 510, clientY: 505, pointerId: 1 });
+        handle.dispatch('pointercancel', { clientX: 510, clientY: 505, pointerId: 1 });
+
+        expect(calls.ended).toBe(1);
+        expect(handle.classList.contains('is-dragging')).toBe(false);
+    });
+
+    it('signal abort 后不再起手;拖动中被 abort 也会收尾', () => {
         const { handle, calls, controller } = setup();
         controller.abort();
 
         handle.dispatch('pointerdown', { clientX: 500, clientY: 500, pointerId: 1 });
         handle.dispatch('pointermove', { clientX: 600, clientY: 600, pointerId: 1 });
+        expect(calls.moves).toEqual([]);
+        expect(calls.started).toBe(0);
 
-        expect(calls).toEqual([]);
+        const live = setup();
+        live.handle.dispatch('pointerdown', { clientX: 500, clientY: 500, pointerId: 1 });
+        live.controller.abort();
+        expect(live.calls.ended).toBe(1);
+        expect(live.handle.classList.contains('is-dragging')).toBe(false);
     });
 });

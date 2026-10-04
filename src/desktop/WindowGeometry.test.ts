@@ -9,6 +9,7 @@ import {
     geometryStyle,
     magnetize,
     moveGeometry,
+    resizeGeometry,
     resolveRelativeGeometry,
     resolveRelativeGeometries,
     resolveEdgeSnap,
@@ -400,6 +401,74 @@ describe('moveGeometry', () => {
             w: 420,
             h: 300,
         });
+    });
+});
+
+describe('resizeGeometry:移动边跟手,对边不动', () => {
+    const desktop = desktopOf(1000, 700);
+    const limits = limitsFor('source', desktop);
+
+    it('东/南:西边与北边一点不动', () => {
+        const start: AbsoluteGeometry = { x: 100, y: 100, w: 420, h: 300 };
+        expect(resizeGeometry(start, 'e', 40, 0, limits)).toEqual({ x: 100, y: 100, w: 460, h: 300 });
+        expect(resizeGeometry(start, 's', 0, 30, limits)).toEqual({ x: 100, y: 100, w: 420, h: 330 });
+        expect(resizeGeometry(start, 'se', 40, 30, limits)).toEqual({ x: 100, y: 100, w: 460, h: 330 });
+    });
+
+    it('西/北:东边与南边一点不动', () => {
+        const start: AbsoluteGeometry = { x: 300, y: 300, w: 400, h: 300 };
+        expect(resizeGeometry(start, 'w', 40, 0, limits)).toEqual({ x: 340, y: 300, w: 360, h: 300 });
+        expect(resizeGeometry(start, 'n', 0, 30, limits)).toEqual({ x: 300, y: 330, w: 400, h: 270 });
+    });
+
+    it('北边撞到工作区上沿:停止长高,底边不动(旧行为是底边继续往下跑)', () => {
+        // source 的 min.h = 220;起点贴着工作区上沿,允许长高的余量用不完.
+        const start: AbsoluteGeometry = { x: 100, y: 56, w: 420, h: 300 };
+        const bottom = start.y + start.h;
+
+        // 往上拖 96px,但 y 最多只能到 dockReserve = 40(只放得下 16px).
+        const next = resizeGeometry(start, 'n', 0, -96, limits);
+        expect(next.y).toBe(WINDOW.dockReserve);
+        expect(next.y + next.h).toBe(bottom);
+        expect(next.h).toBe(start.h + 16);
+    });
+
+    it('西边拖过最小宽度:窗口整体不平移(旧行为是宽度夹住,x 继续右移)', () => {
+        const start: AbsoluteGeometry = { x: 100, y: 100, w: 320, h: 300 };
+        const right = start.x + start.w;
+
+        const next = resizeGeometry(start, 'w', 200, 0, limits);
+        expect(next.w).toBe(limits.min.w);
+        expect(next.x + next.w).toBe(right);
+    });
+
+    it('缩到最小尺寸/最大尺寸都夹得住,且尺寸始终合法', () => {
+        const start: AbsoluteGeometry = { x: 100, y: 100, w: 420, h: 300 };
+        for (const direction of ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as const) {
+            const shrink = resizeGeometry(start, direction, direction.includes('e') ? -10_000 : 10_000,
+                direction.includes('s') ? -10_000 : 10_000, limits);
+            expect(shrink.w).toBeGreaterThanOrEqual(limits.min.w);
+            expect(shrink.h).toBeGreaterThanOrEqual(limits.min.h);
+        }
+    });
+
+    it('输出已经满足 clampGeometry:再夹一次是恒等', () => {
+        const cases: AbsoluteGeometry[] = [
+            { x: 100, y: 100, w: 420, h: 300 },
+            { x: 0, y: 40, w: 420, h: 300 },
+            { x: 700, y: 500, w: 420, h: 300 },
+            { x: -300, y: 100, w: 420, h: 300 },
+        ];
+        for (const start of cases) {
+            for (const direction of ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as const) {
+                for (const delta of [-120, -7, 7, 120]) {
+                    const next = resizeGeometry(start, direction, delta, -delta, limits);
+                    // 缩放夹取与平移夹取必须收敛到同一个合法区,否则"几何唯一出口"
+                    // 那次 clampGeometry 会把对边又推走(最老的那版 bug).
+                    expect(clampGeometry(next, limits)).toEqual(next);
+                }
+            }
+        }
     });
 });
 

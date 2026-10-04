@@ -14,8 +14,13 @@
  *   变成比例)由 `onDelta` 的实现决定,本模块不认识"宽/高/比例"任何一个概念.
  *
  * 收尾:pointerup / pointercancel 绑在 handle 自己身上(见下方监听说明),并给
- * handle 加 `is-dragging` 类供 CSS 表达拖动中状态.
+ * handle 加 `is-dragging` 类供 CSS 表达拖动中状态.三种收尾路径(松手 / 取消 /
+ * 解绑)都汇到 `onEnd(reason)` 一处,但**原因不合并**:要落地结果的消费者得靠
+ * 它区分"用户松手"与"这次拖动被取消了".
  */
+
+/** 拖动收尾的原因:松手 / 指针被取消 / 解绑(signal abort). */
+export type DragEndReason = 'pointerup' | 'pointercancel' | 'abort';
 
 /** 拖动回调:按下,每次移动的像素位移,收尾. */
 export interface DragGestureHandlers {
@@ -35,7 +40,7 @@ export interface DragGestureHandlers {
      * 按下(已 `preventDefault`),光标已经换成拖动态.
      *
      * 参数是这次的 `pointerdown`;只用位移工作的消费者可以忽略它(TS 允许实现
-     * 少写参数,如 `desktop/WindowResize` 写 `onStart: () => {}`).
+     * 少写参数,如窗口的缩放手柄写 `onStart: () => {}`).
      */
     onStart(event: PointerEvent): void;
     /**
@@ -45,8 +50,17 @@ export interface DragGestureHandlers {
      * (见 `desktop/WindowGeometry.resolveEdgeSnap`).
      */
     onDelta(deltaX: number, deltaY: number, event: PointerEvent): void;
-    /** 松开 / 取消 / 被解绑;只有真正起手过的拖动才回调,用于复位只属于这次拖动的外部状态. */
-    onEnd(): void;
+    /**
+     * 收尾(只有真正起手过的拖动才回调),用于复位只属于这次拖动的外部状态.
+     *
+     * **必须看 `reason`**:`pointercancel` 与被解绑都不是"用户决定放在这里",
+     * 把结果落地的消费者(窗口拖动会在松手时提交吸附)要在此时丢掉待落地的
+     * 意图,否则一次取消或一次 `dispose` 会凭空改掉状态.
+     *
+     * 实现可以少写这个参数(`onEnd: () => ...` 仍然合法):不需要区分原因的
+     * 消费者(缩放手柄)只关心"结束了".
+     */
+    onEnd(reason: DragEndReason): void;
 }
 
 /**
@@ -73,7 +87,7 @@ export function bindDragGesture(
     let pointerId = -1;
     let aborted = false;
 
-    const end = (): void => {
+    const end = (reason: DragEndReason): void => {
         if (!active) return;
         active = false;
         if (pointerId !== -1 && handle.hasPointerCapture?.(pointerId)) {
@@ -82,7 +96,7 @@ export function bindDragGesture(
         pointerId = -1;
         handle.classList.remove('is-dragging');
         onCursorReset();
-        handlers.onEnd();
+        handlers.onEnd(reason);
     };
 
     const onPointerMove = (event: PointerEvent): void => {
@@ -127,12 +141,12 @@ export function bindDragGesture(
      * 解绑走同一个 signal,所以 dispose 不需要额外记账.
      */
     handle.addEventListener('pointermove', onPointerMove, { signal });
-    handle.addEventListener('pointerup', end, { signal });
-    handle.addEventListener('pointercancel', end, { signal });
+    handle.addEventListener('pointerup', () => end('pointerup'), { signal });
+    handle.addEventListener('pointercancel', () => end('pointercancel'), { signal });
 
     signal.addEventListener('abort', () => {
         if (aborted) return;
         aborted = true;
-        end();
+        end('abort');
     }, { once: true });
 }
