@@ -102,9 +102,7 @@ CSS 导入的类型不在这里声明:库自己的 `src/css_modules.d.ts` 有一
 
 ## 子目录
 
-- **`layout/`** -- 窗口正文排布演示:**graphcalc / 本示例里真实存在的五种正文**
-  (代码框 / 实体-求值列表 / 参数窗口 / 视图设置 / 本示例的读数窗口),每张卡片写着出处.
-  顶上一档开关在"现状(照抄今天自己写的 CSS)"与"方案(`createStack` + `createScrollArea`)"之间切,
-  卡片下面是现场量的数字(内容高 vs 可见高 / 滚不滚得动 / 行有没有被压 / 有没有被裁).
-  跑法:`npm run dev` 后打开 <http://localhost:5173/layout/>.它只引库的样式表加**两份原型表**,
-  库的 `src/` 与 `styles/` 一个字没改;细节见 [`layout/README.md`](./layout/README.md).
+已无子目录.原先的 `layout/` 演示页连同它对应的方案文档
+(`docs/value-text-window-layout-plan.md`)一起删掉了 -- 那套"现状 / 方案"双档原型
+是为"窗口正文要不要两个布局原语"做的研究装置,而结论已经定了:窗口正文里就一个
+东西,按顺序从上往下摞,超出就滚(见库 `README.md` 的「还没做的」).

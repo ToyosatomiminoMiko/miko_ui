@@ -378,10 +378,41 @@ createReadoutRow('方位角', {
 
 ## 还没做的
 
-附录 B.2 列的 7 类补件里 `Menu` 已补(见上表),还剩 6 类:`TextField` /
-`Splitter` / `ScrollArea` / 表格件 / `Dialog`·`Toast` / `Tooltip`.它们是新功能
+附录 B.2 列的 7 类补件里 `Menu` 已补(见上表),`Splitter` 与 `ScrollArea` 按下面的
+结论去掉,还剩 4 类:`TextField` / 表格件 / `Dialog`·`Toast` / `Tooltip`.它们是新功能
 而不是"分离"的前置条件,按普通排期补即可(该长成什么样取决于下一个真实
 消费者).
+
+### 窗口正文的排布:只需要一个列容器(2026-10 定案)
+
+窗口正文(`.window > .window-body`)已经是列 flex,直接子节点也已经被
+`.window-body > *` 拉满(`flex: 1 1 auto; min-height: 0`).所以窗口正文里要做的
+只有一件事:**一个按顺序往下摞,超出就滚的容器**.
+
+```css
+display: flex; flex-direction: column; gap: ...; padding: ...; overflow-y: auto;
+```
+
+`miko_graphcalc` 的七个窗口全是这个形状:视图 / 参数窗口是"这个容器自己就是滚动区";
+实体 / 求值 / 诊断窗口是"里面已经有一个可滑动的块"(`.object-list-body`,库的
+`.message-area`);源码 / 过程窗口是"里面是编辑器 / 步骤列表,自己滚".
+
+由此作废的:`Splitter`(两家零使用,graphcalc 窗口化时主动删掉了自己的分栏控制器),
+单独的 `ScrollArea` 语义(它就是上面那个列容器),以及原方案文档
+`docs/value-text-window-layout-plan.md` 里的全部内容 -- 那份文档连同它的演示页
+`example/layout/` 已删:`createStack` / `createScrollArea` 双原语,`.ui-fill`,
+"三条显式拉伸出口",Phase 4(`.ui-panel-body > * { flex: 0 0 auto }`),
+`createStage`,面板尺寸出口,一个都不做.
+
+### 下游脱 katex 暂缓
+
+第二个消费者(`Toyosatomimiko.github.io`)仍直接依赖 `katex`
+(`src/ieee754/ieee754.ts` 的 `import katex` + `katex.render`,选项是
+`displayMode: true`),而库的 `createFormulaElement` 固定 `displayMode: false`,
+模板缓存的键也只有 LaTeX.要它脱掉直接依赖,前提是库里先补一个**带 `displayMode`
+的渲染出口**并把 `displayMode` 并进模板缓存键;在那之前它不动.该仓 `README.md` 与
+`vite.config.ts` 里"katex 是可选 peer"的表述已经过期(库现在把 katex 放在
+`dependencies` 里,`peerDependencies` 为空),无论脱不脱都要改.
 
 ## 交付
 
