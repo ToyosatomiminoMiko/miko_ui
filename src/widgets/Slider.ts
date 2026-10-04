@@ -25,8 +25,9 @@
  * ## 值与文本的分工
  *
  * - `normalize`(可选)收在数值框上:滑杆本身不会越界,不必再过一遍;
- * - `parse` / `format`(可选)决定"文本 <-> 值"的口径;`format` 同时用于重置
- *   按钮的 `title` / `aria-label`(点之前就能看到会回到多少);
+ * - `text`(可选)是"文本 <-> 值"的唯一口径,同时用于数值框,重置按钮的 `title` 与
+ *   `aria-label`(点之前就能看到会回到多少),以及"按钮是否已停在目标值"的判定 --
+ *   三处共用同一个对象,所以不会出现"框里写 0.60,按钮提示写 0.6"这种分叉;
  * - 数值框沿用 `NumberField` 的**保守策略**:`input` 阶段不改写用户正在编辑
  *   的文本(空串 / `1.` / `1e` 都不动输入框),归一化后的文本只在 `change`
  *   (失焦 / 回车)时落回输入框.
@@ -51,6 +52,8 @@ import {
     watchValue,
     type Signal,
 } from '../reactive';
+import { NUMBER_TEXT_EDIT } from '../shared/numberText';
+import type { ValueText } from '../shared/valueText';
 import { createButton, type ButtonHandle } from './Button';
 import { create_element } from './dom';
 import { createNumberField, type NumberFieldHandle } from './NumberField';
@@ -70,10 +73,14 @@ export interface SliderOptions extends Omit<RangeInputOptions, 'ariaLabel'> {
     hint?: string;
     /** 重置目标值;默认取建控件时 `value` 的值(声明值). */
     resetValue?: number;
-    /** 值 -> 文本;默认 `String()`.数值框与重置按钮的标题共用同一个口径. */
-    format?(value: number): string;
-    /** 文本 -> 值;默认 trim 后 `Number.isFinite` 校验.返回 null 表示不可解析. */
-    parse?(text: string): number | null;
+    /**
+     * 值 ↔ 文本的口径;默认 {@link NUMBER_TEXT_EDIT}(无损,不做舍入).
+     *
+     * 数值框与重置按钮的标题共用同一个对象 -- 它们指向同一个值,口径分开写就会分叉.
+     * 必须是**编辑档**:带单位的文本会被 number 输入框静默消毒成空串(见
+     * `NumberFieldOptions.text`).
+     */
+    text?: ValueText<number>;
     /** 写回值源前的归一化(夹取 / 圆周回绕 / 取整...);默认原样.只挂在数值框上. */
     normalize?(value: number): number;
 }
@@ -104,7 +111,7 @@ export interface SliderHandle {
 }
 
 export function createSlider(options: SliderOptions): SliderHandle {
-    const format = options.format ?? ((value: number) => String(value));
+    const text = options.text ?? NUMBER_TEXT_EDIT;
     const resetValue = options.resetValue ?? peekValue(options.value);
 
     /**
@@ -128,8 +135,7 @@ export function createSlider(options: SliderOptions): SliderHandle {
         min,
         max,
         step,
-        format,
-        parse: options.parse,
+        text,
         // 归一化只挂在数值框上:滑杆不会越界,再走一遍回绕反而会把"拖到 max"变成 min.
         normalize: options.normalize,
         // 可见 label 关联的是滑杆(一行里那个大热区);数值框单独命名.
@@ -142,8 +148,8 @@ export function createSlider(options: SliderOptions): SliderHandle {
         class: 'slider-field-reset',
         text: 'reset',
         // 名字进 aria-label,目标值进 title:重置是"回到某个确定的值",点之前就该看到它是多少.
-        title: `重置为 ${format(resetValue)}`,
-        ariaLabel: `重置 ${options.label} 为 ${format(resetValue)}`,
+        title: `重置为 ${text.toText(resetValue)}`,
+        ariaLabel: `重置 ${options.label} 为 ${text.toText(resetValue)}`,
     });
 
     // 名称行只有两段:名字 + 可选小字提示;`hint` 省略时那个 `<small>` 不建.
@@ -168,7 +174,7 @@ export function createSlider(options: SliderOptions): SliderHandle {
      * 文本必须一起比:清空 / `1.` 这类文本态下值没变,但用户正需要重置把文本恢复回去.
      */
     const isAtResetValue = (): boolean =>
-        value.peek() === resetValue && number.readText() === format(resetValue);
+        value.peek() === resetValue && number.readText() === text.toText(resetValue);
 
     const refreshResetAvailability = (): void => {
         reset.setDisabled(isAtResetValue());

@@ -68,16 +68,18 @@ import 'miko_ui/styles.css';          // token + 控件 + 桌面,一次全要
 > 包名就是 `miko_ui`(依赖目录里也是它);公开面由 `package.json` 的 `exports`
 > 定义,与"怎么把它接进来"无关.
 
-运行时依赖只有 `@preact/signals-core` 一个;`katex` 是可选 peer,只有引公式件时才
-需要(它同时会在运行时引自己的 `katex/dist/katex.min.css`,所以用公式件时 KaTeX
-的样式不用你手动引).**应用侧仍然自己声明这两个依赖**:实际装几份取决于消费侧的
-依赖图,而 `signals` 装成两份就是两套注册表 -- 两个应用仓库都在 `vite.config.ts`
-里用 `resolve.dedupe` 兜住这件事.
+运行时依赖两个:`@preact/signals-core` 与 `katex`.**两个都由库自带,应用侧不再声明
+`katex`** -- 下游(计算器)规定不许直接依赖 katex,所以 LaTeX 的排版与它自己的
+`katex/dist/katex.min.css` 都在库里一次做完(见「值 ↔ 文本口径」的公式一节,与
+`formula/FormulaView.ts` 的渲染器出口).`signals` 仍然建议应用侧自己声明:实际装几份
+取决于消费侧的依赖图,而 `signals` 装成两份就是两套注册表 -- 两个应用仓库都在
+`vite.config.ts` 里用 `resolve.dedupe` 兜住这件事.
 
 > **只面向打包器/浏览器**,两条原因(与交付形态有关,见 `RELEASING.md`):
 >
 > 1. 根入口会引 CSS(`formula/FormulaView` 引 `katex/dist/katex.min.css`),Node
->    原生 ESM 加载不了 `.css`(`ERR_UNKNOWN_FILE_EXTENSION`);
+>    原生 ESM 加载不了 `.css`(`ERR_UNKNOWN_FILE_EXTENSION`);测试入口 `./testing`
+>    同理 -- 它的 `installDomStub()` 自动装公式替身,所以间接引到了那张样式表;
 > 2. 库内写无扩展名相对导入(`from './reactive'`),`tsc` 原样输出 -- 只有打包器
 >    的解析器会补 `.js` / `/index.js`,Node 原生 ESM 会 `ERR_MODULE_NOT_FOUND`.
 >
@@ -209,6 +211,83 @@ radius.subscribe((value) => renderer.setPointRadius(value));
   `RelativeGeometry` 的四个轴都是必填,某个锚点会盖掉同轴另一项时写占位值
   (如并排时 `x: 'center'`),类型里不存在"这个轴没写"的分支.
 
+## 值 ↔ 文本口径(`ValueText`)
+
+**一个功能只有一种实现**:值变成文本这件事只有一条路 -- `src/shared/numberText.ts`
+的 `numberText()` 工厂,产出的是一个**可传递的对象**:
+
+```ts
+const angleText = numberText({ digits: 3 }); // 一套口径,一个对象
+createNumberField({ value: angle, text: angleText });
+createReadoutRow('方位角', { value: angle, text: angleText });
+// 两处文本逐字符相同 -- 这就是"统一"的判据
+```
+
+做成对象而不是两个回调,是因为口径要能**整体传递**:显示要短,编辑要能被 `Number()`
+咬住,这两件事分开给就一定会各自漂移.控件的 `text` 选项收的就是这个对象
+(`format` / `parse` 两个回调已经不存在了).
+
+**档位与语法是两件事.** 档位是"几位小数,尾零去不去,什么时候回退科学计数法"
+(`digits` / `trimZeros` / `exponentialAt` / `exponentialDigits`);语法是同一个档位要
+服务的三种互不兼容的文本要求(`syntax`):
+
+| `syntax` | 用途 | `1e6` | `2.775558e-17` |
+| --- | --- | --- | --- |
+| `'plain'`(默认) | 给人看的纯文本 | `1.000000e+6` | `2.775558e-17` |
+| `'latex'` | 交 KaTeX 排的数学写法 | `1\times10^{6}` | `2.775558\times10^{-17}` |
+| `'edit'` | 进 `<input type="number">` | `1000000` | `2.775558e-17` |
+
+两个预置直接引用即可:`NUMBER_TEXT_EDIT`(编辑档,无损)与 `NUMBER_TEXT_DISPLAY`
+(显示档,行为等于旧的 `formatNumber`).
+
+**三条硬规则**(都有机器守,不要绕过):
+
+1. **编辑档的输出必须是合法 number 文本.** 不合法的字符串会被浏览器**静默消毒成
+   空串** -- 框里变空,值没变,也不报错.判据是 `isNumberInputText`;`NumberField`
+   建控件时对传进来的口径跑一次 `assertEditSafe`,不合格**直接抛**.
+2. **编辑档默认不做舍入.** `NUMBER_TEXT_EDIT` 取最短往返表示,保证
+   `fromText(toText(v)) === v`. 定点位数一旦少于控件 `step` 的小数位,用户只要编辑
+   一下输入框,值就会被静默量化到那个位数上.要"固定两位小数"的外观(把 `0.9` 写成
+   `0.90`)就给 `numberText({ syntax: 'edit', digits: 2 })`,并**保证 `digits` 覆盖
+   `step` 的小数位**;`assertLossless` 可以在测试里把这一条钉住.
+3. **只有显示档允许舍入,全精度走 `title`.** 读数显示 `0.3`,`title` 给
+   `0.30000000000000004` -- 这是"提高小数位直到看得出来"那种做法的替代物.
+
+**只读读数**用 `createValueDisplay`(单个 `<output>`)或 `createReadoutRow`(复用
+`.control-row` 的整行).它默认**不播报**:HTML-AAM 把 `<output>` 映射成隐式 live
+region,拖动滑杆时每帧都变,所以库里固定写 `aria-live="off"`,`announce: true` 才交给
+ARIA.
+
+**要排公式就加 `render`.** 显示件只做"文本 -> 节点"这一步,自己不认识任何排版器:
+
+```ts
+createReadoutRow('方位角', {
+    value: angle,
+    text: numberText({ syntax: 'latex' }),                       // 值 -> LaTeX
+    // 第三个参数 copyable=false:读数不是复制公式的入口.默认可复制会给这格挂
+    // `tabindex=0` + `role="button"` + `aria-label`,而复制要另外 bind
+    // `FormulaCopyController` -- 不 bind 就是一个焦点可达,按了没反应的按钮.
+    render: (latex) => createFormulaElement(latex, undefined, false),
+});
+```
+
+于是一条读数从值到屏幕全在库里:口径(`numberText`)-> 文本(显示件)-> 排版
+(`FormulaView`).**下游因此不需要知道 `katex` 这个名字**:它不进应用的
+`package.json`,测试里也不用再写 `vi.mock('katex')`.
+
+`formula/FormulaView.ts` 另有渲染器出口 `setFormulaRenderer`,以及文本替身
+`TEXT_FORMULA_RENDERER`:手写 DOM 桩 / SSR 里没有真 KaTeX 能用的排版 API
+(它要 `createElementNS`),所以测试入口 `miko_ui/testing` 的 `installDomStub()`
+**默认装文本替身**(把 LaTeX 原样写进元素),消费者的公式测试只写
+`installDomStub()` 就够.要在桩里跑别的渲染器就 `installDomStub({ formula: 'keep' })`
+保留当前渲染器,或用 `setFormulaRenderer(null)` 换回真 KaTeX -- "装桩"与"换渲染器"
+没有先后顺序的要求.
+
+**不归这一层管的东西**:`input.min` / `input.max` / `input.step` /
+`<input type="range">.value` 这类 DOM **机器属性**.`String(v)` 是无损的机器序列化,
+换成任何会舍入的档位都会让区间与滑杆取值失真(滑杆的 `value` 必须原样解析回同一个
+数).这一层管的是"给人看的文本";机器语法就是 `String(v)`,没有第二种实现.
+
 ## 公开面
 
 `src/index.ts` 是**唯一**的组件出口(`package.json` 的 `exports` 只放它,
@@ -218,14 +297,14 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 | --- | --- |
 | `widgets/dom.ts` | DOM 创建层:`create_element({ tag, root }, attributes, ...children)` / `childNodes` / `nextWidgetId`,创建层与属性层的类型分开;同在这一个文件里的 `DomRoot` / `rootDocument`(root 注入)是**库内口径**,不从 `miko_ui` 导出 |
 | `reactive/` | 值源与派生值(`signal` / `computed` / `effect` / `onValueChange` 一族):控件的值参数可以直接传这一层的东西 |
-| `widgets/` | 控件与行级布局件:按钮 / 开关 / 分段 / 滑杆(裸滑杆与系数滑块)/ 数值框 / 浮层 / 徽章 / 带标题栏的框体(桌面窗口复用同一组 `.ui-panel*` 基类)/ 菜单,以及 `create*Row` 一族行外壳 |
-| `shared/` | 跨组件共用的交互与行外壳:键盘唯一出口,唯一拖拽实现,行缓存,数值文本,行外壳 |
+| `widgets/` | 控件与行级布局件:按钮 / 开关 / 分段 / 滑杆(裸滑杆与系数滑块)/ 数值框 / 只读读数件 / 浮层 / 徽章 / 带标题栏的框体(桌面窗口复用同一组 `.ui-panel*` 基类)/ 菜单,以及 `create*Row` 一族行外壳 |
+| `shared/` | 跨组件共用的交互与行外壳:键盘唯一出口,唯一拖拽实现,行缓存,值↔文本口径(见下节),行外壳 |
 | `desktop/` | 桌面窗口系统:装配入口(`mountDesktop` / 窗口槽位),窗口管理器与几何 / 拖动 / 吸附 / 停靠件,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
 | `editor/` | 编辑器外壳:整套结构装配,行号栏,高亮层(分词与槽宽由消费者注入),以及保住原生撤销栈的程序化写入 |
 | `feedback/` | 消息区容器(`MessageArea`:框体 + 列表节奏 + 滚动 + `aria-live`)与消息 / 诊断条目(`MessageList`),零领域依赖 |
-| `formula/` | KaTeX 公式件与复制反馈(`katex` 是**可选** peer) |
+| `formula/` | KaTeX 公式件与复制反馈(KaTeX 的排版,样式与渲染器出口都在库里,`katex` 是库自带的运行时依赖,应用侧不声明) |
 | `theme/` | `applyTheme(root, tokens)`:把一组 CSS 变量写到根元素上(库的默认主题只有 `styles/tokens.css` 一份,JS 侧不留镜像) |
-| `testing/` | **测试入口**(独立子路径 `miko_ui/testing`,不进主入口):手写 DOM 桩,复刻了真 DOM 里踩过的坑,并给出 `document.execCommand` / `navigator.clipboard` 两条可断言通道 |
+| `testing/` | **测试入口**(独立子路径 `miko_ui/testing`,不进主入口):手写 DOM 桩,复刻了真 DOM 里踩过的坑,并给出 `document.execCommand` / `navigator.clipboard` 两条可断言通道;`installDomStub()` 还会自动装上公式文本替身(见上节),所以消费者的公式测试不必 mock `katex` |
 | `styles/` | 分组样式表 + 总入口:逐份入口,加载顺序,每份读哪些 token 写在 `styles/styles.css` 的文件头,这里不抄第二份 |
 
 上表的"内容"列只说明**每个目录负责什么**;具体导出了哪些符号,`src/index.ts` 是唯一

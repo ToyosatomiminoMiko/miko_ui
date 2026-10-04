@@ -34,11 +34,13 @@ export * from './widgets/Panel';
 export * from './widgets/MenuItem';
 export * from './widgets/Menu';
 export * from './widgets/Row';
+export * from './widgets/ValueDisplay';
 
-// 共享交互层:键盘唯一出口 / 唯一拖拽实现 / 行缓存 / 数值与行外壳
+// 共享交互层:键盘唯一出口 / 唯一拖拽实现 / 行缓存 / 值↔文本口径与行外壳
 export * from './shared/KeyboardController';
 export * from './shared/dragGesture';
 export * from './shared/keyedRowList';
+export * from './shared/valueText';
 export * from './shared/numberText';
 export * from './shared/rowDom';
 
@@ -63,7 +65,7 @@ export * from './editor/CodeEditor';
 export * from './editor/EditorHighlight';
 export * from './editor/replaceEditorSource';
 
-// 主题与公式件(公式件用 KaTeX,是可选 peer)
+// 主题与公式件(公式件用 KaTeX:排版,样式与渲染器出口都在库里,应用侧不声明 katex)
 export * from './theme/tokens';
 export * from './formula/FormulaView';
 export * from './formula/FormulaCopyController';

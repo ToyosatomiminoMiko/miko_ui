@@ -19,18 +19,20 @@
 import {
     DEFAULT_DESKTOP_CONFIG,
     createButton,
+    createFormulaElement,
     createMenu,
     createMessageArea,
+    createReadoutRow,
     createSlider,
     create_element,
     computed,
     mountDesktop,
+    numberText,
     signal,
     watchValue,
     type DesktopConfig,
     type MenuGroup,
     type MessageEntry,
-    type Signal,
     type WindowConfigEntry,
 } from 'miko_ui';
 // 库自带的样式:token + 控件 + 桌面窗口系统 + 编辑器外壳.示例只补页面级规则.
@@ -77,6 +79,17 @@ const linearSlider = createSlider({
     label: '线性数值',
 });
 
+/**
+ * 方位角的口径:**一个对象同时喂数值框与读数行**,所以两处文本逐字符相同.
+ *
+ * 各写一份 `toFixed(3)` 就会在改口径时只改一处(库的两个消费者合计 8 处各写一遍
+ * 读数格式化,就是这么来的).
+ *
+ * 编辑框的口径要么无损,要么至少覆盖 `step` 的小数位 -- 这里 `step` 是 `0.01`
+ * (2 位),给 3 位定点足够;给 2 位也不会量化,给 1 位则用户一编辑值就被舍掉.
+ */
+const ANGLE_TEXT = numberText({ syntax: 'edit', digits: 3, trimZeros: false });
+
 const angleSlider = createSlider({
     value: angle,
     ...ANGLE,
@@ -84,8 +97,7 @@ const angleSlider = createSlider({
     label: '方位角(周期 2π)',
     // 输入 7 -> 7 - 2π ≈ 0.717:`normalize` 只挂在数值框上,滑杆不会越界.
     normalize: wrapAngle,
-    // 弧度显示到三位小数,免得数值框里一长串.
-    format: (value) => value.toFixed(3),
+    text: ANGLE_TEXT,
 });
 
 // ── 计数按钮:只写 `count`,值显示在另一个窗口 ──────────────────────────
@@ -96,27 +108,47 @@ countButton.onClick(() => {
 });
 
 // ── 窗口二:读数(只读显示,订阅各自的 signal)────────────────────────────
-/** 一行读数:左边名字,右边值;`watchValue` 订阅时立刻回调一次,初值不用另写. */
-function createReadout<T>(
-    name: string,
-    source: Signal<T>,
-    format: (value: T) => string,
-): HTMLDivElement {
-    const output = create_element({ tag: 'output' }, { class: 'readout' });
-    watchValue(source, (next) => {
-        output.textContent = format(next);
-    });
-    return create_element(
-        { tag: 'div' },
-        { class: 'readout-row' },
-        create_element({ tag: 'span' }, { class: 'readout-name' }, name),
-        output,
-    );
-}
+/**
+ * 读数行直接用库的 `createReadoutRow`:订阅,`<output>` 语义,全精度 `title`,
+ * 等宽数字(`tabular-nums`)全在库里,示例不再自己拼 markup 与 `.readout*` 样式.
+ *
+ * 不给 `text` 时走**显示档**:同一份值在编辑框里是 `0.30000000000000004`,在读数里
+ * 是 `0.3`,悬停 `title` 还能看到全精度 -- 显示要短,`title` 给真值,这两件事分开.
+ *
+ * 字形(等宽族与字号)是页面的事:`class` 出口把示例自己的类挂在基线类之后,示例样式
+ * 只写自己的类 -- **不要给只含库的类的选择器写样式**,那是消费者的分层契约.
+ */
+const READOUT_CLASS = 'readout-value';
 
-const linearReadout = createReadout('线性数值', linear, (value) => String(value));
-const angleReadout = createReadout('方位角', angle, (value) => value.toFixed(3));
-const countReadout = createReadout('计数', count, (value) => String(value));
+const linearReadout = createReadoutRow('线性数值', { value: linear, class: READOUT_CLASS }).row;
+const countReadout = createReadoutRow('计数', { value: count, class: READOUT_CLASS }).row;
+// 与滑块的数值框共用同一个口径对象:两处文本逐字符相同.
+const angleReadout = createReadoutRow(
+    '方位角',
+    { value: angle, text: ANGLE_TEXT, class: READOUT_CLASS },
+).row;
+
+/**
+ * 公式读数:同一个值走 `syntax: 'latex'` 得到 LaTeX,再由 `render` 交给库的
+ * `createFormulaElement` 排出来 -- 下游不许直接依赖 katex,所以"排公式"在库里
+ * 只有这一条路,消费侧连 `katex` 这个名字都不用提.
+ *
+ * 显示件只做"文本 -> 节点"这一步(`render`),不认识任何排版器;这是它有别于
+ * `text` 的地方:`text` 决定**文本**,`render` 决定**这格长什么样**.
+ *
+ * 这里的量级落在常规区间,屏幕上是 KaTeX 排的 `0.600`;把上面的 `digits` /
+ * `exponentialAt` 调一调就会看到 `2.775558\times10^{-17}` 这种只有排出来才读得懂的
+ * 写法(纯文本档是 `2.775558e-17`).
+ */
+const ANGLE_FORMULA_TEXT = numberText({ syntax: 'latex', digits: 3, trimZeros: false });
+
+const angleFormulaReadout = createReadoutRow('方位角(公式)', {
+    value: angle,
+    text: ANGLE_FORMULA_TEXT,
+    // `copyable=false`:读数不是复制公式的入口(它的 TeX 也没有可复用价值).
+    render: (latex) => createFormulaElement(latex, 'readout-formula', false),
+    class: READOUT_CLASS,
+}).row;
 
 // ── 窗口三:菜单(直接显示 + 任意按钮触发)────────────────────────────────
 /**
@@ -200,11 +232,11 @@ const menuPane = create_element(
 // 点浮层外关闭:绑定的根就是这张菜单所在的正文.
 popoverMenu.bind(menuPane);
 
-const menuReadout = createReadout<string | null>(
-    '菜单选择',
-    menuChoice,
-    (value) => value ?? '未选',
-);
+const menuReadout = createReadoutRow<string | null>('菜单选择', {
+    value: menuChoice,
+    placeholder: '未选',
+    class: READOUT_CLASS,
+}).row;
 
 // ── 窗口四:诊断消息区(容器由库建,示例只给条目)────────────────────────
 /**
@@ -315,7 +347,10 @@ const WINDOWS: readonly WindowConfigEntry[] = [
             // `after` 给了之后 `y` 被忽略,但字段仍需存在(几何块的形状如此).
             y: { at: 16 },
             w: { at: 420 },
-            h: { at: 200 },
+            // 五条读数(线性 / 方位角 / 方位角公式 / 计数 / 菜单选择)一行不落:
+            // 窗口正文是 `overflow:hidden`,高度不够时多出来的那条会被**裁掉**
+            // (库不默认滚,要滚得显式给滚动区).
+            h: { at: 252 },
             after: { id: 'slider', gap: 12 },
         },
         minSize: { w: 260, h: 140 },
@@ -376,6 +411,7 @@ mountDesktop(root, {
                         { class: 'pane' },
                         linearReadout,
                         angleReadout,
+                        angleFormulaReadout,
                         countReadout,
                         menuReadout,
                     )],

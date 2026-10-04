@@ -8,15 +8,23 @@
  * 只在 `change` 阶段归一化后写回 -- `input` 阶段的文本可能是空串或中途态,
  * 直接 `Number()` 会把空串吞成 0.
  *
- * `parse` / `format` 也交给调用方:显示可以走 `toFixed(4)` 的口径,参数行可以
- * 做区间夹取 / 圆周回绕,控件不预设任何一种.
+ * `text` 是**唯一**的"值 ↔ 文本"出口(默认 {@link NUMBER_TEXT_EDIT}):显示文本与
+ * 能被解析回来的文本是同一口径的两个方向,所以合成**一个对象**收,而不是两个回调 --
+ * 显示要短,编辑要被 `Number()` 咬住,这两件事分开给就一定会各自漂移.
+ *
+ * 默认口径**不做舍入**.两条理由都来自 number 输入框本身:它会把不合法文本静默消毒成
+ * 空串;而任何定点舍入都会在用户编辑时把值量化到那个位数上(见 `shared/numberText.ts`
+ * 的"编辑档"一节).传进来的口径在建控件时过一次语法自检({@link assertEditSafe}),
+ * 不合格**直接抛** -- 坏口径不该表现成"输入框莫名其妙变空".
  *
  * `value` 可以是普通值或 signal.给 signal 时有一个额外的小心处:用户输入的
- * 中途文本(`1.` / `0`)会被写回 signal,如果镜像更新立刻用 `format` 改写文本,
+ * 中途文本(`1.` / `0`)会被写回 signal,如果镜像更新立刻用 `text.toText` 改写文本,
  * 用户就打不出小数点了.所以**控件自己写进值源的那一次变化会被跳过**(见
  * `selfWrite`),文本只在别处改值时被规范化.
  */
 import { peekValue, setValue, watchValue, type ValueSource } from '../reactive';
+import { assertEditSafe, NUMBER_TEXT_EDIT } from '../shared/numberText';
+import type { ValueText } from '../shared/valueText';
 import { create_element, nextWidgetId } from './dom';
 
 export interface NumberFieldOptions {
@@ -34,10 +42,21 @@ export interface NumberFieldOptions {
      * 可访问名.放进带可见 `<label for>` 的行里时省略.
      */
     ariaLabel?: string;
-    /** 值 -> 文本;默认 `String()`.写回时用. */
-    format?(value: number): string;
-    /** 文本 -> 值;默认 trim 后 `Number.isFinite` 校验.返回 null 表示不可解析. */
-    parse?(text: string): number | null;
+    /**
+     * 值 ↔ 文本的口径;默认 {@link NUMBER_TEXT_EDIT}(无损,不做舍入).
+     *
+     * 必须是**编辑档**:输出要能被 `<input type="number">` 咬住.带单位或千位分隔符
+     * 的文本会被浏览器静默消毒成空串,所以那种配置在这里**抛错**而不是静默生效
+     * (判据见 `shared/numberText.ts` 的 {@link assertEditSafe}).
+     *
+     * 要给"固定两位小数"的外观(如 `0.9` 写成 `0.90`),用
+     * `numberText({ syntax: 'edit', digits: 2, trimZeros: false })`,并保证
+     * `digits` 覆盖本控件 `step` 的小数位,否则用户一编辑值就被量化.
+     *
+     * 自己实现 `ValueText` 时,**非有限值必须自己落到合法写法上**(通常给空串):
+     * `String(NaN)` 与 `(NaN).toFixed(2)` 都是 `'NaN'`,会被浏览器消毒成空串.
+     */
+    text?: ValueText<number>;
     /**
      * 写回值源前的归一化(夹取 / 圆周回绕 / 取整...);默认原样.
      *
@@ -65,29 +84,29 @@ export interface NumberFieldHandle {
     read(): number | null;
     /** 当前原始文本;需要比对"文本是否被改过"时(如参数行重置按钮)用它. */
     readText(): string;
-    /** 按 `format` 写文本;只改控件本身,不写回值源. */
+    /** 按口径写文本;只改控件本身,不写回值源. */
     write(value: number): void;
-    /** 原样写文本(不做 `format`). */
+    /** 原样写文本(不做口径转换). */
     writeText(text: string): void;
-    /** `input` 阶段(每次按键);参数已按 `parse` 解析,失败为 null. */
+    /** `input` 阶段(每次按键);参数已按口径解析,失败为 null. */
     onInput(listener: (value: number | null) => void): () => void;
     /** 原生 `change`(失焦/回车);参数同上,控件在该阶段也不改写文本. */
     onCommit(listener: (value: number | null) => void): () => void;
     dispose(): void;
 }
 
-/** 默认解析:`Number('') === 0`,所以空串必须显式判掉. */
-function defaultParse(text: string): number | null {
-    const trimmed = text.trim();
-    if (trimmed === '') return null;
-    const value = Number(trimmed);
-    return Number.isFinite(value) ? value : null;
-}
-
 export function createNumberField(options: NumberFieldOptions): NumberFieldHandle {
     const source = options.value;
-    const format = options.format ?? ((value: number) => String(value));
-    const parse = options.parse ?? defaultParse;
+    const text = options.text ?? NUMBER_TEXT_EDIT;
+    // 坏口径的表现形式是"输入框莫名其妙变空,值没变,也不报错",在这里拦下来.
+    if (!assertEditSafe(text)) {
+        throw new TypeError(
+            'createNumberField: text 的输出不是合法的 number 输入框文本'
+            + '(带单位/千位分隔符/空格外字符都会被浏览器静默消毒成空串).'
+            + '编辑框请用 NUMBER_TEXT_EDIT,或 numberText({ syntax: \'edit\' })',
+        );
+    }
+    const parse = (raw: string): number | null => text.fromText(raw);
 
     const input = create_element({ tag: 'input' });
     input.type = 'number';
@@ -98,7 +117,7 @@ export function createNumberField(options: NumberFieldOptions): NumberFieldHandl
     if (options.ariaLabel !== undefined) {
         input.setAttribute('aria-label', options.ariaLabel);
     }
-    input.value = format(peekValue(source));
+    input.value = text.toText(peekValue(source));
 
     const inputListeners = new Set<(value: number | null) => void>();
     const commitListeners = new Set<(value: number | null) => void>();
@@ -151,7 +170,7 @@ export function createNumberField(options: NumberFieldOptions): NumberFieldHandl
         if (selfWrite !== null && selfWrite === next) return;
         // 文本已经表达同一个值(可能还带着用户/调用方写的格式)就不动它.
         if (parse(input.value) === next) return;
-        input.value = format(next);
+        input.value = text.toText(next);
     });
 
     return {
@@ -161,7 +180,7 @@ export function createNumberField(options: NumberFieldOptions): NumberFieldHandl
         readText: () => input.value,
         write: (value) => {
             // 程序化写值只改控件本身,不写回值源.
-            input.value = format(value);
+            input.value = text.toText(value);
         },
         writeText: (text) => {
             input.value = text;

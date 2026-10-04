@@ -16,7 +16,18 @@
  * 覆盖的全局:`document` / `Element` / `getComputedStyle` / `ResizeObserver` /
  * `navigator` / `window`.每个 `installDomStub()` 会新建一棵空树并返回句柄,
  * 供断言(如 ResizeObserver 触发,document.body.style).
+ *
+ * 装桩的同时还会把**公式渲染器**换成 `TEXT_FORMULA_RENDERER`(把 LaTeX 原样写进
+ * 元素):真 KaTeX 要浏览器排版 API,桩里跑不了,而消费者不该为了测试去
+ * `vi.mock('katex')` -- 那个 mock 正是"下游直接依赖 katex"的残迹,规则禁止它.
+ *
+ * 这条副作用是**默认**而不是强制:要在桩里跑别的渲染器就
+ * `installDomStub({ formula: 'keep' })`(保留当前渲染器,不装替身).顺序契约因此
+ * 不存在--"换渲染器"与"装桩"谁先谁后都成立,不会出现"先 `setFormulaRenderer(null)`
+ * 再装桩,结果被静默换回替身"这种只在断言里看不出来的事.
  */
+
+import { setFormulaRenderer, TEXT_FORMULA_RENDERER } from '../formula/FormulaView';
 
 export class StubClassList {
     constructor(private readonly owner: StubElement) {}
@@ -748,13 +759,31 @@ export interface StubDocument {
 }
 
 /**
+ * `installDomStub()` 的选项.
+ */
+export interface DomStubOptions {
+    /**
+     * 公式渲染器怎么办;默认 `'text'`.
+     *
+     * - `'text'`:装上文本替身(把 LaTeX 原样写进元素),公式断言不碰 katex;
+     * - `'keep'`:**保留当前渲染器**什么都不做 -- 给"桩里也要跑真 KaTeX / 自定义
+     *   渲染器"的用例用(真 KaTeX 需要 `createElementNS`,手写桩给不了,所以这条
+     *   只在补过桩的用例里有意义).
+     */
+    readonly formula?: 'text' | 'keep';
+}
+
+/**
  * 安装一套全局 DOM 桩(每个用例调一次,得到一棵干净的空树).
  *
  * 默认是"安全上下文 + 可写成功的异步剪贴板",从而可在 node 里断言"复制成功/失败
  * 提示";要测失败路径改 `stub.clipboard.fail`,要测没有剪贴板 API(非安全上下文)就
  * 删掉 `navigator.clipboard`.
+ *
+ * 公式渲染器默认换成文本替身,`{ formula: 'keep' }` 保留当前渲染器(见
+ * {@link DomStubOptions.formula}).
  */
-export function installDomStub(): DomStub {
+export function installDomStub(options: DomStubOptions = {}): DomStub {
     const documentElement = new StubElement('html');
     const body = new StubElement('body');
     documentElement.append(body);
@@ -945,6 +974,11 @@ export function installDomStub(): DomStub {
         execCommand.args.push([command, ...rest]);
         return execCommand.result;
     };
+
+    // 桩环境里没有真 KaTeX 能用的排版 API,所以装桩默认即装公式替身:下游测试只写
+    // `installDomStub()` 就够,不需要(也不该)知道 katex 这个名字.要在桩里跑真
+    // KaTeX / 自定义渲染器就传 `{ formula: 'keep' }`(见 DomStubOptions).
+    if ((options.formula ?? 'text') === 'text') setFormulaRenderer(TEXT_FORMULA_RENDERER);
 
     return {
         document,

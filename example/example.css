@@ -66,25 +66,26 @@ body {
 
 /* -------------------------------------------------------------- 读数 */
 
-/* 一行读数:名字在左,值贴右 */
-.readout-row {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-}
-
-.readout-name {
-    color: var(--color-text-muted);
-    font-size: 12px;
-}
-
-/* 数字只读,所以给它一个够醒目的等宽字形 */
-.readout {
-    margin-left: auto;
+/* 读数行的行布局,名字截断,值贴右与等宽数字全在库的 `.control-row` /
+   `.ui-readout-name` / `.ui-readout-value` 里(见 styles/widgets.css):示例不再自己
+   拼一套 `.readout*`.
+   下面两条只写示例自己挂在读数上的 `.readout-value`(经 createReadoutRow 的
+   `class` 出口落后缀)-- 给只含库的类的选择器写样式是消费者侧明令禁止的做法. */
+.readout-value {
     font-family: var(--code-font-family);
-    font-size: 22px;
-    line-height: 1;
-    color: var(--color-text-strong);
+}
+
+/* 示例想强调读数,所以只在本页把值放大一号(库的默认字号与参数行一致). */
+.pane .readout-value {
+    font-size: 20px;
+    line-height: 1.4;
+}
+
+/* 公式读数(示例在 `render` 里把 LaTeX 交给库的 `createFormulaElement`):
+   排版与字体是 KaTeX 的(库的 FormulaView 自带 `katex.min.css`),示例只给
+   "方位角(公式)"那一格自己的挂点类收一下字号,不覆盖 KaTeX 的间距规则. */
+.readout-formula {
+    font-size: 18px;
 }
 
 /* -------------------------------------------------------------- 菜单示例 */

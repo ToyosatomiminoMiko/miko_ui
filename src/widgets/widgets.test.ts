@@ -15,6 +15,7 @@ import { createMenu } from './Menu';
 import { createNumberField } from './NumberField';
 import { createPopover } from './Popover';
 import { createRangeInput, DEFAULT_RANGE } from './RangeInput';
+import { numberText, NUMBER_TEXT_DISPLAY, NUMBER_TEXT_EDIT, parseNumber } from '../shared/numberText';
 import {
     createControlGroup,
     createInlineToggle,
@@ -166,7 +167,8 @@ describe('createNumberField', () => {
             value: 0.2,
             min: 0,
             step: 0.05,
-            format: (value) => String(Number(value.toFixed(4))),
+            // 消费者侧的常见档位:String(Number(toFixed(4))) <-> 编辑档 digits 4 去尾零
+            text: numberText({ syntax: 'edit', digits: 4 }),
         });
 
         expect(handle.input.type).toBe('number');
@@ -222,7 +224,8 @@ describe('createNumberField', () => {
         const inputs: Array<number | null> = [];
         const handle = createNumberField({
             value: 0,
-            format: (value) => value.toFixed(2),
+            // 定点编辑档:必须显式给 digits(默认档是无损的,不舍入)
+            text: numberText({ syntax: 'edit', digits: 2, trimZeros: false }),
         });
         handle.onInput((value) => inputs.push(value));
 
@@ -232,6 +235,57 @@ describe('createNumberField', () => {
         handle.dispose();
         stub(handle.input).dispatch('input');
         expect(inputs).toEqual([]);
+    });
+
+    it('默认口径是无损的编辑档:不做舍入,值不会被静默量化', () => {
+        const handle = createNumberField({ value: 0.1 + 0.2 });
+
+        expect(handle.readText()).toBe(NUMBER_TEXT_EDIT.toText(0.1 + 0.2));
+        expect(handle.readText()).toBe('0.30000000000000004');
+        // 无损的关键:文本能读回**同一个**数,失焦回写不会把值改掉.
+        expect(handle.read()).toBe(0.1 + 0.2);
+    });
+
+    /**
+     * 坏口径的表现形式是"输入框莫名其妙变空,值没变,也不报错"(消费者侧独立踩过:
+     * `90%` 写进 number 框,框就空了).所以这里拦在建控件时,而不是让它静默生效.
+     */
+    it('非编辑档口径直接抛:带单位的显示档会被 number 输入框消毒成空串', () => {
+        expect(() => createNumberField({ value: 1, text: NUMBER_TEXT_DISPLAY })).toThrow(TypeError);
+        expect(() => createNumberField({ value: 1, text: numberText({ suffix: '%' }) })).toThrow(TypeError);
+        expect(() => createNumberField({ value: 1, text: NUMBER_TEXT_EDIT })).not.toThrow();
+    });
+
+    it('消费者可以自己实现 ValueText(接口只有两个方法,不必用工厂)', () => {
+        const handle = createNumberField({
+            value: 0,
+            text: {
+                // 非有限值必须自己落到合法写法(空串)上:库不给自定义口径兜底.
+                toText: (value) => (Number.isFinite(value) ? value.toFixed(2) : ''),
+                fromText: parseNumber,
+            },
+        });
+
+        handle.write(1.239);
+        expect(handle.readText()).toBe('1.24');
+        handle.writeText('2.5');
+        expect(handle.read()).toBe(2.5);
+    });
+
+    it('解析走 text.fromText:自定义的宽松写法不必拆成第二个选项', () => {
+        const handle = createNumberField({
+            value: 0,
+            text: {
+                toText: (value) => (Number.isFinite(value) ? String(value) : ''),
+                // 允许用户打 "~7" 这种近似写法,解析规则和显示规则收在同一个对象里.
+                fromText: (raw) => parseNumber(raw.replace(/^~/, '')),
+            },
+        });
+
+        handle.writeText('~7');
+        expect(handle.read()).toBe(7);
+        handle.writeText('7');
+        expect(handle.read()).toBe(7);
     });
 });
 
@@ -330,13 +384,13 @@ describe('createSlider(系数滑块)', () => {
         expect(handle.reset.element.title).toBe('重置为 1');
     });
 
-    it('hint 落成名称后的小字;format 同时用于数值框与重置标题', () => {
+    it('hint 落成名称后的小字;text 同时用于数值框与重置标题', () => {
         const handle = createSlider({
             ...BASE,
             value: 1.25,
             resetValue: 1.25,
             hint: '倍',
-            format: (value) => value.toFixed(2),
+            text: numberText({ syntax: 'edit', digits: 2, trimZeros: false }),
         });
 
         const { label } = parts(handle);

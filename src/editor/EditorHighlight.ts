@@ -1,8 +1,10 @@
 /**
  * 源码高亮层:把注入的 `highlight(source)` 产物显示在 textarea 背后.
  *
- * 为什么是"叠层"而不是换个编辑器组件:本库运行时只依赖 `@preact/signals-core`
- * (`katex` 是可选 peer);换 CodeMirror/Monaco 会把 `textarea` 连同行号栏,
+ * 为什么是"叠层"而不是换个编辑器组件:本库的运行时依赖只有
+ * `@preact/signals-core` 与 `katex`(`katex` 装在库里,**应用侧不声明**;`signals`
+ * 仍建议应用侧自己声明并 dedupe,见 README 的「运行时依赖」);
+ * 换 CodeMirror/Monaco 会把 `textarea` 连同行号栏,
  * 键盘绑定一起换掉(见 EditorLineNumbers).叠层方案不动输入行为:光标,选区,
  * 撤销栈,IME 全部还是浏览器原生 textarea 的,高亮只是一层 pointer-events:
  * none 的背景,着色错了也不影响编译.

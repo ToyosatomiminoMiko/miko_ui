@@ -1,8 +1,89 @@
 # 数值/文本显示统一 · 窗口内布局确定:方案
 
-> 状态:**方案**(demo 阶段,未立项).本文只定"口径与接口",**库的 `src/` 与 `styles/`
-> 不产生代码改动**;第三轮按结论改了 `example/` 的正文排布口径(见 9.10).
-> 目标版本:`0.2.0`(**暂定**;第三轮后它里面的破坏性只剩一处 -- 默认口径切档).
+> 状态:**方案 A(数值/文本)已落地,含第五轮把 KaTeX 收进库;方案 B(窗口内布局)仍是方案.**
+> 下面的「第四轮」「第五轮」两段是实现记录 -- 第四轮那段与本文最初的设计有**三处实质
+> 偏离**,引第 3 节时以它为准.
+> 库的 `src/` 与 `styles/` 已按方案 A 改过,`example/` 的读数与口径也已迁移.
+> 目标版本:`0.2.0`(**暂定**).
+>
+> **2026-10 第四轮:方案 A 落地.**落地面:`src/shared/valueText.ts`(新),
+> `src/shared/numberText.ts`(重写),`src/widgets/ValueDisplay.ts`(新)与它的两个样式类,
+> `NumberField`/`Slider` 的 `text` 选项,`src/index.ts`,单测(312 -> 358 项全绿).
+> 与第 3 节的设计有**三处偏离**,都是被消费者侧的真实证据逼出来的:
+>
+> 1. **`format` / `parse` 两个回调被删掉,不收"并存".**第 3.5 节写的是"新增 `text?`,
+>    与既有 `format`/`parse` 并存,加而不删";落地时选了**只留 `text`** -- 同一件事留
+>    两条入口正是这次统一要消灭的东西.代价是两个消费者**各一处**机械迁移:站点
+>    `src/setting/page_opacity.ts:75` 的 `format: formatOpacity`,graphcalc
+>    `src/ui/view/ViewPanel.ts:155` 的 `format: formatPointValue`,无一是行为变更
+>    (前者的期望文本 `"0.90"` 仍由 `numberText({ syntax: 'edit', digits: 2, trimZeros: false })`
+>    产出,后者等价于 `digits: 4`).
+> 2. **编辑档默认改成"无损",而不是第 3.3 节的"6 位定点 + 放宽指数门槛".**理由:
+>    定点位数一旦少于控件 `step` 的小数位,用户只要编辑一下输入框,值就会被**静默
+>    量化**(拖动 / 输入 / 失焦三步都不报错,也没有任何断言会红).`NUMBER_TEXT_EDIT`
+>    因此取 JS 的最短往返表示(`String(v)`,非有限值给空串),`assertLossless` 把这条
+>    钉进单测.固定小数位**仍然支持** -- 就是站点 `toFixed(2)` 那个档位 -- 只是不再
+>    当默认.**副作用要说清楚**:第 3.5 节承诺的"站点 7 条 metro 滑块一行不改就干净"
+>    **不成立**了,无损档会把 `0.8999999999999999` 原样显示.那 7 条的尾巴是**值**漂了
+>    (`min + n * step` 的浮点误差),不是文本的问题;正确的出口是控件已有的 `normalize`
+>    (`step: 0.01` 就该把值落回 2 位小数网格),这是下一轮的事,本轮没做.
+> 3. **`NumberTextOptions` 比第 3.2 节少三个字段,`syntax: 'edit'` 多一条硬规则.**
+>    - 去掉 `group`:两个消费者零需求,判据同第 4.7 节那条"库里有没有 `var()` 读它"
+>      -- 没人用的选项不加,要千位分隔符的调用方自己写 `toText`;
+>    - 去掉 `nonFinite`:三种语法各自的非有限值写法是**固定的**(`plain`/`latex` 给
+>      `String(v)`,`edit` 给空串),没有可配置的余地;
+>    - 去掉 `minusZeroAsZero`:`-0` 在每条分支上本来就输出 `0`
+>      (`String(-0) === '0'`,`(-0).toFixed(n)` 也不带负号),这个选项是空的;
+>    - `'edit'` 下带 `suffix` **直接抛**而不是静默降级 -- 那个组合会被 number 输入框
+>      消毒成空串,静默正是这个坑最难查的地方.
+>
+> 另有两条按方案落地时的补强:
+>
+> - `NumberField` 建控件时对传进来的口径跑 `assertEditSafe`,不合格**直接抛**
+>   (第 3.3 节原写的是"dev 环境控制台告警 + 降级到 `String()`"):库的产物不读
+>   `process.env`(`tsconfig.build.json` 把 `types` 清空),而静态配置错误本来就该在
+>   构造期就炸;
+> - `'latex'` 语法的期望值**照抄 graphcalc 的既有断言**(`src/math/paramValue.test.ts:56-77`
+>   的 `2.775558\times10^{-17}` / `1.25\times10^{20}` / `0.1` 边界 / `0`),所以
+>   `src/math/latexNumber.ts` 那份"与库的 `formatNumber` 同一档位"的抄写可以整块删掉.
+>
+> **第 3 节保留原样,不回改** -- 它是决策过程的一部分,以上面这段的偏离为准.
+> 方案 B(第 4 节)这一轮**一个字没动**.
+>
+> **2026-10 第五轮:KaTeX 收进库(消费者侧的新约束).**下游(计算器)规定**不许直接
+> 依赖 katex**,而 `katex` 此前是**可选 peer**(应用必须自己声明并安装),那条规定照旧
+> 落不了地 -- 照字面读就是"应用仍然要知道 katex".所以这一轮改三处:
+>
+> 1. **`katex` 从 `peerDependencies`(optional)移进 `dependencies`**:应用侧从自己的
+>    `package.json` 删掉 `katex` / `@types/katex` 即可.`scripts/check_ui_boundary.py`
+>    的 `deps` 规则同步改成"允许**且要求** `dependencies` 里有 katex,
+>    `peerDependencies` 必须为空" -- 只允许不要求的话,它下次又会被静默改回 peer.
+> 2. **公式渲染器成为可注入出口**:`formula/FormulaView.ts` 新增
+>    `setFormulaRenderer` 与文本替身 `TEXT_FORMULA_RENDERER`,换渲染器时模板缓存整体
+>    失效(缓存键只认 LaTeX);`testing/domStub.ts` 的 `installDomStub()` 默认装替身
+>    (要在桩里跑别的渲染器传 `{ formula: 'keep' }` -- 装桩与换渲染器因此没有先后
+>    顺序契约).于是消费者测试里的 `vi.mock('katex')`(实测 graphcalc **4 个**测试文件各一处)
+>    整块删掉 --
+>    那条 mock 正是"下游直接依赖 katex"的残迹.真 KaTeX 要 `createElementNS`,手写
+>    DOM 桩给不了,这也是替身**必需**而不是便利的原因(单测把这条钉住了).
+> 3. **`createValueDisplay` 多一个通用 `render?: (text) => Node` 出口**:读数要的是
+>    "排出来的公式"而不是文本本身时,把 `numberText({ syntax: 'latex' })` 的产出交给它
+>    (示例里因此多了一条 `方位角(公式)` 读数).做成"文本 -> 节点"而不是给显示件加
+>    "公式变体",是为了让 widgets 层仍然不认识 formula 层.
+>
+> 连带意义:第 3.2 节的 `syntax: 'latex'` 轴在这里闭环 -- graphcalc 的
+> `src/math/latexNumber.ts`(注释自陈"与库的 `formatNumber` 同一档位")整块由
+> `numberText({ syntax: 'latex' })` 顶替,而它渲染那一半本来就走库的
+> `createFormulaElement`.
+>
+> **消费者侧要跟着做的(graphcalc 实测,五步)**:①`package.json` 删 `katex` 与
+> `@types/katex`;②4 个测试文件里的 `vi.mock('katex')` 与
+> `vi.mock('katex/dist/katex.min.css')` 整块删掉(公式渲染由 `installDomStub()` 装替身);
+> ③`vite.config.ts` 的 `resolve.dedupe` 去掉 `'katex'`(留 `@preact/signals-core`)--
+> 那条 dedupe 原本的理由正是"让 `vi.mock('katex')` 拦得住库",现在理由消失;
+> ④删 `src/math/latexNumber.ts`,调用点改用 `numberText({ syntax: 'latex' })`
+> (档位同值,既有断言逐条保留);⑤要"排出来的公式读数"就在显示件上传 `render`
+> (别在应用里再拼一格 DOM).
 >
 > **2026-10 第一轮评审**:先只审方案,不动代码;两处破坏性变更(D2 默认口径切档,
 > Phase 4 去掉正文拉伸通吃)**搁置,待消费者侧实验后再定**.
@@ -765,9 +846,13 @@ graphcalc 引的是聚合入口 `miko_ui/styles.css`,所以第 1 门过了它就
 | --- | --- | --- |
 | `src/shared/numberText.ts` | 重写为策略工厂 + 两个预置 + `parseNumber` + `syntax` 轴;保留 `formatNumber` / `formatVector` 旧签名与行为 | 0 |
 | `src/shared/numberText.test.ts` | 补策略与边界用例(含编辑档语法正则,`syntax: 'latex'`,`digits` 覆盖) | 0 |
-| `src/widgets/ValueDisplay.ts` | 新增 `createValueDisplay` / `createReadoutRow` | 1 |
+| `src/widgets/ValueDisplay.ts` | 新增 `createValueDisplay` / `createReadoutRow`;**第五轮补 `render?: (text) => Node` 出口**(公式读数) | 1 / 第五轮 |
+| `src/formula/FormulaView.ts` | **第五轮**:渲染器出口 `setFormulaRenderer` + 文本替身 `TEXT_FORMULA_RENDERER`;缓存随渲染器整体失效 | 第五轮 |
+| `src/testing/domStub.ts` | **第五轮**:`installDomStub()` 自动装公式文本替身(消费者测试不再 `vi.mock('katex')`) | 第五轮 |
+| `package.json` + `package-lock.json` + `scripts/check_ui_boundary.py` | **第五轮**:`katex` 从可选 peer 移进 `dependencies`;守卫改成"允许且要求 `dependencies` 带 katex,`peerDependencies` 为空" | 第五轮 |
+| `example/main.ts` / `example/example.css` | **第五轮**:多一条 `方位角(公式)` 读数(口径 `syntax: 'latex'` + `render` 走库的 `createFormulaElement`) | 第五轮 |
 | `styles/widgets.css` | `.ui-readout-name` / `.ui-readout-value` 默认规则(含 `tabular-nums`);正文子节点策略(4.2) | 1 / 3 |
-| `src/widgets/NumberField.ts` / `Slider.ts` / `RangeInput.ts` | 加 `text?`;Phase 2 切默认档 | 1 / 2 |
+| `src/widgets/NumberField.ts` / `Slider.ts` | 加 `text?`(唯一口径出口,`format` / `parse` 两个回调删除);Phase 2 切默认档.`RangeInput` **不给** `text?`:`input.value` / `min` / `max` / `step` 是 DOM 机器属性,机器语法只有 `String(v)`(见 `numberText.ts` 文件头) | 1 / 2 |
 | `src/index.ts` | 补导出(`ValueDisplay`,布局组) | 1 / 3 |
 | `src/layout/Stack.ts` / `ScrollArea.ts` / `splitterGeometry.ts` / `Splitter.ts` | 新增布局组(三个原语都要 `class` 出口;`ScrollArea` 要 `minHeight`) | 3 / 5 |
 | `styles/layout.css` + `styles/styles.css` + `package.json` 的 `exports` | 新增 `./styles/layout.css` 并挂进总入口(4.8 第 1 门) | 3 |
@@ -847,7 +932,10 @@ Phase 4 那些"去掉通吃"的改动已降级为可不做(真实元素上无差
   库的编辑器层已经在用(2 处),测试桩里有替身;消费者侧本来也在用
   (graphcalc 的 `RenderController` 1 处,站点 2 处:`metro_window/src/metro_window.ts:337`
   与 `451/ember/index.ts:323`,另有库编辑器层自带的 2 处).
-- **不加运行时依赖**:没有 CSS-in-JS,没有 `Intl` 数据包,`katex` 仍是唯一 peer.
+- **不加运行时依赖(唯一例外是 `katex`,而且它由库自带)**:没有 CSS-in-JS,没有
+  `Intl` 数据包.**2026-10 第五轮更正**:原文写"`katex` 仍是唯一 peer",现在它是
+  `dependencies` 里的一项 -- 下游规定不许直接依赖 katex,写成 peer 就等于把安装
+  责任留给了应用.守卫(`scripts/check_ui_boundary.py` 的 `deps`)盯的就是这一点.
 - **不在库里放消费者域名的东西**(token 名,窗口名,面板名).**2026-10 已清理**
   两个令牌;判据:**库的样式表里有没有 `var()` 读它?** 没有就不许加,并补机器守卫
   (第 5 节).顺带记一条同类前科:graphcalc 的 `cssPalette.test.ts` 早就有一条
@@ -898,3 +986,10 @@ Phase 4 那些"去掉通吃"的改动已降级为可不做(真实元素上无差
     `justify-content: center`,四扇窗口一律按顺序从上往下堆叠;把读数窗口拖矮,内容从顶部
     开始,不再被挤到正文顶上(改之前:正文 62px 时第一个读数在正文顶上方 35px).
     原语落地后,这里的 `.pane` 与 `.readout*` 再换成 `createStack` / `createReadoutRow`.
+11. **下游不声明 `katex` 也能排公式(第五轮验收)**三条:
+    - `package.json` 的 `katex` 在 `dependencies` 且没有 `peerDependencies`(守卫 `deps` 守);
+    - 消费者删掉 `katex` / `@types/katex` 与测试里的 `vi.mock('katex')` 后,公式类断言
+      仍然通过 -- 靠的是 `installDomStub()` 自动装的文本替身(库自己的
+      `FormulaView.test.ts` 就是这条路的样板);
+    - 读数的 `render` 出口把 `numberText({ syntax: 'latex' })` 排成 KaTeX DOM
+      (示例窗口里那条 `方位角(公式)` 可目视;`title` 仍是全精度纯文本).

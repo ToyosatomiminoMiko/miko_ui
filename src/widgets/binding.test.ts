@@ -12,6 +12,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, StubElement } from '../testing/domStub';
 import { signal } from '../reactive';
+import { numberText } from '../shared/numberText';
 import { createNumberField } from './NumberField';
 import { createSegmented } from './Segmented';
 import { createSlider } from './Slider';
@@ -79,11 +80,11 @@ describe('Slider', () => {
 });
 
 describe('NumberField', () => {
-    it('signal -> DOM:写值源按 format 落到文本', () => {
+    it('signal -> DOM:写值源按 text 落到文本', () => {
         const radius = signal(0.2);
         const handle = createNumberField({
             value: radius,
-            format: (value) => value.toFixed(2),
+            text: numberText({ syntax: 'edit', digits: 2, trimZeros: false }),
         });
 
         radius.value = 1.5;

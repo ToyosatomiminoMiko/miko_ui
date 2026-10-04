@@ -11,7 +11,7 @@
 | app-source-imports | 库不认识任何 `@/` 别名(分词器/测试桩等一律注入或自带) |
 | global-dom | 库(会被打包的那部分)不按 id 查节点,也不直接摸全局 `document` / `window`;不看注释,`*.test.ts` 与 `src/testing/` |
 | css-ids | 库的样式只有类名(排除十六进制颜色与注释);id 选择器会变成消费者的公开 API |
-| deps | `dependencies` 只允许 `@preact/signals-core`;`peerDependencies` 只允许 `katex` |
+| deps | `dependencies` 只允许 `@preact/signals-core` 与 `katex`(后者必须自带,见下);`peerDependencies` 必须为空 |
 | exports-surface | `exports` 只有根入口(构建产物 `dist/index.*`),`styles/` 与测试入口 `./testing`,内部路径不进公开面 |
 | no-batch | 库里一次都不用 `batch()`:用了就等于在更新路径上引入调度器,手写 DOM 桩立刻失真 |
 
@@ -192,18 +192,35 @@ def load_package_json():
 
 
 def check_deps(pkg):
-    """库里多一个运行时依赖就是要评审的事件."""
+    """库里多一个运行时依赖就是要评审的事件.
+
+    2026-10 起 `katex` 是**库自带的运行时依赖**,不再是可选 peer:下游(计算器)
+    规定不许直接依赖 katex,LaTeX 的排版与样式全部由库做完.所以它必须落在
+    `dependencies` 里(下游 `npm ci` 才拿得到),`peerDependencies` 保持为空 --
+    写成 peer 就等于要求下游自己声明并安装 katex,那条规定会静默失效.
+    """
     if pkg is None:
         return []
-    allowed_deps = {'@preact/signals-core'}
-    allowed_peers = {'katex'}
+    allowed_deps = {'@preact/signals-core', 'katex'}
+    required_deps = {'katex'}
+    dependencies = pkg.get('dependencies') or {}
     hits = []
-    for name in (pkg.get('dependencies') or {}):
+    for name in dependencies:
         if name not in allowed_deps:
             hits.append({'file': 'package.json', 'line': 1, 'text': f'dependencies 多了一项: {name}'})
+    for name in sorted(required_deps):
+        if name not in dependencies:
+            hits.append({
+                'file': 'package.json',
+                'line': 1,
+                'text': f'dependencies 缺了 {name}:公式件必须由库自带,下游不许直接依赖它',
+            })
     for name in (pkg.get('peerDependencies') or {}):
-        if name not in allowed_peers:
-            hits.append({'file': 'package.json', 'line': 1, 'text': f'peerDependencies 多了一项: {name}'})
+        hits.append({
+            'file': 'package.json',
+            'line': 1,
+            'text': f'peerDependencies 多了一项: {name}(peer 会把安装责任推给下游;katex 已收进 dependencies)',
+        })
     return hits
 
 

@@ -218,6 +218,27 @@
     color: var(--color-text-muted);
 }
 
+/* 一行读数(createReadoutRow):复用 .control-row 的行节奏,这里只给两半各自的外观.
+   名字半边要能截断:名字长的时候该缩的是它,不是把值挤出可视区. */
+.ui-readout-name {
+    color: var(--color-text-muted);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 值半边:<output> 贴右端(与 .control-row input[type="number"] 同一条定位).
+   font-variant-numeric 是必须的:`0.6` 与 `0.9` 在比例字体里宽度不同,拖动滑杆时
+   数字会左右抖;等宽数字让读数稳定.字形本身不在这里定 -- 要等宽族就由消费者在
+   自己的类里读 --code-font-family(库不替消费者选字体). */
+.ui-readout-value {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--color-text-strong);
+    font-variant-numeric: tabular-nums;
+}
+
 /* ==========================================================================
  * 开关组件
  * ========================================================================== */

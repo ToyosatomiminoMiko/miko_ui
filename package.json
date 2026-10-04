@@ -67,21 +67,13 @@
     "release:npm": "python3 scripts/release_npm.py",
     "prepare": "npm run build && git config --local core.hooksPath .githooks"
   },
-  "peerDependencies": {
-    "katex": "^0.18.5"
-  },
-  "peerDependenciesMeta": {
-    "katex": {
-      "optional": true
-    }
-  },
   "dependencies": {
-    "@preact/signals-core": "^1.14.4"
+    "@preact/signals-core": "^1.14.4",
+    "katex": "^0.18.5"
   },
   "devDependencies": {
     "@types/katex": "^0.16.8",
     "@types/node": "^26.4.1",
-    "katex": "^0.18.5",
     "typescript": "^7.0.2",
     "vite": "^8.2.0",
     "vitest": "^4.1.10"
