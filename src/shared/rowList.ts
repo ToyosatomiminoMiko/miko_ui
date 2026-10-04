@@ -1,5 +1,10 @@
 /**
- * 带键 DOM 行列表:按"标识 + 内容键"缓存行元素的通用机制.
+ * `RowList`:一张按内容增量更新的行列表(容器 + 行缓存).
+ *
+ * 实体、求值(六个子列表)、诊断消息、过程步骤,到这一层都是同一件事;差别只在
+ * 调用方给的三样东西 -- 怎么认一条(`name`)、内容指纹(`key`)、怎么画一条
+ * (`build`).行为差异(显隐 / 过程入口 / 异步回填)挂在 `build` 出来的行对象上,
+ * 不在列表这一层.
  *
  * 三条与类型无关的不变量只有这一处实现:
  * 1. `name` 命中且内容键(`key`)相同 -> 整行复用:行内已建内容不重建,用户展开态
@@ -10,6 +15,9 @@
  * 为什么只有这一份:增删/排序/缓存循环若分散在多处,任何顺序或缓存策略调整都要
  * 跟着改一遍,分叉处就是行为不一致的来源.类型差异(行内结构,异步回填等)留在
  * 各自的 `build`(通常是行对象的构造函数)里.
+ *
+ * `feedback/MessageList` 也走这一份:它把"重复消息"按 `内容键 + 同键内的第几条`
+ * 化成唯一标识,并以 `listRole: false` 关掉容器上的 `role="list"`(见该文件).
  */
 
 /**
@@ -18,11 +26,11 @@
  * 句柄通常就是**行对象本身**(实现这个接口的类):列表引擎只认这个 `row`,
  * 行内结构与增量更新都由对象自己的方法承担,不需要另建一份与行为分离的数据袋.
  */
-export interface KeyedRowHandles {
+export interface RowHandle {
     readonly row: HTMLElement;
 }
 
-export interface KeyedRowHooks<TItem, THandles extends KeyedRowHandles> {
+export interface RowListHooks<TItem, THandles extends RowHandle> {
     /** 条目标识;DOM 行缓存与调用方数值缓存的键. */
     name(item: TItem): string;
     /**
@@ -43,21 +51,39 @@ export interface KeyedRowHooks<TItem, THandles extends KeyedRowHandles> {
     onRemove?(name: string): void;
 }
 
-interface KeyedRowEntry<THandles> {
+interface RowEntry<THandles> {
     handles: THandles;
     key: string;
 }
 
-export class KeyedRowList<TItem, THandles extends KeyedRowHandles> {
-    private readonly rows = new Map<string, KeyedRowEntry<THandles>>();
+/** `RowList` 的构造选项. */
+export interface RowListOptions {
+    /**
+     * 是否在容器上声明 `role="list"`(默认 true).
+     *
+     * 默认开:对象列表 / 求值列表 / 步骤列表这类场景里,行本身就是列表项,显式给
+     * 列表语义,读屏才会报"列表/列表项",而不是把每条读成孤立的一段.
+     *
+     * 可以关:同一个引擎也服务 `feedback/MessageArea` 的 `aria-live` 容器,而那里
+     * 的条目(`div.diagnostic*`)没有 `role="listitem"` -- 容器声明了 `list` 反而是
+     * 无效 ARIA(列表必须有列表项或 group).这种场景显式传 `false`.
+     */
+    readonly listRole?: boolean;
+}
 
-    constructor(private readonly container: HTMLElement) {
+export class RowList<TItem, THandles extends RowHandle> {
+    private readonly rows = new Map<string, RowEntry<THandles>>();
+
+    constructor(
+        private readonly container: HTMLElement,
+        options: RowListOptions = {},
+    ) {
         // 容器在 DOM 里只是普通 <div>;显式给列表语义,读屏才会报"列表/列表项",
-        // 而不是把每条读成孤立的一段.
-        container.setAttribute('role', 'list');
+        // 而不是把每条读成孤立的一段.不是"行即列表项"的容器(消息区)显式关掉.
+        if (options.listRole !== false) container.setAttribute('role', 'list');
     }
 
-    sync(items: readonly TItem[], hooks: KeyedRowHooks<TItem, THandles>): void {
+    sync(items: readonly TItem[], hooks: RowListHooks<TItem, THandles>): void {
         const nextNames = new Set(items.map((item) => hooks.name(item)));
 
         for (const [name, entry] of this.rows) {
@@ -87,7 +113,7 @@ export class KeyedRowList<TItem, THandles extends KeyedRowHandles> {
         appendInOrder(this.container, ordered);
     }
 
-    entry(name: string): KeyedRowEntry<THandles> | undefined {
+    entry(name: string): RowEntry<THandles> | undefined {
         return this.rows.get(name);
     }
 
