@@ -228,13 +228,34 @@ export class WindowManager {
             this._bindWindowMove(entry);
             this._bindWindowRaise(entry);
             for (const handle of frame.handles) {
+                /**
+                 * 这次缩放的锚:起手时的几何 + 指针起点.
+                 *
+                 * 缩放按**指针相对起点的总位移**解释(见 `resizeGeometry`),所以锚
+                 * 必须留在起手那一刻:拿"上一帧的几何"当基准就会在夹取处丢掉位移,
+                 * 指针一回移窗口就暴涨(边与指针脱钩).`null` = 本次没起手.
+                 */
+                let anchor: AbsoluteGeometry | null = null;
+                let fromX = 0;
+                let fromY = 0;
                 bindWindowResize(handle.element, entry.gesture.signal, handle.direction, {
                     // 最大化态下缩放无意义(几何由 CSS 类接管,手柄也被 CSS 藏着):
                     // 这里是第二道闸,不依赖样式表也算得对.
                     canStart: () => entry.state === 'normal',
-                    onStart: () => this._gestureBegin(entry),
-                    onResize: (direction, dx, dy) => this._resizeBy(spec.id, direction, dx, dy),
-                    onEnd: () => this._gestureEnd(entry),
+                    onStart: (event) => {
+                        anchor = entry.geometry;
+                        fromX = event.clientX;
+                        fromY = event.clientY;
+                        this._gestureBegin(entry);
+                    },
+                    onResize: (direction, pointer) => {
+                        if (!anchor) return;
+                        this._resizeBy(spec.id, anchor, direction, pointer.x - fromX, pointer.y - fromY);
+                    },
+                    onEnd: () => {
+                        anchor = null;
+                        this._gestureEnd(entry);
+                    },
                 });
             }
 
@@ -670,15 +691,24 @@ export class WindowManager {
     }
 
     /**
-     * 缩放的几何写入:移动边跟手,对边不动(语义见 `resizeGeometry`).
+     * 缩放的几何写入:移动边跟手,对边不动(语义与入参口径见 `resizeGeometry`).
+     *
+     * `base` 是这次手势起手时的几何,`dx`/`dy` 是**指针相对起点的总位移**;不是
+     * "上一帧的几何 + 逐帧增量" -- 那正是"边被夹住后与指针脱钩"的来源.
      *
      * 仍然只走 `setGeometry`:它那一次 `clampGeometry` 对本函数的结果是恒等
      * (输出已经满足全部上下界),保留它是为了让"运行期几何只有一个出口"这条
      * 约束不出现例外.
      */
-    private _resizeBy(id: WindowId, direction: ResizeDirection, dx: number, dy: number): void {
+    private _resizeBy(
+        id: WindowId,
+        base: AbsoluteGeometry,
+        direction: ResizeDirection,
+        dx: number,
+        dy: number,
+    ): void {
         const entry = this._require(id);
-        this.setGeometry(id, resizeGeometry(entry.geometry, direction, dx, dy, this._limits(entry)));
+        this.setGeometry(id, resizeGeometry(base, direction, dx, dy, this._limits(entry)));
     }
 
     /**

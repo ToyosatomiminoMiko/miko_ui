@@ -341,7 +341,12 @@ export function clampGeometry(g: AbsoluteGeometry, limits: Limits): AbsoluteGeom
     return { x, y, w, h };
 }
 
-/** 移动:k -> k+1 的唯一入口.delta 是原始像素增量,累加后统一夹一次. */
+/**
+ * 移动:k -> k+1 的唯一入口.delta 是原始像素增量,累加后统一夹一次.**不要**改成
+ * 总位移(`x = 锚 + 总位移`):平移被夹住之后,指针回退一小段就要立刻跟手,否则
+ * 会有一段"推不动"的死区(见 `WindowManager._bindWindowMove` 的 `unsnapped`).
+ * 缩放的模型相反,见 `resizeGeometry` 的入参说明.
+ */
 export function moveGeometry(g: AbsoluteGeometry, dx: number, dy: number, limits: Limits): AbsoluteGeometry {
     return clampGeometry({ x: g.x + dx, y: g.y + dy, w: g.w, h: g.h }, limits);
 }
@@ -397,6 +402,20 @@ export function applyResize(
 
 /**
  * 缩放的几何解释与夹取(唯一一份):**移动边跟手,对边不动**.
+ *
+ * 入参口径(调用方必须这么喂,否则边会和指针脱钩):
+ * - `g` 是**这次手势起手时的几何**(锚),不是上一帧的结果;
+ * - `dx` / `dy` 是**指针相对起手位置的总位移**,不是逐帧增量.
+ *
+ * 为什么是总位移而不是增量:夹取会把超出界的那一段位移吃掉,增量模型下这段
+ * 位移没有记录 -- 指针拖过头(比如把右下角拖进窗口内侧撞到最小尺寸)再往回走
+ * 一点点,窗口就立刻按"回移量"猛涨,而移动边早已不在指针底下.总位移模型下
+ * `x = 锚 + 总位移` 恒成立:边要么就在指针处,要么钉在界上等指针回到界内,
+ * 来回一趟尺寸能原样回来.
+ *
+ * 拖动那边是反过来的(见 `moveGeometry` 与 `WindowManager._bindWindowMove`):
+ * 整体平移必须"夹住后回退立刻跟手",不能要指针先走完丢失的那段.所以平移与
+ * 缩放在这里用两种位移模型,不是重复实现.
  *
  * 为什么不能用 `clampGeometry` 收尾:`clampGeometry` 是**平移**语义 -- x/y 与
  * w/h 各自夹一次,等价于"把这个矩形整体塞回合法区".缩放下两者会互相污染:

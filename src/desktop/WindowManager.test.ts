@@ -603,7 +603,51 @@ describe('拖动 / 吸附', () => {
         expect(manager.getGeometry('source')).toEqual(dragged);
     });
 
-    it('最大化窗口不参与磁吸(旧几何是幽灵边,会把别的窗口停在半空)', () => {
+    it('缩放锚定:边始终落在指针处(普通情况下 1:1 跟手)', () => {
+        const { layer, manager } = setup();
+        const start = manager.getGeometry('source');
+
+        // 右下角手柄的起点 = 窗口的右下角.
+        const cornerX = start.x + start.w;
+        const cornerY = start.y + start.h;
+        dragHandle(layer, 'source', 'se', [
+            { x: cornerX, y: cornerY },
+            { x: cornerX + 100, y: cornerY + 100 },
+        ]);
+
+        const end = manager.getGeometry('source');
+        expect(end.x).toBe(start.x);
+        expect(end.y).toBe(start.y);
+        // 移动后的右下角就是指针所在处.
+        expect(end.x + end.w).toBe(cornerX + 100);
+        expect(end.y + end.h).toBe(cornerY + 100);
+    });
+
+    it('缩放锚定:撞到最小尺寸后指针往回走,边钉在界上不跟;回到界内才重新跟手', () => {
+        const { layer, manager } = setup();
+        const start = manager.getGeometry('source');
+        const handle = handleOf(layer, 'source', 'se');
+        const cornerX = start.x + start.w;
+        const cornerY = start.y + start.h;
+
+        handle.dispatch('pointerdown', { clientX: cornerX, clientY: cornerY, pointerId: 1 });
+        // 一路拖进窗口内侧(第二象限):宽度先撞 minSize.w=300,高度先撞 minSize.h=220.
+        handle.dispatch('pointermove', { clientX: cornerX - 500, clientY: cornerY - 500, pointerId: 1 });
+        expect(manager.getGeometry('source')).toEqual({ x: start.x, y: start.y, w: 300, h: 220 });
+
+        // 还在窗口内侧,但已经朝右下方(第四象限)回移了 100px:边仍在界上,不许动.
+        // 旧实现(逐帧增量)会在这里把窗口涨到 400x320 -- 边和指针脱钩.
+        handle.dispatch('pointermove', { clientX: cornerX - 400, clientY: cornerY - 400, pointerId: 1 });
+        expect(manager.getGeometry('source')).toEqual({ x: start.x, y: start.y, w: 300, h: 220 });
+
+        // 指针回到起手处:尺寸原样回来(夹住期间丢掉的位移没有丢).
+        handle.dispatch('pointermove', { clientX: cornerX, clientY: cornerY, pointerId: 1 });
+        expect(manager.getGeometry('source')).toEqual(start);
+
+        handle.dispatch('pointerup', { clientX: cornerX, clientY: cornerY, pointerId: 1 });
+    });
+
+    it('最大化的窗口不参与磁吸(旧几何是幽灵边,会把别的窗口停在半空)', () => {
         const { layer, manager } = setup();
         // objects 普通态的顶边在 524;最大化之后屏幕上没有这条边了.
         manager.setMaximized('objects', true);

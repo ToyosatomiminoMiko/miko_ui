@@ -11,6 +11,7 @@ import {
     applyResize,
     bindWindowResize,
     RESIZE_DIRECTIONS,
+    type PointerPosition,
     type WindowResizeHandlers,
 } from './WindowResize';
 
@@ -56,7 +57,7 @@ describe('bindWindowResize', () => {
     interface Calls {
         started: number;
         ended: number;
-        readonly moves: { direction: ResizeDirection; dx: number; dy: number }[];
+        readonly moves: { direction: ResizeDirection; pointer: PointerPosition }[];
     }
 
     function setup(options: { canStart?: () => boolean } = {}): {
@@ -73,7 +74,7 @@ describe('bindWindowResize', () => {
         const handlers: WindowResizeHandlers = {
             canStart: options.canStart,
             onStart: () => { calls.started += 1; },
-            onResize: (direction, dx, dy) => calls.moves.push({ direction, dx, dy }),
+            onResize: (direction, pointer) => calls.moves.push({ direction, pointer }),
             onEnd: () => { calls.ended += 1; },
         };
         const controller = new AbortController();
@@ -86,7 +87,7 @@ describe('bindWindowResize', () => {
         return { handle, calls, controller };
     }
 
-    it('拖一根手柄:方向与每次增量原样透传,起手/收尾各一次', () => {
+    it('拖一根手柄:方向与指针位置原样透传,起手/收尾各一次', () => {
         const { handle, calls } = setup();
 
         handle.dispatch('pointerdown', { clientX: 500, clientY: 500, pointerId: 1 });
@@ -95,15 +96,34 @@ describe('bindWindowResize', () => {
 
         handle.dispatch('pointermove', { clientX: 510, clientY: 505, pointerId: 1 });
         handle.dispatch('pointermove', { clientX: 515, clientY: 508, pointerId: 1 });
-        // 增量,不是"起点 + 总位移":第二次只报 5px/3px.
+        // 报的是指针的**绝对位置**,不是增量:缩放要靠它算"相对起手的总位移".
         expect(calls.moves).toEqual([
-            { direction: 'se', dx: 10, dy: 5 },
-            { direction: 'se', dx: 5, dy: 3 },
+            { direction: 'se', pointer: { x: 510, y: 505 } },
+            { direction: 'se', pointer: { x: 515, y: 508 } },
         ]);
 
         handle.dispatch('pointerup', { clientX: 515, clientY: 508, pointerId: 1 });
         expect(handle.classList.contains('is-dragging')).toBe(false);
         expect(calls.ended).toBe(1);
+    });
+
+    it('onStart 拿到的是这次 pointerdown(窗口靠它记锚)', () => {
+        const handle = document.createElement('div') as unknown as StubElement;
+        handle.style.cursor = 'nwse-resize';
+        const downs: { x: number; y: number }[] = [];
+        bindWindowResize(
+            handle as unknown as HTMLElement,
+            new AbortController().signal,
+            'se',
+            {
+                onStart: (event) => downs.push({ x: event.clientX, y: event.clientY }),
+                onResize: () => {},
+                onEnd: () => {},
+            },
+        );
+
+        handle.dispatch('pointerdown', { clientX: 436, clientY: 562, pointerId: 1 });
+        expect(downs).toEqual([{ x: 436, y: 562 }]);
     });
 
     it('canStart 返回 false 时完全不起手(最大化态的闸门)', () => {
