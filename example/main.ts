@@ -294,13 +294,23 @@ function collectMessages(): MessageEntry[] {
 }
 
 /**
- * 消息区容器由库建:`div.message-area[aria-live=polite]` 的框体 / 列表节奏 /
- * 滚动都在 `styles/feedback.css`,示例不写一行外观.
+ * 消息区容器由库建:`div.message-area[aria-live=polite]` 的列表节奏 / 滚动都在
+ * `styles/feedback.css`,示例不写一行外观.
+ *
+ * **容器就是消息窗口的正文根**:这个窗口里只有消息,所以正文只有这一个孩子,
+ * 也没有"窗口里一个会滚的盒子"--滑条落在窗口边上,就是窗口自己的那条.
+ * 框体因此不要(`modifier: 'message-area--unframed'`):窗口外壳那圈描边就是它的框,
+ * 再套一层就是两层边框 + 一圈白给的内边距(理由与下游诊断窗口同一条).
  *
  * 挂 `ui-scrollbar` 是**消费方的一笔决定**:滚动条外观是单独的一条规定
  * (`styles/scrollbar.css`),消息区与它互不认识 -- 不挂也能滚,只是用系统滚动条.
+ * `message-pane` 是示例自己的类:无框之后容器不带内边距,那一圈由示例补上
+ * (与其余窗口的 `.pane` 同一口径,见 `example.css`).
  */
-const messageArea = createMessageArea({ class: 'ui-scrollbar' });
+const messageArea = createMessageArea({
+    modifier: 'message-area--unframed',
+    class: 'ui-scrollbar message-pane',
+});
 
 /**
  * 提示清单是**派生值**:`computed` 里读到的每个 signal 都是依赖,任一变化就重算,
@@ -312,17 +322,6 @@ const messageArea = createMessageArea({ class: 'ui-scrollbar' });
  */
 const messages = computed(collectMessages);
 watchValue(messages, (entries) => messageArea.list.render(entries));
-
-const messagePane = create_element(
-    { tag: 'div' },
-    { class: 'pane' },
-    create_element(
-        { tag: 'span' },
-        { class: 'pane-caption' },
-        `提示随参数出现:线性数值 > ${LINEAR_WARN} / > ${LINEAR_ERROR},方位角接近 ±π,计数到 ${COUNT_MAX}`,
-    ),
-    messageArea.element,
-);
 
 // ── 窗口清单:只换 `windows`,其余照用库的默认值 ──────────────────────────
 const WINDOWS: readonly WindowConfigEntry[] = [
@@ -419,7 +418,7 @@ mountDesktop(root, {
             case 'menu':
                 return { body: [menuPane] };
             case 'messages':
-                return { body: [messagePane] };
+                return { body: [messageArea.element] };
             default:
                 return { body: [] };
         }

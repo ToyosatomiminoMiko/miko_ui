@@ -322,7 +322,7 @@ createReadoutRow('方位角', {
 | `shared/` | 跨组件共用的交互与行外壳:键盘唯一出口,唯一拖拽实现,行缓存,值↔文本口径(见下节),行外壳 |
 | `desktop/` | 桌面窗口系统:装配入口(`mountDesktop` / 窗口槽位),窗口管理器与几何 / 拖动 / 吸附 / 停靠件,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
 | `editor/` | 编辑器外壳:整套结构装配,行号栏,高亮层(分词与槽宽由消费者注入),以及保住原生撤销栈的程序化写入.**编辑器自己不滚**:外框随内容长高长宽,滚动归装它的那一层(见下"编辑器不滚,宿主滚") |
-| `feedback/` | 消息区容器(`MessageArea`:框体 + 列表节奏 + 滚动 + `aria-live`)与消息 / 诊断条目(`MessageList`),零领域依赖 |
+| `feedback/` | 消息区容器(`MessageArea`:列表节奏 + 滚动 + `aria-live`;框体可加变体类 `message-area--unframed` 去掉,见 `modifier`)与消息 / 诊断条目(`MessageList`),零领域依赖 |
 | `formula/` | KaTeX 公式件与复制反馈(KaTeX 的排版,样式与渲染器出口都在库里,`katex` 是库自带的运行时依赖,应用侧不声明) |
 | `theme/` | `applyTheme(root, tokens)`:把一组 CSS 变量写到根元素上(库的默认主题只有 `styles/tokens.css` 一份,JS 侧不留镜像) |
 | `testing/` | **测试入口**(独立子路径 `miko_ui/testing`,不进主入口):手写 DOM 桩,复刻了真 DOM 里踩过的坑,并给出 `document.execCommand` / `navigator.clipboard` 两条可断言通道;`installDomStub()` 还会自动装上公式文本替身(见上节),所以消费者的公式测试不必 mock `katex` |
@@ -397,10 +397,11 @@ display: flex; flex-direction: column; gap: ...; padding: ...; overflow-y: auto;
 `overflow-y` 交给里面的卡片,滑条就跑到窗口内的元素上(缩进一圈,贴着卡片的描边),
 正文根反而不滚,还得靠一层层 `overflow: hidden` + `min-height: 0` 把滚动顶下去 --
 同一个"哪里滚"有两处说法,改一处忘一处不报错,只表现为滑条位置慢慢分叉.
-`miko_graphcalc` 的七个窗口现在都是这一个形状:视图 / 参数 / 源码 / 实体 / 求值五个
-窗口是"正文根就是滚动区",过程窗口是它自己的几个滚动块(题目 / 参数回显 / 步骤),
-诊断窗口是"正文根里放库的 `.message-area`"(那是**消息区**这件东西自带的框体 /
-`aria-live` / 滚动,不是给列表套的壳).
+`miko_graphcalc` 的七个窗口现在都是这一个形状:视图 / 参数 / 源码 / 实体 / 求值 / 诊断
+六个窗口是"正文根就是滚动区"(诊断那颗正文根就是库的消息区容器,**不要框体**:
+`createMessageArea({ modifier: 'message-area--unframed' })` -- 窗口外壳那圈描边就是
+它的框,再套一层就是两层边框 + 一圈白给的内边距),过程窗口是它自己的几个滚动块
+(题目 / 参数回显 / 步骤,页头不该跟着滚,所以那里保持"sticky 布局 + 内部滚动块").
 
 由此作废的:`Splitter`(两家零使用,graphcalc 窗口化时主动删掉了自己的分栏控制器),
 单独的 `ScrollArea` 语义(它就是上面那个列容器),以及原方案文档

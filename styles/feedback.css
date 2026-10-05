@@ -4,15 +4,17 @@
  * --------------------------------------------------------------------------
  * 两件东西,两个类名:
  *
- *   .message-area   容器:`MessageArea` 产出 -- 框体 + 列表节奏 + 滚动
- *   .diagnostic*    条目:`MessageList` 产出 -- 内边距 + 配色
+ *   .message-area             容器:`MessageArea` 产出 -- 框体 + 列表节奏 + 滚动
+ *   .message-area--unframed   同上,但**不要框体**(宿主已经有框的场合)
+ *   .diagnostic*              条目:`MessageList` 产出 -- 内边距 + 配色
  *
  * 两者的样式都属于库这一侧(见 `test/emittedClasses.test.ts`:库产出的类名要么
  * 有默认规则,要么显式声明为定位钩子 -- 都没有的话,消费者会被迫给库的类写外观,
  * 而消费侧的 `styleLayers.test.ts` 恰好禁止这件事).
  *
- * 留给消费者的只有三件,都不需要覆盖下面任何一条:摆在哪,占多高(或要不要收起),
- * 以及要不要挂 `ui-scrollbar`(滚动条是单独的一条规定,见 `styles/scrollbar.css`).
+ * 留给消费者的只有四件,都不需要覆盖下面任何一条:摆在哪,占多高(或要不要收起),
+ * 要不要挂 `ui-scrollbar`(滚动条是单独的一条规定,见 `styles/scrollbar.css`),
+ * 以及要不要那圈框体(`createMessageArea({ modifier: 'message-area--unframed' })`).
  * 字体与字号也归消费者:本件让文本**继承**宿主,不替消费方挑字体.
  *
  * 配色只走 token,不写字面量(与库其它样式表一致).
@@ -34,6 +36,18 @@
     border: 1px solid var(--color-border-panel);
     border-radius: var(--radius-md);
     background: var(--color-bg-sunken);
+}
+
+/* 无框变体:只把**框体**这一组去掉,其余(列排布 / 节奏 / 滚动 / aria-live)一个字
+   都不动.什么时候用:宿主已经有框 -- 最典型的是"容器自己就是窗口正文根",
+   窗口外壳那圈描边 + 内边距就是它该有的样子,再套一层就是两层边框.
+   内边距一起归零(它是框体的一部分):要让内容离窗口边有点余量,由宿主自己的
+   规则给(应用侧的 `#diagnostics-panel { padding: 8px }` 就是这条). */
+.message-area--unframed {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
 }
 
 .diagnostic {

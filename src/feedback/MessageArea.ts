@@ -12,7 +12,8 @@
  * 维护 -- 条目的外观在库(`styles/feedback.css` 的 `.diagnostic*`),容器的外观
  * 在应用;而容器上那条 `aria-live` 根本不是外观,是**行为**:漏了它,
  * `MessageList.render()` 那套"内容一致时一次 DOM 操作都不做"就白做(读屏会每帧
- * 重放同一批警告).收进库之后,消费者只剩"摆在哪,给多高,要不要挂滚动条".
+ * 重放同一批警告).收进库之后,消费者只剩"摆在哪,给多高,要不要挂滚动条,
+ * 要不要那圈框体(`modifier: 'message-area--unframed'`)".
  *
  * **刻意不做的事**:
  * - 不产出 `.ui-scrollbar`:滚动条外观是单独的一条规定(见 `styles/scrollbar.css`),
@@ -36,7 +37,20 @@ export interface MessageAreaOptions {
      */
     readonly root?: DomRoot;
     /**
-     * 追加在 `.message-area` 上的消费方类名(基线在前,它在外).
+     * 附加的**变体类**(如宿主已经有框时用的 `message-area--unframed`);默认没有.
+     *
+     * 与 `createSegmented` 的 `modifier` 同一条约定:变体是一个**类名**,
+     * 外观在 CSS 里(**`styles/feedback.css` 的无框那条规则**),本件不认识任何
+     * 具体变体,也就不必为每个变体长一个 boolean.
+     *
+     * 什么时候用无框:宿主**已经有框** -- 最典型的是"容器本身**就是**窗口正文根"
+     * (窗口外壳那圈描边就是它的框,再套一层就是两层边框 + 一圈白给的内边距).
+     * 它只脱框体,别的都不动:列排布 / 节奏 / 滚动 / `aria-live` 仍是同一份实现
+     * (滚动还在容器自己身上,而容器就是正文根时,那条滑条本来就是"窗口自己的").
+     */
+    readonly modifier?: string;
+    /**
+     * 追加在 `.message-area` 上的消费方类名(基线在前,变体在中,它在外).
      *
      * 典型用法就是挂滚动条那条规定:`{ class: 'ui-scrollbar' }`.
      */
@@ -55,7 +69,7 @@ export interface MessageAreaHandle {
  * 建一个消息区.
  *
  * ```html
- * <div class="message-area <可选消费方类>" aria-live="polite"></div>
+ * <div class="message-area [<变体类>] <可选消费方类>" aria-live="polite"></div>
  * ```
  *
  * `aria-live="polite"` 不是可选项:它是本件存在的理由之一(容器里的任何 DOM
@@ -63,10 +77,11 @@ export interface MessageAreaHandle {
  * 才有意义.消费者不需要自己再写一遍,也不该覆盖它.
  */
 export function createMessageArea(options: MessageAreaOptions = {}): MessageAreaHandle {
+    const classes = [MESSAGE_AREA_CLASS];
+    if (options.modifier !== undefined) classes.push(options.modifier);
+    if (options.class !== undefined) classes.push(options.class);
     const element = create_element({ tag: 'div', root: options.root }, {
-        class: options.class === undefined
-            ? MESSAGE_AREA_CLASS
-            : `${MESSAGE_AREA_CLASS} ${options.class}`,
+        class: classes.join(' '),
         'aria-live': 'polite',
     });
     return { element, list: new MessageList(element) };

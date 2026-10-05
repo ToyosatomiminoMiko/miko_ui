@@ -1,8 +1,9 @@
 /**
  * 消息区容器件单测.
  *
- * 四件事:结构(`div.message-area[aria-live=polite]`),消费方作用域类叠在基线
- * 之后,句柄里的 `MessageList` 就是这个容器的条目接口,以及"节点建在调用方给的
+ * 五件事:结构(`div.message-area[aria-live=polite]`),消费方作用域类叠在基线
+ * 之后,变体类(`modifier`)夹在两者之间且只换类名不动行为,
+ * 句柄里的 `MessageList` 就是这个容器的条目接口,以及"节点建在调用方给的
  * root 上,不读全局 `document`".
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,6 +35,24 @@ describe('createMessageArea', () => {
         const area = build({ class: 'ui-scrollbar' });
 
         expect(area.element.className).toBe('message-area ui-scrollbar');
+    });
+
+    it('modifier 追加变体类:基线在前,变体居中,消费方类在外', () => {
+        const area = build({ modifier: 'message-area--unframed', class: 'ui-scrollbar' });
+
+        // 变体只是一个**类名**,外观在 CSS(`.message-area--unframed` 去掉框体);
+        // 结构与滚动不动,`aria-live` 与条目接口照旧(与 createSegmented 的
+        // `modifier` 同一条约定).
+        expect(area.element.className).toBe('message-area message-area--unframed ui-scrollbar');
+        expect(area.element.getAttribute('aria-live')).toBe('polite');
+
+        area.list.add('warning', '降采样');
+        expect(area.element.children).toHaveLength(1);
+    });
+
+    it('不传 modifier 时就是带框的那一个类(变体默认没有)', () => {
+        expect(build().element.className).toBe('message-area');
+        expect(build({ class: 'ui-scrollbar' }).element.className).toBe('message-area ui-scrollbar');
     });
 
     it('句柄里的 list 就是这个容器的条目接口', () => {

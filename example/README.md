@@ -9,6 +9,13 @@
 窗口「消息window」放一个 `createMessageArea()` 建的消息区:该显示哪些提示是从
 **现有三个 signal 算出来的派生值**,参数一进门槛提示就出现,退回去就消失 --
 示例里没有第二份"当前提示"状态,也没有一行"值变了去刷提示"的同步代码.
+门槛(示例自己的领域口径,写在 `main.ts` 的常量里):线性数值 `> 80` 警告 /
+`> 95` 报错,方位角离 `±π` 不到 `0.15` 警告,计数到 `255` 警告.
+
+那个窗口里**只有消息**:正文根就是那颗消息区容器,没有第二层宿主,也没有窗口内的
+第二个滚动区 -- 滑条落在窗口边上,就是窗口自己的那条.示例不摆任何说明文字,
+门槛写在这份 README 里(窗口不解释自己);框体也不要(`message-area--unframed`):
+窗口外壳那圈描边就是它的框.
 
 窗口「菜单window」用同一个 `createMenu` 摆了两次:一次给 `trigger`(普通按钮,
 浮层),一次不给(常驻面板).摆树 / 分组 / 当前项 / 开合全在库里,示例只给数据与
@@ -40,7 +47,7 @@ npm run dev             # Vite 会打印实际端口
 | `createMenu({ groups, ariaLabel, trigger?, panel? })` | 窗口「菜单window」的全部结构:摆 `role="menu"` 面板,按分组套 `role="group"` 与组标题,建出菜单项.给 `trigger` 就是浮层(自己建 `Popover`,面板叠 `.menu-popover`),不给就是常驻面板. |
 | `MenuHandle.onSelect` | 唯一的业务回调:拿到被点项的 `value`;浮层**先关再回调**,回调抛错也不会僵在屏幕上. |
 | `MenuHandle.setActive` | 当前项只有一个来源:两份菜单都把选中的 `value` 写进 `menuChoice`,再由它刷各自的当前项(高亮 + `aria-current`). |
-| `createMessageArea({ class })` | 窗口「消息window」里的容器:`div.message-area[aria-live=polite]` 的框体 / 列表节奏 / 滚动 / 播报属性都在库里,示例只给一笔 `ui-scrollbar`.容器不给消费者留"要不要写 `aria-live`"这个坑 -- 漏了它,增量渲染就白做(见下). |
+| `createMessageArea({ modifier, class })` | 窗口「消息window」里的容器:`div.message-area[aria-live=polite]` 的列表节奏 / 滚动 / 播报属性都在库里,示例只给"无框"变体类与一笔 `ui-scrollbar`.容器不给消费者留"要不要写 `aria-live`"这个坑 -- 漏了它,增量渲染就白做(见下).**容器就是那个窗口的正文根**,所以滑条是窗口自己的那条. |
 | `computed(() => MessageEntry[])` | 提示清单是派生值:它读到的三个 signal 任一变化就重算,所以"什么情况报警"只有这一处,没有第二份"当前提示"状态. |
 | `MessageList.render(entries)` | 唯一的落 DOM 入口:内容一致时**一次 DOM 操作都不做**,所以拖滑块时同一批提示不会被每帧重放(容器带 `aria-live`,重放等于读屏一直念同一句). |
 | `MessageEntry` | 一条提示的形状(`level` 只有 `warning` / `error` + 一行文字),示例直接用库的类型,不另立镜像. |
@@ -58,15 +65,18 @@ npm run dev             # Vite 会打印实际端口
 `.menu-item-hint`,浮层位置是库的 `.menu-anchor` + `.menu-popover`.示例的
 `example.css` 只剩页面级规则与窗口正文排布.
 
-示例唯一挂的**库的**类名是 **`ui-scrollbar`**,挂在两处会溢出的容器上(菜单面板与消息区):
-面板有 `max-height`,消息区自己 `overflow-y: auto`,内容多了都会滚动,而滚动条是库的
-**另一条独立规定**(`styles/scrollbar.css`)-- 两件都不认识它,它也不认识它们,所以
-"这份容器要不要统一滚动条外观"由消费者挂类决定.不给这个类,照样能滚,只是用系统
-滚动条(下游应用挂在标题栏浮层那颗面板上).
+示例挂的**库的**类名有两处,都不是"给库的类写样式",而是把库公开的两条接缝接上:
+**`ui-scrollbar`** 挂在两处会溢出的容器上(菜单面板与消息区)-- 面板有 `max-height`,
+消息区自己 `overflow-y: auto`,内容多了都会滚动,而滚动条是库的**另一条独立规定**
+(`styles/scrollbar.css`),两件都不认识它,它也不认识它们,所以"这份容器要不要统一
+滚动条外观"由消费者挂类决定(不给这个类,照样能滚,只是用系统滚动条;下游应用挂在
+标题栏浮层那颗面板上);**`message-area--unframed`** 是 `createMessageArea` 的
+`modifier` 出口,消息区落在窗口正文根上时用它去掉那圈框体.
 
-消息区的**外观也一行都不在示例里**:框体 / 条目内边距 / 配色分别是库的
-`.message-area` 与 `.diagnostic` / `.diagnostic-warning` / `.diagnostic-error`
-(`styles/feedback.css`).示例给它的只有"摆在窗口正文的哪一列".
+消息区的**外观也一行都不在示例里**:条目内边距与配色是库的 `.diagnostic` /
+`.diagnostic-warning` / `.diagnostic-error`,容器的列排布 / 节奏 / 滚动是库的
+`.message-area`(`styles/feedback.css`);`--unframed` 那条变体把框体去掉,示例只补
+一圈自己的内边距(`.message-pane`,与其余窗口的 `.pane` 同口径)和"它落在哪个窗口".
 
 ## 目录
 
@@ -74,7 +84,8 @@ npm run dev             # Vite 会打印实际端口
 example/
   index.html      只有一个 #app 的页面
   main.ts         全部示例代码(状态 -> 两条滑块/一个按钮/五条读数/两处菜单/一列提示 -> 四个窗口)
-  example.css     页面级规则 + 窗口正文的排布,说明行,以及示例自己挂在读数上的 `.readout-value`
+  example.css     页面级规则 + 窗口正文的排布(`.pane` / `.message-pane`),菜单的两句说明行,
+                   以及示例自己挂在读数上的 `.readout-value`
                   (读数行的行布局 / 名字截断 / 值贴右 / 等宽数字都在库的样式表)
 ```
 
@@ -96,6 +107,8 @@ CSS 导入的类型不在这里声明:库自己的 `src/css_modules.d.ts` 有一
 - 菜单的声明侧只有数据 + 一条 `onSelect`,结构 / 当前项 / 开合 / 外观
   全在库侧;
 - 消息区的**容器**也是库建的:`aria-live` 与 `MessageList.render()` 的"内容一致时
-  零 DOM 操作"是一对配套的默认,示例没有机会漏写其中一个;
+  零 DOM 操作"是一对配套的默认,示例没有机会漏写其中一个;那个容器**就是**消息窗口
+  的正文根(窗口里只有一个孩子),所以"窗口里还有一个会滚的盒子"这件事在这个示例里
+  根本不成立;
 - 提示是派生值:`computed` 依赖的那三个 signal 一变清单就重算,示例里没有第二份
   "当前提示"状态,也没有"值变了去刷提示"的回路.
