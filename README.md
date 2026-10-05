@@ -240,6 +240,12 @@ createReadoutRow('方位角', { value: angle, text: angleText });
 两个预置直接引用即可:`NUMBER_TEXT_EDIT`(编辑档,无损)与 `NUMBER_TEXT_DISPLAY`
 (显示档,行为等于旧的 `formatNumber`).
 
+**单位不在口径里.** `°` / `%` / ` MiB` 是**文案**,不是"数的写法":口径只管数字
+本体,要带单位就由调用方在文本之外拼(`formatNumber(v) + '°'`,或自定义一个
+`ValueText` 把单位加进自己的 `toText`).这一条是有意不做成选项的:带单位的文本过不了
+`assertEditSafe`(number 输入框会把它消毒成空串),`NumberField` / `Slider` 只能对它
+抛错 -- 那个选项于是只对显示档成立,被所有往返控件拒绝,没有存在的价值.
+
 **三条硬规则**(都有机器守,不要绕过):
 
 1. **编辑档的输出必须是合法 number 文本.** 不合法的字符串会被浏览器**静默消毒成

@@ -250,9 +250,8 @@ describe('createNumberField', () => {
      * 坏口径的表现形式是"输入框莫名其妙变空,值没变,也不报错"(消费者侧独立踩过:
      * `90%` 写进 number 框,框就空了).所以这里拦在建控件时,而不是让它静默生效.
      */
-    it('非编辑档口径直接抛:带单位的显示档会被 number 输入框消毒成空串', () => {
+    it('非编辑档口径直接抛:非合法 number 文本会被 number 输入框消毒成空串', () => {
         expect(() => createNumberField({ value: 1, text: NUMBER_TEXT_DISPLAY })).toThrow(TypeError);
-        expect(() => createNumberField({ value: 1, text: numberText({ suffix: '%' }) })).toThrow(TypeError);
         expect(() => createNumberField({ value: 1, text: NUMBER_TEXT_EDIT })).not.toThrow();
     });
 

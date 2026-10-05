@@ -98,15 +98,6 @@ describe('numberText:档位', () => {
         expect(wide.toText(1e16)).toBe('1.00e+16');
     });
 
-    it('suffix 拼在末尾,fromText 认得带后缀与不带后缀两种写法', () => {
-        const degree = numberText({ suffix: '°' });
-        expect(degree.toText(0.6)).toBe('0.6°');
-        expect(degree.toText(-0.25)).toBe('-0.25°');
-        expect(degree.fromText('0.6°')).toBe(0.6);
-        expect(degree.fromText('0.6')).toBe(0.6);
-        expect(degree.fromText('°')).toBeNull();
-    });
-
     it('digits / exponentialDigits 越界或非整数直接抛,不落到 toFixed 的 RangeError 上', () => {
         expect(() => numberText({ digits: -1 })).toThrow(TypeError);
         expect(() => numberText({ digits: 1.5 })).toThrow(TypeError);
@@ -203,12 +194,6 @@ describe("numberText:语法 'edit'", () => {
         // 消毒成空串 -- 同效,而且库这条路不必依赖浏览器的消毒.
         expect(point.toText(Number.NaN)).toBe('');
     });
-
-    it('带 suffix 的编辑档直接抛(number 输入框会把它消毒成空串)', () => {
-        expect(() => numberText({ syntax: 'edit', suffix: '%' })).toThrow(TypeError);
-        // 显示档带后缀是正当用法
-        expect(numberText({ syntax: 'plain', suffix: '%' }).toText(90)).toBe('90%');
-    });
 });
 
 describe('NUMBER_TEXT_EDIT / NUMBER_TEXT_DISPLAY 两个预置', () => {
@@ -295,8 +280,7 @@ describe('numberVectorText', () => {
         expect(text.fromText('[]')).toEqual([]);
     });
 
-    it('元素口径沿用同一套档位(含 suffix 与 latex 这类语法)', () => {
-        expect(numberVectorText({ suffix: '°' }).toText([1, 2])).toBe('[1°, 2°]');
+    it('元素口径沿用同一套档位(含 latex 这类语法)', () => {
         expect(numberVectorText({ syntax: 'latex' }).toText([1e6])).toBe('[1\\times10^{6}]');
     });
 });

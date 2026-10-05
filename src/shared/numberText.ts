@@ -84,13 +84,6 @@ export interface NumberTextOptions {
     readonly exponentialAt?: { readonly low: number; readonly high: number };
     /** 科学计数法保留几位;默认等于 `digits`. */
     readonly exponentialDigits?: number;
-    /**
-     * 固定后缀(`°` / `%` / ` MiB`);默认无.
-     *
-     * 只在 `'plain'` / `'latex'` 下允许:`'edit'` 下带后缀的文本会被 number 输入框
-     * 消毒成空串,所以那个组合直接抛错而不是静默生效.
-     */
-    readonly suffix?: string;
     /** 输出语法;默认 `'plain'`. */
     readonly syntax?: NumberSyntax;
 }
@@ -200,7 +193,6 @@ interface ResolvedNumberText {
     readonly low: number;
     readonly high: number;
     readonly exponentialDigits: number;
-    readonly suffix: string;
     readonly syntax: NumberSyntax;
     /** `'edit'` 且没给 `digits` 时才为 true:那一路不做任何舍入. */
     readonly exact: boolean;
@@ -265,24 +257,12 @@ function resolveOptions(syntax: NumberSyntax, options: NumberTextOptions): Resol
         );
     }
 
-    const suffix = options.suffix ?? '';
-    // 后缀与编辑档不能共存:number 输入框会把这个文本消毒成空串,值还没变.
-    // 抛在这里而不是让它静默变成空框 -- 静默正是这个坑最难查的地方.
-    if (syntax === 'edit' && suffix !== '') {
-        throw new TypeError(
-            `numberText: 'edit' 语法不能带 suffix(${JSON.stringify(suffix)})--`
-            + '<input type="number"> 会把带单位的文本静默消毒成空串.'
-            + '单位和百分号请留给显示档,或由调用方在框外拼.',
-        );
-    }
-
     return {
         digits,
         trimZeros: options.trimZeros ?? true,
         low: exponentialAt.low,
         high: exponentialAt.high,
         exponentialDigits,
-        suffix,
         syntax,
         // 编辑档的默认是"无损":没显式给 digits 就不舍入(见文件头).
         exact: syntax === 'edit' && options.digits === undefined,
@@ -309,14 +289,10 @@ export function numberText(options: NumberTextOptions = {}): ValueText<number> {
 
     return {
         toText(value) {
-            const body = render(value, resolved);
-            return resolved.suffix === '' ? body : body + resolved.suffix;
+            return render(value, resolved);
         },
         fromText(text) {
-            const body = resolved.suffix !== '' && text.endsWith(resolved.suffix)
-                ? text.slice(0, text.length - resolved.suffix.length)
-                : text;
-            return parseNumber(body);
+            return parseNumber(text);
         },
     };
 }
