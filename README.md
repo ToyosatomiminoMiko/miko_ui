@@ -321,7 +321,7 @@ createReadoutRow('方位角', {
 | `widgets/` | 控件与行级布局件:按钮 / 开关 / 分段 / 滑杆(裸滑杆与系数滑块)/ 数值框 / 只读读数件 / 浮层 / 徽章 / 带标题栏的框体(桌面窗口复用同一组 `.ui-panel*` 基类)/ 菜单,以及 `create*Row` 一族行外壳 |
 | `shared/` | 跨组件共用的交互与行外壳:键盘唯一出口,唯一拖拽实现,行缓存,值↔文本口径(见下节),行外壳 |
 | `desktop/` | 桌面窗口系统:装配入口(`mountDesktop` / 窗口槽位),窗口管理器与几何 / 拖动 / 吸附 / 停靠件,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
-| `editor/` | 编辑器外壳:整套结构装配,行号栏,高亮层(分词与槽宽由消费者注入),以及保住原生撤销栈的程序化写入 |
+| `editor/` | 编辑器外壳:整套结构装配,行号栏,高亮层(分词与槽宽由消费者注入),以及保住原生撤销栈的程序化写入.**编辑器自己不滚**:外框随内容长高长宽,滚动归装它的那一层(见下"编辑器不滚,宿主滚") |
 | `feedback/` | 消息区容器(`MessageArea`:框体 + 列表节奏 + 滚动 + `aria-live`)与消息 / 诊断条目(`MessageList`),零领域依赖 |
 | `formula/` | KaTeX 公式件与复制反馈(KaTeX 的排版,样式与渲染器出口都在库里,`katex` 是库自带的运行时依赖,应用侧不声明) |
 | `theme/` | `applyTheme(root, tokens)`:把一组 CSS 变量写到根元素上(库的默认主题只有 `styles/tokens.css` 一份,JS 侧不留镜像) |
@@ -393,9 +393,14 @@ createReadoutRow('方位角', {
 display: flex; flex-direction: column; gap: ...; padding: ...; overflow-y: auto;
 ```
 
-`miko_graphcalc` 的七个窗口全是这个形状:视图 / 参数窗口是"这个容器自己就是滚动区";
-实体 / 求值 / 诊断窗口是"里面已经有一个可滑动的块"(`.object-list-body`,库的
-`.message-area`);源码 / 过程窗口是"里面是编辑器 / 步骤列表,自己滚".
+**"超出就滚"的是这个容器自己,不是它里面的某个元素**(2026-10 修订):一旦把
+`overflow-y` 交给里面的卡片,滑条就跑到窗口内的元素上(缩进一圈,贴着卡片的描边),
+正文根反而不滚,还得靠一层层 `overflow: hidden` + `min-height: 0` 把滚动顶下去 --
+同一个"哪里滚"有两处说法,改一处忘一处不报错,只表现为滑条位置慢慢分叉.
+`miko_graphcalc` 的七个窗口现在都是这一个形状:视图 / 参数 / 源码 / 实体 / 求值五个
+窗口是"正文根就是滚动区",过程窗口是它自己的几个滚动块(题目 / 参数回显 / 步骤),
+诊断窗口是"正文根里放库的 `.message-area`"(那是**消息区**这件东西自带的框体 /
+`aria-live` / 滚动,不是给列表套的壳).
 
 由此作废的:`Splitter`(两家零使用,graphcalc 窗口化时主动删掉了自己的分栏控制器),
 单独的 `ScrollArea` 语义(它就是上面那个列容器),以及原方案文档
@@ -403,6 +408,28 @@ display: flex; flex-direction: column; gap: ...; padding: ...; overflow-y: auto;
 `example/layout/` 已删:`createStack` / `createScrollArea` 双原语,`.ui-fill`,
 "三条显式拉伸出口",Phase 4(`.ui-panel-body > * { flex: 0 0 auto }`),
 `createStage`,面板尺寸出口,一个都不做.
+
+### 编辑器不滚,宿主滚(2026-10 修订)
+
+`createCodeEditor()` 的外框(`.code-editor`)现在**宽高都由内容给出**:
+`width: max-content` + `min-width: 100%`,`min-height: 100%`(内容比宿主小时填满).
+textarea 与高亮层同处 `.code-editor-input` 的一格(`display: grid` +
+`grid-area: 1 / 1`),高亮内容那个 `white-space: pre` 的 `<pre>` 在流内,于是
+"最长行 / 行数"直接变成外框的尺寸 -- **不需要任何 JS 量文本宽高**.
+
+由此:
+
+- 编辑器里没有滚动区间,滚动条归**装它的那一层**(窗口正文根 / 页面的滚动容器);
+  长行横向滚时行号槽 `position: sticky; left: 0` 钉在左边(外框因此用
+  `overflow: clip` 而不是 `hidden`:`hidden` 会建立 scrollport,sticky 会以它为
+  参照系而失效);
+- 老坑"textarea 的滚动条占位,高亮层不占位,两者最大滚动偏移差一个滚动条厚度"
+  不存在了(两边都不滚);`EditorHighlight.sync` / `EditorLineNumbers.sync` 保留,
+  消费者把 textarea 改回固定尺寸时仍然对齐;
+- **消费者要自己提供滚动**:把编辑器放进固定高度的盒子时,那个盒子(或它的祖先)
+  必须有 `overflow: auto`,否则超出部分会被裁掉.词法高亮没起来时(高亮层
+  `display: none`)这一格的高度回到 textarea 自己的 `rows`,此时长源码仍在
+  textarea 内部滚 -- 兜底路径不会被裁.
 
 ### 下游脱 katex 暂缓
 

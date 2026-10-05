@@ -10,8 +10,18 @@
  * 1. textarea 关闭软换行(white-space: pre),"源码行 == 视觉行";
  * 2. gutter 与 textarea 使用完全相同的字体/字号/行高,起始位置一致
  *    (外框 border 1px + textarea padding-top 10px = gutter padding-top 11px);
- * 3. 高亮层与 textarea 严格同尺寸重叠,滚动偏移由 JS 写成高亮内容的 transform
- *    (见 EditorHighlight),这里不估算任何 padding 差值.
+ * 3. 高亮层与 textarea **同处网格的一格**(`.code-editor-input` 是 grid,
+ *    两者都是 `grid-area: 1 / 1`):同尺寸重叠不再靠"绝对定位 + inset: 0"算出来,
+ *    而是布局保证的.
+ *
+ * **滚动归属:编辑器自己不滚,滚动归外层**.外框的宽高都由内容给出(见 `.code-editor`),
+ * textarea 因此没有可滚动区间;源码超出可见范围时滚的是**装它的那一层**
+ * (窗口正文根 / 页面的滚动容器).这条是刻意的:
+ * - 滑条只有一个,在窗口边上,和列表 / 参数窗口同形;
+ * - "textarea 滚动条占位,高亮层不占位,两者最大滚动偏移差一个滚动条厚度"这条老坑
+ *   从"靠 transform 绕开"变成了"根本不存在".
+ * 代价是**宿主必须自己能滚**(固定高度的盒子要给它 `overflow: auto`),见 README 的
+ * "编辑器不滚,宿主滚"一节.
  *
  * 字体/字号/行高/制表位来自 `tokens.css` 的 `--code-*`(可由消费者覆盖).
  *
@@ -21,24 +31,30 @@
  * 在真机上过一遍**.
  * ========================================================================== */
 
-/* 外框:统一承担圆角/边框/底色,textarea 内部滚动不越界 */
+/* 外框:统一承担圆角/边框/底色;宽高都随内容长,内容比宿主小时由 min-* 填满.
+   滚动不在这里(见文件头的"滚动归属"):所以 `overflow` 用 `clip` 而不是 `hidden`
+   -- `hidden` 会建立 scrollport,行号槽的 `position: sticky` 会以它为参照系,
+   横向滚动时行号就跟着跑了. */
 .code-editor {
     display: flex;
     box-sizing: border-box;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
+    width: max-content;
+    min-width: 100%;
+    height: auto;
+    min-height: 100%;
+    overflow: clip;
     background: var(--color-bg-sunken);
     border: 1px solid var(--color-border-panel);
     border-radius: var(--radius-md);
 }
 
-/* 输入区包裹层:唯一职责是给"高亮层 + textarea"提供一个共同的定位参照,
-   它本身不承担滚动(textarea 内部滚动),所以尺寸约束要原样透传下去 */
+/* 输入区包裹层:一片网格,textarea 与高亮层放**同一格**.
+   宽高都来自这一格里的内容:高亮内容的 <pre> 是 `white-space: pre`,它的
+   max-content 尺寸就是"最长行 / 行数",而它**在流内**(不再是绝对定位),
+   所以外框的 max-content 宽与内容高都由它给出 -- 不需要任何 JS 量尺寸.
+   两个子项默认 stretch,于是 textarea 的边框盒与高亮层的盒子逐项重合. */
 .code-editor-input {
-    position: relative;
-    display: flex;
+    display: grid;
     flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
@@ -46,14 +62,13 @@
 
 /* 高亮层:默认不显示,由 EditorHighlight 给 textarea 加上 .is-highlighted 后
    才出现(脚本没跑/结构缺失时文字仍然可见,不会变成一片空白).
-   它只是裁剪框:尺寸与 textarea 的边框盒完全重合,溢出的内容被裁掉,自己不滚动,
-   也不出现滚动条;横纵偏移由 EditorHighlight 写在下面那个 <pre> 的 transform 上,
-   所以这里必须是 overflow: hidden(改成 auto/scroll 会让最大滚动偏移与 textarea
-   差一个滚动条厚度,底部高亮被夹住而错位). */
+   它与 textarea 同占一格(`grid-area`),尺寸因此天生一致;它自己不滚动,也不
+   出现滚动条(`overflow: hidden`),横纵偏移由 EditorHighlight 写在下面那个 <pre>
+   的 transform 上(现在两边都不滚,偏移恒为 0,保留是为了消费者把 textarea 改成
+   固定尺寸时不至于错位). */
 .code-editor-highlight {
     display: none;
-    position: absolute;
-    inset: 0;
+    grid-area: 1 / 1;
     overflow: hidden;
     pointer-events: none;
     z-index: 0;
@@ -65,6 +80,8 @@
 
 /* 高亮内容:padding/字体/行高必须与 .code-editor-textarea 逐项相同,否则首字符起点或
    换行位置会差一个像素,越往右下越明显.
+   `white-space: pre` + 在流内 = 这一格的 max-content 尺寸(最长行 / 行数),外框的
+   宽高就由它给出.
    滚动偏移写在它的 transform 上(EditorHighlight.sync),这里刻意不加
    will-change: 不提升为合成层,文字走的是与 textarea 同一套绘制路径,
    不会因为图层化改变抗锯齿. */
@@ -79,8 +96,14 @@
     color: var(--color-text-strong);
 }
 
-/* 行号槽:宽度随字体与行数变化,内容超出时裁剪,靠 translate 跟随滚动 */
+/* 行号槽:宽度随字体与行数变化,内容超出时裁剪.
+   `position: sticky; left: 0`:源码横向滚的是外层(见文件头的"滚动归属"),行号槽
+   必须钉在滚动区左边,否则往右看长行时行号先跑掉.`z-index: 2` 压过 textarea
+   (1):不透明底色的 gutter 要盖住从它下面经过的正文. */
 .code-editor-gutter {
+    position: sticky;
+    left: 0;
+    z-index: 2;
     flex: 0 0 auto;
     box-sizing: border-box;
     /* 由 EditorLineNumbers 按 "最大行号位数 x 实际字体数字宽 + 内边距/边框"
@@ -109,13 +132,18 @@
 
 /* 源码输入框:使用等宽字体,禁止缩放,不软换行.
    position/z-index 把它压在高亮层之上:文字透明后,光标,选区和原生输入
-   行为仍然由这个真 textarea 负责 */
+   行为仍然由这个真 textarea 负责.
+   它**自己不高不宽**:`width/height` 交给所在的那一格(与高亮层同格,见
+   `.code-editor-input`),内容的宽高由 <pre> 给出 -- 于是没有可滚动区间,
+   滚动条归外层.
+   `overflow` 不写:默认 `auto` 是**兜底** -- 词法高亮没起来时高亮层不显示
+   (display: none),那一格的高度回到 textarea 自己的 rows 高,长源码还可以在
+   textarea 内部滚,不会被裁掉.高亮正常时两者等大,不会出现这条兜底滚动条. */
 .code-editor-textarea {
     position: relative;
     z-index: 1;
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 0;
+    grid-area: 1 / 1;
+    width: 100%;
     resize: none;
     background: transparent;
     border: 0;

@@ -12,6 +12,10 @@
  *    translateY(-scrollTop) 跟随,并在 scroll / input / 容器尺寸变化
  *    (面板折叠,拖宽拖高)时重同步.
  *
+ *    现在这一条通常恒等于 translateY(0):编辑器自己不滚,滚动归宿主(见
+ *    `styles/editor.css` 的"滚动归属");保留是因为消费者把 textarea 改回
+ *    固定尺寸时它仍然管用.
+ *
  * 三件事由 CSS 与 HTML 结构约束住之后,这里的逻辑只剩三条:
  * 按 \n 计数重绘行号 + 按 scrollTop 反向平移 + 按字体/行数重算 gutter 宽度.
  *

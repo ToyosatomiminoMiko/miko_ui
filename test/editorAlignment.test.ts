@@ -111,4 +111,27 @@ describe('编辑器外壳的对齐算术', () => {
     it('高亮层与 textarea 的制表位相同(行号只显示数字,不参与这条)', () => {
         expect(decl(CSS.get(HIGHLIGHT)!, 'tab-size')).toBe(decl(CSS.get(TEXTAREA)!, 'tab-size'));
     });
+
+    it('宽高由内容给出,两个盒子同占一格,行号槽 sticky(滚动归宿主)', () => {
+        // 编辑器自己不再滚(见 styles/editor.css 的"滚动归属"):外框随内容长,
+        // 内容比宿主小时由 min-* 填满;textarea 与高亮层同处网格一格,于是
+        // "严格同尺寸重叠"由布局保证,不再靠 `inset: 0` 算.
+        const frame = CSS.get(FRAME)!;
+        const input = CSS.get('.code-editor-input')!;
+        const highlight = CSS.get('.code-editor-highlight')!;
+        const textarea = CSS.get(TEXTAREA)!;
+        const gutter = CSS.get(GUTTER)!;
+
+        expect(decl(frame, 'height')).toBe('auto');
+        expect(decl(frame, 'min-height')).toBe('100%');
+        expect(decl(frame, 'min-width')).toBe('100%');
+        expect(decl(input, 'display')).toBe('grid');
+        expect(decl(highlight, 'grid-area')).toBe('1 / 1');
+        expect(decl(textarea, 'grid-area')).toBe('1 / 1');
+        // `overflow: hidden` 会建立 scrollport,行号槽的 sticky 就以它为参照系
+        // (横向滚动时行号跟着跑);`clip` 只裁切,不建立滚动容器.
+        expect(decl(frame, 'overflow')).toBe('clip');
+        expect(decl(gutter, 'position')).toBe('sticky');
+        expect(decl(gutter, 'left')).toBe('0');
+    });
 });
