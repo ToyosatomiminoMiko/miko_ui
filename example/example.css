@@ -106,6 +106,62 @@ body {
    面板 / 分组 / 菜单项的外观一条都不在这里:它们在库的 `widgets.css`
    (`.menu-panel` / `.menu-group` / `.menu-item`). */
 
+/* -------------------------------------------------------------- 公式窗口 */
+
+/* 可复制公式的"可操作"观感:库把 `data-tex` 作为复制钩子(见 FormulaView 的
+   `copyable`),但没给外观 -- 光标与焦点环是消费者的事.这里用**属性选择器**认它,
+   而不是给库的 `.ui-formula` 写规则(消费侧禁止给只含库的类的选择器写样式). */
+[data-tex] {
+    cursor: pointer;
+}
+
+[data-tex]:focus-visible {
+    outline: 1px solid var(--color-accent-focus-soft);
+    outline-offset: 2px;
+}
+
+/* 公式窗口正文里的一段:说明行 + 公式.段内间距比 `.pane` 的段间(12px)小一档,
+   一眼能看出哪句说明管哪条公式. */
+.formula-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* 横排几个公式,窄了就换行.公式件自己没有外边距(库只管把 LaTeX 排出来),
+   间距与排布归页面. */
+.formula-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+}
+
+/* 复制提示(`FormulaCopyController` 的回显节点):提前留出行高,文案在
+   `点击公式复制 TeX` / `已复制 TeX` / `复制失败` 之间切换时下面的公式不会跳.
+   这里**不写 `color`**:库的 `.is-copied` / `.is-error` 与任何单类选择器同特异度,
+   示例再补一句就会按加载顺序盖掉它们(见 `main.ts` 同一处注释). */
+.formula-hint {
+    font-size: 12px;
+    min-height: 1.4em;
+}
+
+/* 消费者类:`createFormulaElement` 的第二个参数(库的基线类在前,这个在后,所以
+   盖得住).库的 `.ui-formula > .katex` 按 `--katex-font-size` 相对本元素的
+   `font-size` 算字号,所以这里放大一号 = 整条公式跟着放大. */
+.formula-accent {
+    color: var(--color-text-formula);
+    font-size: 22px;
+}
+
+/* 活公式是一格 `<output class="ui-readout-value formula-live">`:库给
+   `.ui-readout-value` 的两条默认(贴右 + 12px)是"行末读数"用的,这一格是整行的
+   公式展示,所以用**自己的类**把它们收回. */
+.formula-live {
+    margin-left: 0;
+    font-size: 16px;
+}
+
 /* ---------------------------------------------------------- 说明文字 */
 
 /* 正文里的说明行(示例自己的标签,不是库的类):只在菜单窗口里用两处.

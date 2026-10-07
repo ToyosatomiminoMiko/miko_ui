@@ -1,9 +1,10 @@
 /**
  * `miko_ui` 的最小示例.
  *
- * 四个窗口:一个放两条**系数滑块**(普通参数 + 周参数)与一个**计数按钮**,
+ * 五个窗口:一个放两条**系数滑块**(普通参数 + 周参数)与一个**计数按钮**,
  * 一个放它们的读数,一个放**菜单项**(直接显示 + 任意按钮触发),一个放
- * **诊断消息区**(提示随参数变化自动出现 / 消失).
+ * **诊断消息区**(提示随参数变化自动出现 / 消失),一个放**公式**(排版 / 复制 /
+ * 消费者类名 / 活公式四种用法各一处).
  *
  * "这个量在圆周上"是**调用方**的语义,库不管:控件只有一种姿态.提示只能写进
  * `label` / `hint` 的文案 -- 这条滑块的名字里就直接写着周期,库不为它另立外观;
@@ -18,12 +19,15 @@
  */
 import {
     DEFAULT_DESKTOP_CONFIG,
+    FormulaCopyController,
+    KeyboardController,
     createButton,
     createFormulaElement,
     createMenu,
     createMessageArea,
     createReadoutRow,
     createSlider,
+    createValueDisplay,
     create_element,
     computed,
     mountDesktop,
@@ -323,6 +327,159 @@ const messageArea = createMessageArea({
 const messages = computed(collectMessages);
 watchValue(messages, (entries) => messageArea.list.render(entries));
 
+// ── 窗口五:公式(排版 / 复制 / 消费者类名 / 活公式)────────────────────────
+/**
+ * 公式件只有两个出口:`createFormulaElement`(LaTeX -> 屏幕)与
+ * `FormulaCopyController`(点击 / 键盘 -> 剪贴板).这一窗把四种用法各摆一处:
+ *
+ * 1. **可复制**(缺省):公式自带 `data-tex` 与 `tabindex=0` + `role="button"` +
+ *    `aria-label`,点一下或聚焦后回车就把原始 TeX 写进剪贴板;
+ * 2. **不可复制**(`copyable=false`):读数与落在开合热区里的公式用,上面那组属性
+ *    一个都不加(可聚焦控件嵌进 `<summary>` 会造成嵌套交互元素);
+ * 3. **消费者类名**(第二个参数):库的基线类 `.ui-formula` 在前,消费者类在后;
+ * 4. **活公式**:值 -> LaTeX(`numberText({ syntax: 'latex' })`)-> 排版,拖动
+ *    窗口「控件window」里的方位角滑块,这条公式跟着变.
+ *
+ * 排版本身不在示例里:`katex` 是库的运行时依赖,连它的样式表都由库引,所以这一窗
+ * 没有一行与 KaTeX 有关的代码.
+ *
+ * 可复制公式的 LaTeX 清单在下面:一个公式一条字符串,逐条交给
+ * `createFormulaElement`(不给 `copyable` 就是可复制).用 `String.raw` 是为了让
+ * 反斜杠按字面写:普通字符串里 `\frac` / `\int` 得写成 `\\frac` / `\\int`,读起来
+ * 跟公式本身对不上.
+ */
+const COPYABLE_LATEX: readonly string[] = [
+    String.raw`x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}`,
+    String.raw`e^{i\pi}+1=0`,
+    String.raw`\int_{-\infty}^{\infty}e^{-x^2}\,dx=\sqrt{\pi}`,
+];
+
+/**
+ * 复制反馈的提示节点.
+ *
+ * 节点由**消费者**建:`FormulaCopyController` 只在给它的节点上回显 -- 复制成功写
+ * `已复制 TeX` 并挂 `.is-copied`,失败写 `复制失败` 并挂 `.is-error`(两个状态类
+ * 的配色在库的 `styles/feedback.css`),一秒多之后恢复这里的原文案.提示不必只有
+ * 一处(同一份状态的多个提示处传数组),这一窗只有一处,所以传单个节点.
+ *
+ * 类里**不写 `color`**:那两个状态类与任何单类选择器同特异度,示例再补一句颜色
+ * 就会按加载顺序把它们盖掉(示例的样式表在库之后加载).
+ */
+const copyHint = create_element(
+    { tag: 'span' },
+    { class: 'formula-hint' },
+    '点击公式复制 TeX(键盘:聚焦后回车)',
+);
+
+/**
+ * 复制控制器:事件委托绑在**下面那一列正文**上,所以整窗的可复制公式共用这一个
+ * 实例,以后往这一列里再加公式也不用重新绑.
+ */
+const formulaCopy = new FormulaCopyController(copyHint);
+
+/**
+ * 键盘入口:公式的 `Enter` / `空格` 规则要注册进库的**唯一**键盘出口
+ * (`KeyboardController`),库自己不挂 `keydown`.
+ *
+ * 它内置的两个动作(`Home` / `Ctrl+Enter`)是给编辑器的,这一页没有编辑器,所以给
+ * 空实现 -- 这里要的只是"聚焦公式后回车也能复制"那一条绑定.
+ */
+const keyboard = new KeyboardController(null, { onHome: () => {}, onRun: () => {} });
+keyboard.register(formulaCopy.keyboardBinding());
+keyboard.bind();
+
+/**
+ * 不可复制:第三个参数 `copyable=false`.
+ *
+ * 判据是"点它是不是复制":读数里的公式(见窗口「读数window」那条)与落在
+ * `<details>` / `<summary>` 这类原生开合热区里的公式都不该顺手写剪贴板.
+ */
+const plainFormula = createFormulaElement(
+    String.raw`\lim_{n\to\infty}\left(1+\frac1n\right)^n=e`,
+    undefined,
+    false,
+);
+
+/**
+ * 消费者类名:第二个参数.基线类在前,消费者类在后(与 `createButton` 同一条约定),
+ * 所以 `.formula-accent` 可以放心盖颜色与字号 -- 它在 `example.css` 里.
+ */
+const accentedFormula = createFormulaElement(String.raw`\hat{H}\psi=E\psi`, 'formula-accent');
+
+/**
+ * 活公式:`numberText({ syntax: 'latex' })` 只管"值 -> 文本",`render` 只管
+ * "文本 -> 节点",`createFormulaElement` 只管"LaTeX -> 屏幕",三步各归各家.
+ *
+ * `\sin\theta` 这个模板是**示例自己的领域知识**(库不认识任何具体式子),它把库排好
+ * 的那个数拼进去.复用读数窗口那条 `ANGLE_FORMULA_TEXT` 是故意的:同一份口径喂两处,
+ * 两处的数逐字符相同.
+ *
+ * 订阅由 `createValueDisplay` 内部做(`computed` 读 `angle`),所以示例没有一行
+ * "值变了重建公式";`copyable=false`:这是读数,不是复制公式的入口.
+ *
+ * `class` 是消费者类出口(落在 `.ui-readout-value` 之后):库给那两条默认是"行末
+ * 读数"用的(贴右 + 12px),这里用 `example.css` 把它收成整行的公式.
+ */
+const liveFormula = createValueDisplay({
+    value: computed(() => Math.sin(angle.value)),
+    text: ANGLE_FORMULA_TEXT,
+    render: (latex) => createFormulaElement(String.raw`\sin\theta = ` + latex, undefined, false),
+    class: 'formula-live',
+});
+
+/**
+ * 正文只有一列(`.pane`):四段"说明 + 公式"从上往下摞(第一段多一行复制提示);
+ * 每段再包一层 `.formula-group`,让段内间距比段间小一档(排布是示例自己的类,
+ * 见 `example.css`).
+ *
+ * 第一段里那行提示**就是**复制反馈节点(复制成功 / 失败就地改字),它必须在 `.pane`
+ * 这棵子树里 -- 事件委托绑的就是下面这个根.
+ */
+const formulaPane = create_element(
+    { tag: 'div' },
+    { class: 'pane' },
+    create_element(
+        { tag: 'div' },
+        { class: 'formula-group' },
+        create_element({ tag: 'span' }, { class: 'pane-caption' }, 'createFormulaElement(tex):缺省可复制'),
+        copyHint,
+        create_element(
+            { tag: 'div' },
+            { class: 'formula-row' },
+            ...COPYABLE_LATEX.map((latex) => createFormulaElement(latex)),
+        ),
+    ),
+    create_element(
+        { tag: 'div' },
+        { class: 'formula-group' },
+        create_element({ tag: 'span' }, { class: 'pane-caption' }, 'copyable=false:点它不是复制'),
+        plainFormula,
+    ),
+    create_element(
+        { tag: 'div' },
+        { class: 'formula-group' },
+        create_element(
+            { tag: 'span' },
+            { class: 'pane-caption' },
+            '第二个参数是消费者类名(跟在库的 .ui-formula 之后)',
+        ),
+        accentedFormula,
+    ),
+    create_element(
+        { tag: 'div' },
+        { class: 'formula-group' },
+        create_element(
+            { tag: 'span' },
+            { class: 'pane-caption' },
+            '活公式:值 -> LaTeX -> 排版(拖动方位角滑块)',
+        ),
+        liveFormula.element,
+    ),
+);
+
+// 委托绑在这一列上:可复制公式是它的后代,点哪一个都走同一个控制器.
+formulaCopy.bind(formulaPane);
+
 // ── 窗口清单:只换 `windows`,其余照用库的默认值 ──────────────────────────
 const WINDOWS: readonly WindowConfigEntry[] = [
     {
@@ -383,6 +540,21 @@ const WINDOWS: readonly WindowConfigEntry[] = [
         },
         minSize: { w: 280, h: 140 },
     },
+    {
+        id: 'formula',
+        title: '公式window',
+        dock: { label: '公式dock' },
+        defaultGeometry: {
+            // 第三列:接在「菜单window」那一列右边(它 448 + 380 = 828,间隙同为 12).
+            x: { at: 840 },
+            y: { at: 16 },
+            w: { at: 380 },
+            // 高度锚在桌面底边,与「消息window」同一条口径:内容多长都不必改这个数
+            // (正文不滚,超出会被裁).
+            h: { from: 'bottom', inset: 16 },
+        },
+        minSize: { w: 260, h: 200 },
+    },
 ];
 
 const CONFIG: DesktopConfig = { ...DEFAULT_DESKTOP_CONFIG, windows: WINDOWS };
@@ -419,6 +591,8 @@ mountDesktop(root, {
                 return { body: [menuPane] };
             case 'messages':
                 return { body: [messageArea.element] };
+            case 'formula':
+                return { body: [formulaPane] };
             default:
                 return { body: [] };
         }
