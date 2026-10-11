@@ -1,0 +1,75 @@
+/* ==========================================================================
+ * 库自带字体:JetBrains Mono Slashed(`@font-face` 层)
+ * --------------------------------------------------------------------------
+ * 为什么库要带字体文件:`styles/tokens.css` 的 `--font-family-base` 与
+ * `--code-font-family` 都把 `JetBrains Mono Slashed` 放在首位,而它**不是系统
+ * 自带字体** -- 只写名字的话,没装这款字体的机器会静默退回栈里第一个可用字体
+ * ("看着也是等宽字体",所以谁都不会发现).这一层把随包发布的 woff2 声明成同一个
+ * 字体族:消费者装上这个包就拿到设计上的那份字体,不必各自再带一份,也不会
+ * 因为机器上装的是别的版本而变样.
+ *
+ * 三份文件在 `styles/fonts/jetbrains_mono_slashed/`,与下面的 url 一一对应:
+ *     JetBrainsMonoSlashed-Regular.woff2     weight 400
+ *     JetBrainsMonoSlashed-SemiBold.woff2    weight 600
+ *     JetBrainsMonoSlashed-Bold.woff2        weight 700
+ * 只带这三个字重:库自己的样式表里出现过的 `font-weight` 就是这三个(控件大多继承
+ * 正文,600 / 700 用在数值与强调处),其余字重没有消费方,带上只是多几百 KB
+ * 要随版本同步的字节.
+ * 不做字符子集:它是库的**默认正文字体**,裁掉希腊字母 / 箭头 / 制表符这类字符,
+ * 会在某个消费侧的界面上以"个别字符换了字体"的形式露出来;中日韩本来就不在这份
+ * 字体里,由回退链逐字交给系统 CJK 字体.
+ *
+ * 出处(第三方作品,不是本库的产物):
+ *     JetBrains Mono Slashed v2.304 -- 上游 JetBrains Mono v2.304 把 OpenType 的
+ *     `zero` 特性冻结成默认值("斜杠零")的再发行版,
+ *     <https://github.com/sharpjs/JetBrainsMonoSlashed/releases/tag/v2.304>
+ *     (归档 sha256 ca05b59fd6ece9c697468c9e7b1e5558db517cb58d19d3776e88556a0f65259e)
+ * 再生成(换字体版本时照做,再把文件名与下面的 url 一起同步):
+ *     python3 -m venv env && env/bin/pip install fonttools brotli
+ *     env/bin/python -c "from fontTools.ttLib import TTFont; \
+ *         f = TTFont('JetBrainsMonoSlashed-Regular.otf'); f.flavor = 'woff2'; \
+ *         f.save('JetBrainsMonoSlashed-Regular.woff2')"
+ *     # SemiBold / Bold 同理,各换一次输入输出文件名
+ * 转换只改容器格式(OTF -> WOFF2),字形与名字表原样保留:name 表里的
+ * "Version 2.304; ... featfreeze: zero" 就是"斜杠零已冻结"的凭据.
+ *
+ * 许可:SIL Open Font License 1.1(允许随软件再分发),全文与字体同目录:
+ *     styles/fonts/jetbrains_mono_slashed/LICENSE.txt
+ * 再分发时那份文件必须跟着字体走,并写进 package.json 的 `files`(见 `styles`).
+ *
+ * 三条取舍:
+ *   - 只写 woff2:2016 年之后的浏览器都认它,再挂一份 woff / ttf 只是多一份要同步
+ *     的字节;
+ *   - `font-display: swap`:字体没到之前先用回退字体把字画出来(不出现"看不到字"),
+ *     到了再换;
+ *   - `src` 只有 `url()`,**不写 `local()`**:机器上装没装同名字体不该改变库的
+ *     观感 -- 一律用包里这一份,字形与版本才可复现.
+ *
+ * 族名是**契约**:这里的 `font-family` 与 tokens.css 的两个字体 token 首位必须
+ * 同名,漏改一边不会报错,只会静默退回回退字体(`test/fontFace.test.ts` 盯着
+ * 这件事与"三份文件真的在包里").
+ * ========================================================================== */
+
+@font-face {
+    font-family: 'JetBrains Mono Slashed';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('./fonts/jetbrains_mono_slashed/JetBrainsMonoSlashed-Regular.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'JetBrains Mono Slashed';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('./fonts/jetbrains_mono_slashed/JetBrainsMonoSlashed-SemiBold.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'JetBrains Mono Slashed';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('./fonts/jetbrains_mono_slashed/JetBrainsMonoSlashed-Bold.woff2') format('woff2');
+}

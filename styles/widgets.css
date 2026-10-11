@@ -198,7 +198,13 @@
     color: var(--color-text-muted);
 }
 
-/* 行内数字框:固定 76px,margin-left:auto 把它贴到行右端. */
+/* 行内数字框:固定 76px,margin-left:auto 把它贴到行右端.
+
+   `font-family: inherit` 不是可选项:**表单控件不吃 `font` 的继承** -- UA 样式表
+   给 `<input>` 自己的 font(Chrome 上是 Arial 13.3px 那一套),作者不显式声明,
+   它就与旁边的按钮 / 读数(都是页面字体)不同源,而且一声不响.
+   值写 `inherit` 而不是某个具体的族,和 `.ui-button` 同一条口径:
+   库不替消费者挑字体,只跟随所在位置. */
 .control-row input[type="number"] {
     width: 76px;
     margin-left: auto;
@@ -207,6 +213,7 @@
     border: 1px solid var(--color-border-input);
     border-radius: var(--radius-sm);
     padding: 4px 6px;
+    font-family: inherit;
     font-size: 12px;
 }
 
@@ -371,6 +378,13 @@
     white-space: nowrap;
 }
 
+/* 精调框(真身是 `<input type="number">`,由 NumberField 建,Slider 挂上这个类).
+
+   `font-family: inherit` 与上面 `.control-row input[type="number"]` 同一个理由:
+   **表单控件不继承字体**,漏了它这个框会静默用浏览器默认字体(Arial),
+   滑杆旁边那些按钮 / 读数却是页面字体 -- 看着"也是数字",其实不是一个字体.
+   消费侧如果给 `.slider-field` 整棵树指定了字体(如设置页那套 UI 字体),
+   `inherit` 会跟着那一份走. */
 .slider-field-value {
     flex: none;
     width: var(--slider-field-value-width, 76px);
@@ -380,6 +394,7 @@
     border: 1px solid var(--color-border-input);
     border-radius: var(--radius-sm);
     padding: 4px 6px;
+    font-family: inherit;
     font-size: 12px;
 }
 
@@ -412,6 +427,11 @@
     border-radius: var(--radius-md);
     background: var(--color-fill-control);
     color: var(--color-text-muted);
+    /* 这一排按钮是**原生 `<button>`**(库没给它们 `.ui-button`:外观整条由
+       `.segmented button` 定义),所以同样要显式声明字体 -- 原生按钮不继承 font,
+       漏了它这一排会退回浏览器默认字体(Arial),与旁边的滑块 / 读数不同源.
+       值与 `.ui-button` 一致:库不挑字体,只跟随所在位置. */
+    font-family: inherit;
     font-size: 12px;
     cursor: pointer;
 }

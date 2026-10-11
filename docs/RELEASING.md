@@ -41,7 +41,7 @@
 | --- | --- |
 | `package.json` | **运行期清单**,由打包脚本从仓库的 `package.json` 生成 |
 | `dist/` | `tsc` 产物:`index.js` + `index.d.ts`(exports 的根入口) |
-| `styles/` | 五份 CSS(exports 的 `./styles*`) |
+| `styles/` | 六份 CSS(exports 的 `./styles*`)+ 随库发布的字体 `styles/fonts/`(OFL 1.1,见 `styles/fonts.css`) |
 | `LICENSE` | AGPL-3.0-or-later,跟着产物一起分发 |
 
 清单里还有一个**由打包脚本写入**的字段:`gitHead` = 打这份包的 commit.库不写版本号,

@@ -3,20 +3,23 @@
  * --------------------------------------------------------------------------
  * 各分组入口也可以单独引:
  *   miko_ui/styles/tokens.css     设计 token(默认主题,最先加载)
+ *   miko_ui/styles/fonts.css      库自带字体(默认字体族的 @font-face,紧跟 token)
  *   miko_ui/styles/widgets.css    控件
  *   miko_ui/styles/desktop.css    桌面窗口系统
  *   miko_ui/styles/editor.css     源码编辑器外壳(结构与对齐)
  *   miko_ui/styles/feedback.css   反馈件(消息 / 诊断列表条目)
  *   miko_ui/styles/scrollbar.css  滚动条(单独的一条规定,滚动容器挂 .ui-scrollbar)
  *
- * 这里按"token -> 滚动条 -> 控件 -> 桌面"的顺序再排一遍:除 token 外的每份都读
- * token(桌面读 --window-header-height,滚动条读 --scrollbar-size),顺序反了在
- * 覆盖场景下会出现"改了 token 但组件没跟上"的错觉.
+ * 这里按"token -> 字体 -> 滚动条 -> 控件 -> 桌面"的顺序再排一遍:除 token 与字体
+ * 外的每份都读 token(桌面读 --window-header-height,滚动条读 --scrollbar-size),
+ * 顺序反了在覆盖场景下会出现"改了 token 但组件没跟上"的错觉.字体那一层只有
+ * `@font-face`(没有选择器,不读任何 token),排在 token 之后只是"主题的两半挨着".
  *
  * 库的样式表里**没有 id 选择器**:
  * 否则消费者的 id 会变成库的公开 API,同页两个实例必然串味.
  * ========================================================================== */
 @import "./tokens.css";
+@import "./fonts.css";
 @import "./scrollbar.css";
 @import "./widgets.css";
 @import "./desktop.css";

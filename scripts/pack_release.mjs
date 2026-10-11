@@ -10,7 +10,7 @@
  *
  *     package.json   <- 运行期清单,**由本脚本从 package.json 生成**,不是照抄
  *     dist/          <- tsc 产物:`index.js` + `index.d.ts`(exports 的根入口)
- *     styles/        <- 五份 CSS(exports 的 `./styles*`)
+ *     styles/        <- 六份 CSS(exports 的 `./styles*`)+ 字体文件 `styles/fonts/`
  *     LICENSE        <- AGPL-3.0-or-later,跟着产物一起分发
  *
  * 其中清单里的 `gitHead` 是**本脚本写进去的**:这一份资产是哪个 commit 构建的.

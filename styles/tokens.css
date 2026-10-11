@@ -1,7 +1,8 @@
 /* ==========================================================================
  * miko_ui 设计 token
  * --------------------------------------------------------------------------
- * **默认值层**:颜色板,圆角尺度,以及代码字体/面板下限/窗口外壳这几个量.
+ * **默认值层**:字体族(字体文件随包发布,见 `styles/fonts.css`),颜色板,圆角尺度,
+ * 以及代码度量/面板下限/窗口外壳这几个量.
  *
  * 消费者的用法是"先加载这一层,再按需覆盖":
  *   import 'miko_ui/styles/tokens.css';
@@ -15,6 +16,22 @@
  * ========================================================================== */
 
 :root {
+    /* ----------------------------------------------------------------------
+     * 字体:**库的默认字体族**,以及"根元素默认字体"这一条声明.
+     *
+     * 字体文件随包发布(`styles/fonts.css` 的 @font-face),所以"这台机器上装没装
+     * `JetBrains Mono Slashed`"不再影响观感;代码面的 `--code-font-family` 是它
+     * 的**别名**(值与语境分开,字面量只在这里出现一次,见上面文件头的第 3 条).
+     *
+     * `font-family` 这一条是库**主动**设的默认值,守的是"谁都没挑字体时的那
+     * 一份":库其余样式表照旧只写 `font-family: inherit` 或
+     * `var(--code-font-family)`,不替消费者选字体.消费者要换字体,只需在自己
+     * 的样式表(通常排在库之后)里写一条 `body { font-family: ... }`,或任何比
+     * `:root` 更具体的选择器 -- 覆盖的是同一个"默认值",不会与库打架.
+     * ---------------------------------------------------------------------- */
+    --font-family-base: 'JetBrains Mono Slashed', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--font-family-base);
+
     /* ----------------------------------------------------------------------
      * 主题色板:**界面配色的唯一真相源**.
      *
@@ -144,8 +161,10 @@
        读",而消费侧写的 `.katex { font-size: var(--katex-font-size) }` 与 KaTeX 自带的
        `.katex { font: normal 1.21em ... }` 同特异度,又排在它前面,所以那条令牌长期
        空转(下游实测的字节顺序见 widgets.css 的对应注释).
-       默认值取 KaTeX 自己的 `1.21em`:不配置的消费者观感不变,要放大就改这个令牌. */
-    --code-font-family: 'JetBrains Mono Slashed', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+       默认值取 KaTeX 自己的 `1.21em`:不配置的消费者观感不变,要放大就改这个令牌.
+       `--code-font-family` 是上面 `--font-family-base` 的别名(本库的正文与代码面
+       用同一个族);要单独给代码面换字体就直接覆盖这一条,`--font-family-base` 不动. */
+    --code-font-family: var(--font-family-base);
     --code-font-size: 16px;
     --code-line-height: 1.2;
     --code-tab-size: 4;

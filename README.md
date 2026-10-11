@@ -61,9 +61,16 @@ GitHub Pages 的行为一个字节都不变,`npm ci` 即可还原成 npm 上那�
 
 ```ts
 import { mountDesktop, signal } from 'miko_ui';
-import 'miko_ui/styles.css';          // token + 控件 + 桌面,一次全要
-// 或者按分组引:miko_ui/styles/tokens.css / scrollbar.css / widgets.css / desktop.css / editor.css / feedback.css
+import 'miko_ui/styles.css';          // token + 字体 + 控件 + 桌面,一次全要
+// 或者按分组引:miko_ui/styles/tokens.css / fonts.css / scrollbar.css / widgets.css / desktop.css / editor.css / feedback.css
 ```
+
+> **默认字体随包走**:库的默认字体族是 `JetBrains Mono Slashed`(上游 `JetBrains
+> Mono` v2.304 的"斜杠零"再发行版),字体文件与 `@font-face` 就在
+> `styles/fonts.css`,消费者不用自带字体,也不依赖机器上装没装它.
+> 对外的两个旋钮:`--font-family-base`(正文 / 默认)与 `--code-font-family`
+> (代码面,默认是前者的别名);`:root` 上还有一条 `font-family` 兜住"谁都没挑
+> 字体"的场景,消费者自己写一条 `body { font-family: ... }` 就能整体换掉.
 
 > 包名就是 `miko_ui`(依赖目录里也是它);公开面由 `package.json` 的 `exports`
 > 定义,与"怎么把它接进来"无关.

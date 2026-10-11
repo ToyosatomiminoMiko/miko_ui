@@ -29,6 +29,7 @@
     },
     "./styles.css": "./styles/styles.css",
     "./styles/tokens.css": "./styles/tokens.css",
+    "./styles/fonts.css": "./styles/fonts.css",
     "./styles/widgets.css": "./styles/widgets.css",
     "./styles/desktop.css": "./styles/desktop.css",
     "./styles/editor.css": "./styles/editor.css",
