@@ -20,7 +20,6 @@
 import {
     DEFAULT_DESKTOP_CONFIG,
     FormulaCopyController,
-    KeyboardController,
     createButton,
     createFormulaElement,
     createMenu,
@@ -330,15 +329,16 @@ watchValue(messages, (entries) => messageArea.list.render(entries));
 // ── 窗口五:公式(排版 / 复制 / 消费者类名 / 活公式)────────────────────────
 /**
  * 公式件只有两个出口:`createFormulaElement`(LaTeX -> 屏幕)与
- * `FormulaCopyController`(点击 / 键盘 -> 剪贴板).这一窗把四种用法各摆一处:
+ * `FormulaCopyController`(点击 -> 剪贴板).这一窗把四种用法各摆一处:
  *
- * 1. **可复制**(缺省):公式自带 `data-tex` 与 `tabindex=0` + `role="button"` +
- *    `aria-label`,点一下或聚焦后回车就把原始 TeX 写进剪贴板;
- * 2. **不可复制**(`copyable=false`):读数与落在开合热区里的公式用,上面那组属性
- *    一个都不加(可聚焦控件嵌进 `<summary>` 会造成嵌套交互元素);
+ * 1. **可复制**(缺省):公式只自带 `data-tex`,点一下就把原始 TeX 写进剪贴板;
+ * 2. **不可复制**(`copyable=false`):读数与落在开合热区里的公式用,`data-tex`
+ *    都不加(点它不该顺手写剪贴板);
  * 3. **消费者类名**(第二个参数):库的基线类 `.ui-formula` 在前,消费者类在后;
  * 4. **活公式**:值 -> LaTeX(`numberText({ syntax: 'latex' })`)-> 排版,拖动
  *    窗口「控件window」里的方位角滑块,这条公式跟着变.
+ *
+ * 复制**只有鼠标一条入口**:库不给公式挂 `tabindex` / `role` / `aria-label`
  *
  * 排版本身不在示例里:`katex` 是库的运行时依赖,连它的样式表都由库引,所以这一窗
  * 没有一行与 KaTeX 有关的代码.
@@ -368,7 +368,7 @@ const COPYABLE_LATEX: readonly string[] = [
 const copyHint = create_element(
     { tag: 'span' },
     { class: 'formula-hint' },
-    '点击公式复制 TeX(键盘:聚焦后回车)',
+    '点击公式复制 TeX',
 );
 
 /**
@@ -376,17 +376,6 @@ const copyHint = create_element(
  * 实例,以后往这一列里再加公式也不用重新绑.
  */
 const formulaCopy = new FormulaCopyController(copyHint);
-
-/**
- * 键盘入口:公式的 `Enter` / `空格` 规则要注册进库的**唯一**键盘出口
- * (`KeyboardController`),库自己不挂 `keydown`.
- *
- * 它内置的两个动作(`Home` / `Ctrl+Enter`)是给编辑器的,这一页没有编辑器,所以给
- * 空实现 -- 这里要的只是"聚焦公式后回车也能复制"那一条绑定.
- */
-const keyboard = new KeyboardController(null, { onHome: () => {}, onRun: () => {} });
-keyboard.register(formulaCopy.keyboardBinding());
-keyboard.bind();
 
 /**
  * 不可复制:第三个参数 `copyable=false`.

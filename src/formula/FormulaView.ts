@@ -36,11 +36,7 @@ const formulaTemplateCache = new Map<string, HTMLElement>();
  */
 const FORMULA_TEMPLATE_CACHE_LIMIT = 512;
 
-/** 可复制公式的屏幕阅读器名称(`aria-label` 不画 hover 浮层,标题类提示才画). */
-const COPY_FORMULA_LABEL = '复制公式 TeX';
-
-/**
- * 公式根节点的基线类:{@link createFormulaElement} 的每个产物都带(规则见
+/** 公式根节点的基线类:{@link createFormulaElement} 的每个产物都带(规则见
  * `styles/widgets.css` 的 `.ui-formula > .katex`).
  *
  * 为什么必须有一个库自有的类:KaTeX 自带样式表把 `.katex` 的字号写死成
@@ -146,15 +142,11 @@ function renderLatexInto(latex: string, element: HTMLElement): void {
  * `createValueDisplay` 同一条"基线在前,消费者在后"的约定).
  *
  * `copyable` 控制是否挂 `data-tex`(FormulaCopyController 的复制钩子):
- * - 可复制(缺省):需要鼠标与键盘都能取到原始 TeX 的公式;
+ * - 可复制(缺省):点它会把原始 TeX 写进剪贴板,`data-tex` 就是取 TeX 的唯一路口;
  * - 不可复制:公式落在 `<details>` / `<summary>` 这类原生开合热区内时,
  *   点它是"展开/收起",不该顺手把 TeX 写进剪贴板.
  *
- * 可复制 = 可聚焦:除 `data-tex` 外补 `tabindex="0"` 与 `role`/`aria-label`,
- * 复制因此有键盘入口(FormulaCopyController 把 Enter/Space 规则注册进
- * KeyboardController).
- * 不可复制时这些属性一个都不加:可聚焦控件嵌在 `<summary>` 内部会造成
- * 嵌套交互元素.
+ * 复制只有鼠标一条入口:这里**不给** `tabindex` / `role` / `aria-label`.
  *
  * `into` 是挂载锚点(见 `widgets/dom.ts`):传了就建完即挂,不给就是脱离式,
  * 由消费者把它当子节点摆进去.
@@ -173,11 +165,6 @@ export function createFormulaElement(
     });
     renderLatexInto(latex, element);
 
-    if (copyable) {
-        element.dataset.tex = latex;
-        element.tabIndex = 0;
-        element.setAttribute('role', 'button');
-        element.setAttribute('aria-label', COPY_FORMULA_LABEL);
-    }
+    if (copyable) element.dataset.tex = latex;
     return element;
 }

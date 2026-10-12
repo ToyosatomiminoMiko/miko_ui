@@ -292,8 +292,8 @@ createReadoutRow('方位角', {
     value: angle,
     text: numberText({ syntax: 'latex' }),                       // 值 -> LaTeX
     // 第三个参数 copyable=false:读数不是复制公式的入口.默认可复制会给这格挂
-    // `tabindex=0` + `role="button"` + `aria-label`,而复制要另外 bind
-    // `FormulaCopyController` -- 不 bind 就是一个焦点可达,按了没反应的按钮.
+    // `data-tex`,而复制要另外 bind `FormulaCopyController` -- 不 bind 就是一格
+    // 点了没反应的元素.
     render: (latex) => createFormulaElement(latex, undefined, false),
 });
 ```
@@ -332,7 +332,7 @@ createReadoutRow('方位角', {
 | `widgets/dom.ts` | DOM 创建层:`create_element({ tag, into }, attributes, ...children)`(给了 `into` 就建完即挂)/ `childNodes` / `nextWidgetId`,创建层与属性层的类型分开;同在这一个文件里的 `DomAnchor` / `anchorDocument`(锚点 -> 文档)是**库内口径**,不从 `miko_ui` 导出 |
 | `reactive/` | 值源与派生值(`signal` / `computed` / `effect` / `onValueChange` 一族):控件的值参数可以直接传这一层的东西 |
 | `widgets/` | 控件与行级布局件:按钮 / 开关 / 分段 / 滑杆(裸滑杆与系数滑块)/ 数值框 / 只读读数件 / 浮层 / 徽章 / 带标题栏的框体(桌面窗口复用同一组 `.ui-panel*` 基类)/ 菜单,以及 `create*Row` 一族行外壳 |
-| `shared/` | 跨组件共用的交互与行外壳:键盘唯一出口,唯一拖拽实现,行缓存,值↔文本口径(见下节),行外壳 |
+| `shared/` | 跨组件共用的交互与行外壳:唯一拖拽实现,行缓存,值↔文本口径(见下节),行外壳.键盘不在这里 -- 本库不定义任何键盘行为 |
 | `desktop/` | 桌面窗口系统:装配入口(`mountDesktop` / 窗口槽位),窗口管理器与几何 / 拖动 / 吸附 / 停靠件,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
 | `editor/` | 编辑器外壳:整套结构装配,行号栏,高亮层(分词与槽宽由消费者注入),以及保住原生撤销栈的程序化写入.**编辑器自己不滚**:外框随内容长高长宽,滚动归装它的那一层(见下"编辑器不滚,宿主滚") |
 | `feedback/` | 消息区容器(`MessageArea`:列表节奏 + 滚动 + `aria-live`;框体可加变体类 `message-area--unframed` 去掉,见 `modifier`)与消息 / 诊断条目(`MessageList`),零领域依赖 |
@@ -384,7 +384,7 @@ createReadoutRow('方位角', {
    锚点就是"准备挂在它下面"的那个节点(`Element` / `DocumentFragment`,影子根属于
    后者):任何节点都能反查出自己所属的文档,所以不向调用方要文档 -- 形参也从
    `root` / `DomRoot` 改成了 `into` / `DomAnchor`(见 `src/widgets/dom.ts` 的文件头);
-   只要文档,不挂东西的地方(键盘监听挂 document)另走 `anchorDocument()`,它收任何节点.
+   只要文档,不挂东西的地方另走 `anchorDocument()`,它收任何节点.
 
 ## 测试
 

@@ -293,7 +293,7 @@ export class StubElement {
     /**
      * 真 DOM 的 `ownerDocument`.
      *
-     * 库的 root 注入从元素反查"我属于哪个 document":键盘监听挂在哪,
+     * 库的 root 注入从元素反查"我属于哪个 document":节点建在哪棵树,
      * 拖动收尾改谁的 `body.style.cursor`,公式模板建在谁身上,都走它.
      */
     ownerDocument!: StubDocument;
@@ -751,7 +751,7 @@ export interface StubDocument {
      * 按 id 取节点;走与 `querySelector('#id')` 同一条遍历,语义一致.
      */
     getElementById<T>(id: string): T | null;
-    /** document 级键盘监听(KeyboardController 的全局快捷键绑在这里). */
+    /** document 级事件监听(测试里用来触发挂在文档上的监听). */
     addEventListener(type: string, handler: (event: StubEvent) => void): void;
     removeEventListener(type: string, handler: (event: StubEvent) => void): void;
     /** 测试用:触发 document 上的监听;真 DOM 的事件目标是当前聚焦元素. */

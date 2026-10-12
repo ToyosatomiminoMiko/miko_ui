@@ -36,20 +36,21 @@
  *   它只允许一个元素子节点,`document.append(div)` 要抛 -- 想借文档就借文档,
  *   别把它当挂载点;
  * - `anchorDocument(anchor)` 只借锚点的**文档**,任何节点都行(含 `Document` 自己),
- *   给库内"要文档但不要挂"的地方用(键盘监听挂 document,`childNodes` 落真节点).
+ *   给库内"要文档但不要挂"的地方用(`childNodes` 要在正确的 `Document` 里落真节点,
+ *   脱离式节点还得从锚点反查自己属于哪棵树).
  *
  * 口径:
  * - **建节点**:不传 `into` 用全局 `document`(脱离式,何时 append 由调用方定,
  *   字面量里的子节点就是这一类);传了 `into` 就用 `anchorDocument(into)` 建,
  *   **并当场挂进去** -- "建"与"挂"是同一次调用,不存在"建完忘了挂"的中间态;
- * - **全局监听**(keydown / resize)挂在节点所属 `Document` 上(Shadow DOM 里的
- *   键盘事件是 composed 的,会照常到达 document);
+ * - **文档从锚点走**:节点不一定在主文档里(Shadow DOM / iframe / 离屏 document),
+ *   所以创建与查询一律从锚点反查 `Document`,不读全局;
  * - **锚点类型不从 `miko_ui` 导出**(见 `index.ts`):`Element` / `DocumentFragment` /
  *   `Document` 都是标准 DOM 类型,消费者直接填,不需要再命名一个.
  */
 
 /**
- * 挂载锚点:准备把节点挂进去的那个节点.
+ * 挂载锚点:准备将新建的节点挂进去的那个目标节点.
  *
  * 只有 `Element` 与 `DocumentFragment` 能当挂载点(`ShadowRoot` 是后者的一种):
  * 它们能收下任意多个子节点.`Document` 故意不收 -- 它只允许一个元素子节点,
@@ -64,7 +65,7 @@ export type DomAnchor = Element | DocumentFragment;
  * `ownerDocument` 是 `null`(文档不属于别的文档),所以"没有就取它自己".不传锚点
  * 回落全局 `document`,与"不写 `into`"的脱离式创建是同一条口径.
  *
- * 库内单独要文档的地方(例如 `KeyboardController` 要在 document 上挂 keydown)走这
+ * 库内要从锚点反查文档的地方(`create_element` 建节点,`childNodes` 落真节点)走这
  * 一个出口,不再各自换算.
  */
 export function anchorDocument(anchor?: Node): Document {

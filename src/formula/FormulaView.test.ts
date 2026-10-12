@@ -25,15 +25,16 @@ afterEach(() => {
 });
 
 describe('createFormulaElement', () => {
-    it('可复制公式:带 data-tex 与键盘/角色语义,基线类在消费者类之前', () => {
+    it('可复制公式:只挂 data-tex,基线类在消费者类之前', () => {
         const element = createFormulaElement('x^2', 'object-expr');
 
         // 基线类必须在前面:消费者的类要靠"在后面"才盖得住库的默认规则.
         expect(element.className).toBe('ui-formula object-expr');
         expect(element.dataset.tex).toBe('x^2');
-        expect(element.tabIndex).toBe(0);
-        expect(element.getAttribute('role')).toBe('button');
-        expect(element.getAttribute('aria-label')).toBe('复制公式 TeX');
+        // 复制只有鼠标一条入口:不挂任何"假按钮"语义(见 FormulaView 的文件头).
+        expect(element.tabIndex).toBe(-1);
+        expect(element.getAttribute('role')).toBeNull();
+        expect(element.getAttribute('aria-label')).toBeNull();
         expect(element.textContent).toBe('x^2');
     });
 
@@ -41,7 +42,7 @@ describe('createFormulaElement', () => {
         expect(createFormulaElement('x^2').className).toBe('ui-formula');
     });
 
-    it('不可复制公式:不带任何复制/焦点属性', () => {
+    it('不可复制公式:不带复制钩子', () => {
         const element = createFormulaElement('x^2', 'eval-summary-formula', false);
 
         expect(element.dataset.tex).toBeUndefined();

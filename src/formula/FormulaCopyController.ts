@@ -2,7 +2,8 @@
  * 公式复制控制器.
  *
  * 公式是 KaTeX 排版出来的展示元素,本身不可选中.这里做一层事件委托:
- * 点/键盘激活任意一个带 `data-tex` 的公式,就把它的原始 TeX 写进剪贴板.
+ * **点一下**任意一个带 `data-tex` 的公式,就把它的原始 TeX 写进剪贴板.
+ * 复制只有鼠标一条入口.
  *
  * 为什么用委托而不是逐个绑定:
  * 公式 DOM 由消费者在每次 sync 时整体重建(内部走 createFormulaElement 的
@@ -10,13 +11,11 @@
  *
  * 为什么提示是一组节点而不是一个:
  * "可复制"的文案由调用方传入的提示元素承担,复制成功/失败改这些元素回显;公式
- * 本身只用 cursor / focus 样式表达可操作,不在每行挂 tooltip,避免列表被提示
+ * 本身只用 cursor 样式表达可操作,不在每行挂 tooltip,避免列表被提示
  * 文字淹没.但**提示可以不止一处**:同一个列表被拆成两个窗口(或同一屏上有两处
  * 可复制公式的列表)时,每处标题栏都该有这句提示.所以构造参数收一个**数组**,
  * 一次回显写全部节点 -- 它们表达的是同一个状态,不该各说各话.
  */
-import type { KeyboardBinding } from '../shared/KeyboardController';
-
 const HINT_RESET_DELAY = 1200;
 
 const HINT_COPIED = '已复制 TeX';
@@ -25,10 +24,14 @@ const HINT_FAILED = '复制失败';
 /**
  * 写剪贴板:只有异步剪贴板一条通道.
  *
- * `navigator.clipboard` 按规范只在安全上下文暴露(https,`localhost`/`127.0.0.1`,
- * `file:`,见 Secure Contexts),非安全上下文里它直接是 undefined,取成员就抛
- * TypeError;权限被拒,文档失焦同样会 reject.这些一律归一化成 false,由调用方回显
- * 失败--不保留 `execCommand` 兜底:那条路要自造选区,而公式不是可选中文本,
+ * `navigator.clipboard`: 
+ * 按规范只在安全上下文暴露
+ * - `https`
+ * - `localhost`/`127.0.0.1`
+ * - `file:`
+ * 见 Secure Contexts,非安全上下文里它直接是 undefined,取成员就抛TypeError;
+ * 权限被拒,文档失焦同样会 reject.这些一律归一化成 false,由调用方回显失败
+ * --不保留 `execCommand` 兜底:那条路要自造选区,而公式不是可选中文本,
  * 消费者也都跑在安全上下文里,没有需要它的场景.
  */
 async function writeClipboardText(text: string): Promise<boolean> {
@@ -77,24 +80,6 @@ export class FormulaCopyController {
         this.abortController = new AbortController();
         const options = { signal: this.abortController.signal };
         root.addEventListener('click', this.onClick, options);
-    }
-
-    /**
-     * 键盘激活入口:Enter/Space 复制聚焦的公式.
-     *
-     * 只描述"哪些键 + 命中哪个元素 + 命中后做什么",监听与 preventDefault
-     * 交给 KeyboardController,这样键盘事件只有一个出口.
-     */
-    keyboardBinding(): KeyboardBinding {
-        return {
-            keys: ['Enter', ' ', 'Spacebar'],
-            // 公式本身可聚焦(见 FormulaView),但 KaTeX 内部节点也可能成为
-            // 事件目标,所以仍然从 target 往上找.
-            resolve: (event) => {
-                const tex = this._texFrom(event.target);
-                return tex === null ? null : () => void this._copy(tex);
-            },
-        };
     }
 
     dispose(): void {

@@ -30,7 +30,7 @@ beforeEach(() => {
     installDomStub();
 });
 
-describe('鼠标与键盘两条复制入口(UI-P3.6)', () => {
+describe('鼠标复制入口(UI-P3.6)', () => {
     it('点击公式复制 TeX 并回显成功', async () => {
         const { stub, controller, hint, root, formula } = setup();
 
@@ -42,38 +42,6 @@ describe('鼠标与键盘两条复制入口(UI-P3.6)', () => {
             expect(hint.textContent).toBe('已复制 TeX');
         });
         expect(hint.classList.contains('is-copied')).toBe(true);
-        controller.dispose();
-    });
-
-    it('Enter 命中可复制公式时返回处理器并复制', async () => {
-        const { stub, controller, hint, formula } = setup();
-
-        const run = controller.keyboardBinding()
-            .resolve({ target: formula } as unknown as KeyboardEvent);
-
-        expect(run).not.toBeNull();
-        run?.();
-        await vi.waitFor(() => {
-            expect(stub.clipboard.texts).toEqual(['x^2']);
-            expect(hint.textContent).toBe('已复制 TeX');
-        });
-        controller.dispose();
-    });
-
-    it('Space 同样命中(默认键名与遗留 Spacebar 都声明)', () => {
-        const { controller } = setup();
-
-        expect(controller.keyboardBinding().keys).toEqual(['Enter', ' ', 'Spacebar']);
-        expect(controller.keyboardBinding().resolve({ target: null } as unknown as KeyboardEvent))
-            .toBeNull();
-        controller.dispose();
-    });
-
-    it('目标不是可复制公式时放行(resolve 返回 null)', () => {
-        const { controller, root } = setup();
-
-        expect(controller.keyboardBinding()
-            .resolve({ target: root } as unknown as KeyboardEvent)).toBeNull();
         controller.dispose();
     });
 

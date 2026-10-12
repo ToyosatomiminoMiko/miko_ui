@@ -108,15 +108,11 @@ body {
 /* -------------------------------------------------------------- 公式窗口 */
 
 /* 可复制公式的"可操作"观感:库把 `data-tex` 作为复制钩子(见 FormulaView 的
-   `copyable`),但没给外观 -- 光标与焦点环是消费者的事.这里用**属性选择器**认它,
-   而不是给库的 `.ui-formula` 写规则(消费侧禁止给只含库的类的选择器写样式). */
+   `copyable`),但没给外观 -- 光标是消费者的事.这里用**属性选择器**认它,
+   而不是给库的 `.ui-formula` 写规则(消费侧禁止给只含库的类的选择器写样式).
+   只有 `cursor`:公式不可聚焦(库不挂 `tabindex`),没有焦点态可画. */
 [data-tex] {
     cursor: pointer;
-}
-
-[data-tex]:focus-visible {
-    outline: 1px solid var(--color-accent-focus-soft);
-    outline-offset: 2px;
 }
 
 /* 公式窗口正文里的一段:说明行 + 公式.段内间距比 `.pane` 的段间(12px)小一档,

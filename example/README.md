@@ -23,8 +23,8 @@
 "标题 + 注记".
 
 窗口「公式window」摆**同一件 `createFormulaElement` 的四种用法**:缺省的
-**可复制**公式(带 `data-tex` / `tabindex` / `role` / `aria-label`,点一下或聚焦后
-回车就把原始 TeX 写进剪贴板),`copyable=false` 的**不可复制**公式,带**消费者类名**
+**可复制**公式(只挂 `data-tex`,点一下就把原始 TeX 写进剪贴板),`copyable=false` 的
+**不可复制**公式,带**消费者类名**
 的公式(第二个参数 `formula-accent`,字号与颜色盖在库的基线类之后),以及一条
 **活公式**:`numberText({ syntax: 'latex' })` 把 `sin(方位角)` 写成 LaTeX,再由
 `render` 交给 `createFormulaElement` 排出来 -- 拖动窗口「控件window」里的方位角
@@ -51,9 +51,8 @@ npm run dev             # Vite 会打印实际端口
 | `numberText({ syntax: 'edit', digits: 3 })` | 方位角的口径:**一个对象同时喂滑块的数值框与读数行**,所以两处文本逐字符相同.示例里不再有第二份 `toFixed(3)` -- 这正是"值 ↔ 文本"收成对象的意义. |
 | `createReadoutRow(name, { value, text?, class })` | 窗口「读数window」的只读读数:订阅,`<output>` 语义,全精度 `title`,等宽数字与行布局全在库里,示例不再自己拼 markup 与 `.readout*`.不给 `text` 就走显示档(同一份值在编辑框里是 `0.30000000000000004`,在读数里是 `0.3`,悬停能看到全精度). |
 | `createReadoutRow(name, { text, render })` + `createFormulaElement` | 「方位角(公式)」那条读数是**公式读数**:口径换成 `numberText({ syntax: 'latex' })`,再由 `render` 把 LaTeX 交给库的 `createFormulaElement` 排出来.显示件只做"文本 -> 节点",自己不认识排版器;示例里因此不需要知道 `katex`. |
-| `createFormulaElement(latex, class?, copyable?)` | 窗口「公式window」里的四种用法:缺省**可复制**(挂 `data-tex` + `tabindex=0` + `role="button"` + `aria-label`,复制与键盘两条入口的钩子都在它身上),第三个参数给 `false` 就**不可复制**(读数 / 开合热区里的公式用,那组属性一个都不加),第二个参数是**消费者类名**(库的基线类 `.ui-formula` 在前,消费者类在后,所以 `.formula-accent` 盖得住字号与颜色).LaTeX 怎么排不在示例里:连 KaTeX 的样式表都由库带. |
+| `createFormulaElement(latex, class?, copyable?)` | 窗口「公式window」里的四种用法:缺省**可复制**(挂 `data-tex`,点一下就是复制),第三个参数给 `false` 就**不可复制**(读数 / 开合热区里的公式用,`data-tex` 都不加),第二个参数是**消费者类名**(库的基线类 `.ui-formula` 在前,消费者类在后,所以 `.formula-accent` 盖得住字号与颜色).LaTeX 怎么排不在示例里:连 KaTeX 的样式表都由库带.**复制只有鼠标一条入口**:库不给公式挂 `tabindex` / `role` / `aria-label`,也不挂任何键盘监听. |
 | `FormulaCopyController(hint)` + `bind(root)` | 窗口「公式window」的复制反馈:事件委托绑在正文那一列上,点任意带 `data-tex` 的公式就把**原始 TeX** 写进剪贴板;提示节点由示例建,回显写成 `已复制 TeX` / `复制失败` 并挂库的 `.is-copied` / `.is-error`.提示可以不止一处(传数组时一次写全部节点),示例只有一处所以传单个节点. |
-| `KeyboardController` + `keyboardBinding()` | 公式的 `Enter` / `空格` 复制规则注册进库的**唯一键盘出口**(库自己不挂 `keydown`),所以"聚焦公式后回车也能复制"这条入口要消费者 `register` 之后再 `bind`.这一页没有编辑器,两个内置动作给空实现. |
 | `createValueDisplay({ value, text, render })` | 窗口「公式window」的**活公式**:单格 `<output>` 自带订阅,`numberText({ syntax: 'latex' })` 把 `sin(方位角)` 写成 LaTeX,`render` 再把它拼进示例自己的模板(`\sin\theta = ...`)交给 `createFormulaElement`.值 -> 文本 -> 节点三步各归各家,示例里没有一行"值变了重建公式". |
 | `watchValue(value, ...)` | 窗口「消息window」订阅那条派生出来的提示清单,把每一版 `render` 进消息区(读数那边已由 `createReadoutRow` 内部订阅). |
 | `createButton({ text })` | 窗口「控件window」里的计数按钮:`onClick` 只写 `count.value`(`0..255`,满了回 0),计数读数订阅同一个 signal.也是窗口「菜单window」里的浮层**触发器** -- 菜单不认识窗口标题栏,任意按钮都能触发. |

@@ -36,8 +36,7 @@ export * from './widgets/Menu';
 export * from './widgets/Row';
 export * from './widgets/ValueDisplay';
 
-// 共享交互层:键盘唯一出口 / 唯一拖拽实现 / 行缓存 / 值↔文本口径与行外壳
-export * from './shared/KeyboardController';
+// 共享交互层:唯一拖拽实现 / 行缓存 / 值↔文本口径与行外壳
 export * from './shared/dragGesture';
 export * from './shared/rowList';
 export * from './shared/valueText';

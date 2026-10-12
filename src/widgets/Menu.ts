@@ -15,12 +15,6 @@
  * `onSelect(listener)` 拿到的是一条菜单项的 `value`(消费者自己的载荷,如文件名),
  * 浮层**先关再回调**(回调若抛错,浮层也不会僵在屏幕上).`setActive(value)` 只标
  * 当前项(持续高亮 + `aria-current`),不参与选中逻辑.
- *
- * ## 键盘:一件都不做
- * 本件**不注册任何键盘规则**,也不做上下键导航:菜单的键盘行为不是这个库
- * 负责的事(`KeyboardController` 只是给应用用的路由出口,库自己不往里塞行为).
- * 菜单项本身是 `<button>`:可聚焦,Enter/Space 触发是浏览器给的.要上下键回绕 /
- * Esc 收焦点这类行为,由应用侧自己接.
  */
 import { createMenuItem, type MenuItemHandle } from './MenuItem';
 import { createPopover, type PopoverHandle } from './Popover';

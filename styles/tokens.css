@@ -101,7 +101,6 @@
     --color-accent-selection: rgba(109, 213, 255, 0.28);    /* 编辑器选区底 */
     --color-accent-border: rgba(109, 213, 255, 0.45);       /* 悬停时的控件描边/分隔条 */
     --color-accent-focus: rgba(109, 213, 255, 0.6);        /* 键盘焦点环(2px outline) */
-    --color-accent-focus-soft: rgba(109, 213, 255, 0.65);   /* 公式焦点环(1px) */
 
     /* -- 选中态(偏蓝一档,与主色区分开) ---------------------------------- */
     --color-select-bg: rgba(70, 130, 255, 0.25);    /* 选中按钮底 */
