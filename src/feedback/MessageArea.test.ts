@@ -3,8 +3,8 @@
  *
  * 五件事:结构(`div.message-area[aria-live=polite]`),消费方作用域类叠在基线
  * 之后,变体类(`modifier`)夹在两者之间且只换类名不动行为,
- * 句柄里的 `MessageList` 就是这个容器的条目接口,以及"节点建在调用方给的
- * root 上,不读全局 `document`".
+ * 句柄里的 `MessageList` 就是这个容器的条目接口,以及"锚点决定文档:节点建在
+ * 锚点所在的那棵树上,不读全局 `document`,而且建完即挂".
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub, type StubElement } from '../testing/domStub';
@@ -85,13 +85,18 @@ describe('createMessageArea', () => {
         expect(area.element.children).toHaveLength(1);
     });
 
-    it('节点建在调用方给的 root 上,不读全局 document', () => {
+    it('锚点决定文档:节点建在锚点那棵树上,不读全局 document,且建完即挂', () => {
         const first = installDomStub();
-        // 再装一次:全局 document 指向第二棵树,只有显式给 root 才会用第一棵.
+        const host = first.document.createElement('div');
+        first.document.body.append(host);
+        // 再装一次:全局 document 指向第二棵树,只有锚点在第一棵树上才会用第一棵.
         installDomStub();
 
-        const area = createMessageArea({ root: first.document as unknown as Document });
+        const area = createMessageArea({ into: host as unknown as HTMLElement });
 
         expect((area.element as unknown as StubElement).ownerDocument).toBe(first.document);
+        // "建在它下面"是一次调用做完的:调用方不再需要第二次 append.
+        expect(host.children).toHaveLength(1);
+        expect(host.children[0]).toBe(area.element as unknown as StubElement);
     });
 });

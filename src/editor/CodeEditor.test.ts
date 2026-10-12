@@ -19,9 +19,9 @@ function setup(value = 'curve c1 = 1;'): {
         value,
         highlight: wrap,
         gutterMinWidth: 32,
-        root: dom.document as unknown as Document,
+        // 消费者手上就是容器本身:锚点决定文档,外框建完即挂.
+        into: root as unknown as HTMLElement,
     });
-    root.append(editor.element as unknown as StubElement);
     return { root, editor };
 }
 
@@ -93,10 +93,9 @@ describe('生命周期与"无全局"', () => {
         const dom = installDomStub();
         const root = dom.document.createElement('div');
         dom.document.body.append(root);
-        const options = { highlight: wrap, gutterMinWidth: 32, root: dom.document as unknown as Document };
+        const options = { highlight: wrap, gutterMinWidth: 32, into: root as unknown as HTMLElement };
         const first = createCodeEditor({ ...options, value: 'first' });
         const second = createCodeEditor({ ...options, value: 'second' });
-        root.append(first.element as unknown as StubElement, second.element as unknown as StubElement);
 
         expect(first.textarea.value).toBe('first');
         expect(second.textarea.value).toBe('second');

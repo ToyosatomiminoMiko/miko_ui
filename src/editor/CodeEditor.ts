@@ -29,9 +29,10 @@
  * 让那个盒子自己 `overflow: auto`.
  *
  * 分词与槽宽下限由消费者注入:库不认识任何具体语言的词法,也不认识消费者的
- * 字号/槽宽取值.节点建在 `options.root` 上.
+ * 字号/槽宽取值.外框建在 `options.into` 上(不传就是脱离式):锚点决定文档,
+ * 给了锚点就建完即挂.
  */
-import { create_element, type DomRoot } from '../widgets/dom';
+import { create_element, type DomAnchor } from '../widgets/dom';
 import { EditorHighlight } from './EditorHighlight';
 import { EditorLineNumbers } from './EditorLineNumbers';
 
@@ -44,8 +45,11 @@ export interface CodeEditorOptions {
     readonly highlight: (source: string) => string;
     /** 行号槽宽下限(px);由消费者给出. */
     readonly gutterMinWidth: number;
-    /** 建节点的根上下文;不传则用全局 `document`(见 `widgets/dom.ts` 的 `rootDocument()`). */
-    readonly root?: DomRoot;
+    /**
+     * 挂载锚点:外框 `.code-editor` 建在它下面(建完即挂),文档也从它反查.
+     * 不传就是脱离式,由消费者决定插进哪里(见 `widgets/dom.ts` 的 `anchorDocument()`).
+     */
+    readonly into?: DomAnchor;
 }
 
 /** 编辑器句柄:消费者拿它取输入框,刷新装饰,以及拆卸. */
@@ -68,29 +72,29 @@ export interface CodeEditorHandle {
 }
 
 export function createCodeEditor(options: CodeEditorOptions): CodeEditorHandle {
-    const root = options.root;
-
-    const textarea = create_element({ tag: 'textarea', root }, {
+    // 内部各层是嵌套子节点:挂载点由外层那次 `append` 给出,所以不写 `into`;
+    // 只有外框挂在消费者给的锚点上.
+    const textarea = create_element({ tag: 'textarea' }, {
         class: 'code-editor-textarea',
         spellcheck: String(options.spellcheck ?? false),
     });
     textarea.value = options.value ?? '';
 
-    const lines = create_element({ tag: 'pre', root }, { class: 'code-editor-lines' });
-    const gutter = create_element({ tag: 'div', root }, {
+    const lines = create_element({ tag: 'pre' }, { class: 'code-editor-lines' });
+    const gutter = create_element({ tag: 'div' }, {
         class: 'code-editor-gutter',
         'aria-hidden': 'true',
     }, lines);
 
-    const highlightCode = create_element({ tag: 'pre', root }, { class: 'code-editor-highlight-code' });
-    const highlightScroller = create_element({ tag: 'div', root }, {
+    const highlightCode = create_element({ tag: 'pre' }, { class: 'code-editor-highlight-code' });
+    const highlightScroller = create_element({ tag: 'div' }, {
         class: 'code-editor-highlight',
         'aria-hidden': 'true',
     }, highlightCode);
 
     // 顺序即契约:textarea 与高亮层必须是相邻兄弟(见文件头第 1 条).
-    const input = create_element({ tag: 'div', root }, { class: 'code-editor-input' }, textarea, highlightScroller);
-    const element = create_element({ tag: 'div', root }, { class: 'code-editor' }, gutter, input);
+    const input = create_element({ tag: 'div' }, { class: 'code-editor-input' }, textarea, highlightScroller);
+    const element = create_element({ tag: 'div', into: options.into }, { class: 'code-editor' }, gutter, input);
 
     const lineNumbers = new EditorLineNumbers(
         textarea,

@@ -23,7 +23,7 @@
  * - 不定排版:字体与字号继承宿主.诊断文本用什么字体是消费者的排版口径,本件只给
  *   框体与列表节奏(与 `.diagnostic` 条目自身"只管内边距与配色"同一条界限).
  */
-import { create_element, type DomRoot } from '../widgets/dom';
+import { create_element, type DomAnchor } from '../widgets/dom';
 import { MessageList } from './MessageList';
 
 /** 容器根类名.`.message-area` 的外观在 `styles/feedback.css`,只此一份. */
@@ -32,10 +32,10 @@ const MESSAGE_AREA_CLASS = 'message-area';
 /** `createMessageArea()` 的可选输入. */
 export interface MessageAreaOptions {
     /**
-     * 建节点的根上下文;不传用全局 `document`(见 `widgets/dom.ts` 的
-     * `rootDocument()`).`mountDesktop()` / Shadow DOM 场景显式传.
+     * 挂载锚点:容器建在它下面(建完即挂),文档也从它反查.不传就是脱离式,
+     * 由消费者决定插进哪里(见 `widgets/dom.ts` 的 `anchorDocument()`).
      */
-    readonly root?: DomRoot;
+    readonly into?: DomAnchor;
     /**
      * 附加的**变体类**(如宿主已经有框时用的 `message-area--unframed`);默认没有.
      *
@@ -80,7 +80,7 @@ export function createMessageArea(options: MessageAreaOptions = {}): MessageArea
     const classes = [MESSAGE_AREA_CLASS];
     if (options.modifier !== undefined) classes.push(options.modifier);
     if (options.class !== undefined) classes.push(options.class);
-    const element = create_element({ tag: 'div', root: options.root }, {
+    const element = create_element({ tag: 'div', into: options.into }, {
         class: classes.join(' '),
         'aria-live': 'polite',
     });

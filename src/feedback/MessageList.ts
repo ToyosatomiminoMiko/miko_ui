@@ -115,7 +115,9 @@ export class MessageList {
 
     private _createNode(level: MessageLevel, message: string): HTMLElement {
         // 类名与文案是固定契约:消费者的 CSS 按 `diagnostic-<level>` 着色.
-        return create_element({ tag: 'div', root: this.container.ownerDocument }, {
+        // 容器就是这些行的锚点:文档从它反查,行也先落在它下面(顺序由 `RowList`
+        // 的 `appendInOrder` 摆,建出来就挂不会多出一次 DOM 操作).
+        return create_element({ tag: 'div', into: this.container }, {
             class: `diagnostic diagnostic-${level}`,
         }, `[${level}] ${message}`);
     }

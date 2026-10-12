@@ -90,13 +90,14 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
     title.id = `window-title-${spec.id}`;
     const label = create_element({ tag: 'span' }, {}, spec.title);
     // 槽位节点是 `Child[]`(可能含假值),统一走 `childNodes()` 落成真节点.
-    title.append(label, ...childNodes(spec.slots.title ?? [], element.ownerDocument));
+    // 锚点用窗口本体:槽位里的节点属于这棵树,文档也从它反查.
+    title.append(label, ...childNodes(spec.slots.title ?? [], element));
     element.setAttribute('aria-labelledby', title.id);
 
     const actions = create_element(
         { tag: 'div' },
         { class: 'window-actions' },
-        ...childNodes(spec.slots.actions ?? [], element.ownerDocument),
+        ...childNodes(spec.slots.actions ?? [], element),
     );
 
     const controls = create_element({ tag: 'div' }, { class: 'window-controls' });
@@ -120,7 +121,7 @@ export function createWindowFrame(spec: WindowFrameSpec): WindowFrameHandle {
         title,
         actions,
         controls,
-        ...childNodes(spec.slots.overlays ?? [], element.ownerDocument),
+        ...childNodes(spec.slots.overlays ?? [], element),
     );
     const body = create_element({ tag: 'div' }, { class: 'ui-panel-body window-body' });
 

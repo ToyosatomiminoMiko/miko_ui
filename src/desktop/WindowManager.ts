@@ -197,8 +197,8 @@ export class WindowManager {
             });
 
             // 正文节点原样搬进库建的 .window-body:节点身份不变,消费者的监听/
-            // 引用都还有效.
-            const bodyNodes = childNodes(content.body ?? [], this.layer.ownerDocument);
+            // 引用都还有效.落成真节点时要的文档从窗口层反查(锚点就是 this.layer).
+            const bodyNodes = childNodes(content.body ?? [], this.layer);
             frame.body.append(...bodyNodes);
             this.layer.append(frame.element);
 

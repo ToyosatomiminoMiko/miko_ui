@@ -89,11 +89,12 @@ export function createPanel(options: PanelOptions): PanelHandle {
     element.setAttribute('aria-labelledby', titleId);
 
     const header = create_element({ tag: 'header' }, { class: PANEL_HEADER_CLASS }, title);
-    // 正文里的现成节点可能是别的 document 造的,统一按本面板的文档落成真节点.
+    // 正文里的现成节点可能是别的 document 造的,统一按本面板的文档落成真节点;
+    // 面板自己就是锚点,不必先取 `ownerDocument`(见 `widgets/dom.ts`).
     const body = create_element(
         { tag: 'div' },
         { class: PANEL_BODY_CLASS },
-        ...childNodes(options.body ?? [], element.ownerDocument),
+        ...childNodes(options.body ?? [], element),
     );
 
     element.append(header, body);

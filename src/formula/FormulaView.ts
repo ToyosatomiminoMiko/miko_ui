@@ -18,7 +18,7 @@
  */
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-import { rootDocument, type DomRoot } from '../widgets/dom';
+import { create_element, type DomAnchor } from '../widgets/dom';
 
 /**
  * @cache
@@ -155,15 +155,22 @@ function renderLatexInto(latex: string, element: HTMLElement): void {
  * KeyboardController).
  * 不可复制时这些属性一个都不加:可聚焦控件嵌在 `<summary>` 内部会造成
  * 嵌套交互元素.
+ *
+ * `into` 是挂载锚点(见 `widgets/dom.ts`):传了就建完即挂,不给就是脱离式,
+ * 由消费者把它当子节点摆进去.
  */
 export function createFormulaElement(
     latex: string,
     className?: string,
     copyable = true,
-    root?: DomRoot,
+    into?: DomAnchor,
 ): HTMLElement {
-    const element = rootDocument(root).createElement('span');
-    element.className = className ? `${FORMULA_CLASS} ${className}` : FORMULA_CLASS;
+    // 先挂到锚点上再由 katex 填内容:两步在同一次调用里做完(中间不让出),
+    // 不会出现半成品;也正因为内容是外部排版器写的,这里没法用
+    // `create_element` 的子节点参数一次成型.
+    const element = create_element({ tag: 'span', into }, {
+        class: className ? `${FORMULA_CLASS} ${className}` : FORMULA_CLASS,
+    });
     renderLatexInto(latex, element);
 
     if (copyable) {

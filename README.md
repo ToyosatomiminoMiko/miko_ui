@@ -329,7 +329,7 @@ createReadoutRow('方位角', {
 
 | 分组 | 内容 |
 | --- | --- |
-| `widgets/dom.ts` | DOM 创建层:`create_element({ tag, root }, attributes, ...children)` / `childNodes` / `nextWidgetId`,创建层与属性层的类型分开;同在这一个文件里的 `DomRoot` / `rootDocument`(root 注入)是**库内口径**,不从 `miko_ui` 导出 |
+| `widgets/dom.ts` | DOM 创建层:`create_element({ tag, into }, attributes, ...children)`(给了 `into` 就建完即挂)/ `childNodes` / `nextWidgetId`,创建层与属性层的类型分开;同在这一个文件里的 `DomAnchor` / `anchorDocument`(锚点 -> 文档)是**库内口径**,不从 `miko_ui` 导出 |
 | `reactive/` | 值源与派生值(`signal` / `computed` / `effect` / `onValueChange` 一族):控件的值参数可以直接传这一层的东西 |
 | `widgets/` | 控件与行级布局件:按钮 / 开关 / 分段 / 滑杆(裸滑杆与系数滑块)/ 数值框 / 只读读数件 / 浮层 / 徽章 / 带标题栏的框体(桌面窗口复用同一组 `.ui-panel*` 基类)/ 菜单,以及 `create*Row` 一族行外壳 |
 | `shared/` | 跨组件共用的交互与行外壳:键盘唯一出口,唯一拖拽实现,行缓存,值↔文本口径(见下节),行外壳 |
@@ -379,8 +379,12 @@ createReadoutRow('方位角', {
    还能继续用的前提.代价是**一次写 = 一次提交**:分开写多份状态时,读它们的
    `computed` 会先按中间态评一次再按终态评一次,中间态对订阅者可见 -- 一次交互
    尽量只写一个 signal(理由与推论见 `src/reactive/index.ts` 开头的四条硬约束).
-3. **`root` 注入**:建节点,挂全局监听都从调用方给的 root 走,不读全局
+3. **锚点注入**:建节点,挂全局监听都从调用方给的**锚点节点**走,不读全局
    `document` / `window`;同页两个实例,嵌进别人的页面,Shadow DOM 都靠这一条.
+   锚点就是"准备挂在它下面"的那个节点(`Element` / `DocumentFragment`,影子根属于
+   后者):任何节点都能反查出自己所属的文档,所以不向调用方要文档 -- 形参也从
+   `root` / `DomRoot` 改成了 `into` / `DomAnchor`(见 `src/widgets/dom.ts` 的文件头);
+   只要文档,不挂东西的地方(键盘监听挂 document)另走 `anchorDocument()`,它收任何节点.
 
 ## 测试
 

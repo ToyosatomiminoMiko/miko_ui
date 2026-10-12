@@ -54,23 +54,21 @@ export interface DesktopHandle {
  * @param spec 桌面配置,逐窗口内容与背景
  */
 export function mountDesktop(root: HTMLElement, spec: DesktopSpec): DesktopHandle {
-    const doc = root.ownerDocument;
-
     // 背景先落,DOM 顺序保持"背景 -> 窗口层 -> 吸附预览 -> Dock"(层叠顺序由
-    // 配置里的 z-index 决定,这里只让人读起来是同一个结构).
-    root.append(...childNodes(spec.background ?? [], doc));
+    // 配置里的 z-index 决定,这里只让人读起来是同一个结构).三层容器把 `root`
+    // 当锚点:建完即挂,文档也从它反查,不再先取一次 ownerDocument 再 append.
+    root.append(...childNodes(spec.background ?? [], root));
 
-    const windowLayer = create_element({ tag: 'div', root: doc }, { class: 'window-layer' });
-    const snapPreview = create_element({ tag: 'div', root: doc }, {
+    const windowLayer = create_element({ tag: 'div', into: root }, { class: 'window-layer' });
+    const snapPreview = create_element({ tag: 'div', into: root }, {
         class: 'snap-preview',
         'aria-hidden': 'true',
     });
-    const dock = create_element({ tag: 'div', root: doc }, {
+    const dock = create_element({ tag: 'div', into: root }, {
         class: 'dock',
         role: 'toolbar',
         'aria-label': '窗口',
     });
-    root.append(windowLayer, snapPreview, dock);
 
     // 内容按窗口 id 现取:窗口清单就是构造参数,不依赖 DOM 里有宿主.
     const content: (id: WindowId) => WindowContentSpec = spec.content ?? (() => ({}));

@@ -15,11 +15,11 @@ export * from './reactive';
 
 // DOM 原语与通用小件.
 //
-// 这一行是唯一的例外,**不能**写 `export *`:同一个文件里还住着库内的根上下文
-// 口径(`DomRoot` / `rootDocument`),`export *` 会把它们一起放出去.消费者手上已经
-// 有 `Document` / `ShadowRoot`,直接填进 `create_element({ tag, root })` 或
-// `CodeEditorOptions.root` 就行,不需要命名那个类型.逐个列名的代价是"新增一个导出件
-// 要记得补一行" -- 这是不公开根上下文必须付的账,别把这一行改回 `export *`.
+// 这一行是唯一的例外,**不能**写 `export *`:同一个文件里还住着库内的挂载锚点
+// 口径(`DomAnchor` / `anchorDocument`),`export *` 会把它们一起放出去.消费者手上
+// 已经有一个能挂节点的父节点,直接填进 `create_element({ tag, into })` 或
+// `CodeEditorOptions.into` 就行,不需要命名那个类型.逐个列名的代价是"新增一个导出件
+// 要记得补一行" -- 这是不公开锚点口径必须付的账,别把这一行改回 `export *`.
 export { childNodes, create_element, nextWidgetId } from './widgets/dom';
 export type { Child, ElementAttributes, ElementSpec } from './widgets/dom';
 export * from './widgets/Button';

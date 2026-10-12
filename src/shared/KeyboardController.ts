@@ -8,7 +8,7 @@
  *
  * 绑定/解绑严格成对:bind() 之后必须 dispose(),由调用方负责清理.
  */
-import { rootDocument, type DomRoot } from '../widgets/dom';
+import { anchorDocument } from '../widgets/dom';
 
 export interface KeyboardActions {
     /** [键盘事件]按下`home`键(焦点不在输入控件里时) */
@@ -58,10 +58,10 @@ export class KeyboardController {
     private readonly editor: HTMLElement | null;
     private readonly actions: KeyboardActions;
     /**
-     * keydown 挂载的 document:从 `editor.ownerDocument` 反查,或由调用方
-     * 显式给 root.挂 document 而不是某个容器,是因为键盘事件要"在冒泡末端"
-     * 按注册顺序路由(见文件头);Shadow DOM 里的 keydown 是 composed 的,
-     * 同样会到达所属 document.
+     * keydown 挂载的 document:从 `editor` 反查(编辑器在哪棵树里,键盘就在哪棵树
+     * 的末端路由),或由调用方给锚点.挂 document 而不是某个容器,是因为键盘事件
+     * 要"在冒泡末端"按注册顺序路由(见文件头);Shadow DOM 里的 keydown 是
+     * composed 的,同样会到达所属 document.
      */
     private readonly doc: Document;
 
@@ -71,10 +71,11 @@ export class KeyboardController {
      */
     private readonly bindings: KeyboardBinding[];
 
-    constructor(editor: HTMLElement | null, actions: KeyboardActions, root?: DomRoot) {
+    constructor(editor: HTMLElement | null, actions: KeyboardActions, anchor?: Node) {
         this.editor = editor;
         this.actions = actions;
-        this.doc = rootDocument(root ?? editor?.ownerDocument);
+        // 锚点 -> 文档:编辑器自己就是锚点(它在哪棵树里,监听就挂哪棵树的末端).
+        this.doc = anchorDocument(anchor ?? editor ?? document);
         this.bindings = [
             {
                 keys: ['Home'],
