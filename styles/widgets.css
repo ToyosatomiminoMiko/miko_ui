@@ -266,7 +266,7 @@
    想改字号请改**令牌**,不要在这里比特异度:`--katex-font-size` 就是这条规则的
    唯一输入;这条规则只覆盖 `font-size` 一个 longhand,KaTeX 的 font-family 与
    line-height 仍由它自己那份 `font` 简写提供. */
-.ui-formula > .katex {
+.ui-formula>.katex {
     font-size: var(--katex-font-size);
 }
 
@@ -571,4 +571,5 @@
     min-height: 0;
     padding: var(--panel-body-padding);
     border-radius: 0 0 var(--radius-md) var(--radius-md);
+    margin-bottom: 10px;
 }
