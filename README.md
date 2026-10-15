@@ -330,6 +330,7 @@ createReadoutRow('方位角', {
 | 分组 | 内容 |
 | --- | --- |
 | `widgets/dom.ts` | DOM 创建层:`create_element({ tag, into }, attributes, ...children)`(给了 `into` 就建完即挂)/ `childNodes` / `nextWidgetId`,创建层与属性层的类型分开;同在这一个文件里的 `DomAnchor` / `anchorDocument`(锚点 -> 文档)是**库内口径**,不从 `miko_ui` 导出 |
+| `widgets/svg/` | SVG 创建层:`create_svg_element({ tag, into }, attributes, ...children)`,与 `create_element` 同形,但标签名收 `keyof SVGElementTagNameMap`,节点建在 **SVG 命名空间**里.它存在的理由只有一个:`create_element({ tag: 'circle' })` 给的是 `HTMLUnknownElement` -- 不渲染,不占几何,收不到指针事件,而且**不报错**(HTML 解析器里"按上下文收编命名空间"的特例只对 `<svg>` 根成立,对内容不成立).连 `<svg>` 根也建议走这一件(拿到 `SVGSVGElement`),理由见该文件头.属性表与子节点类型直接复用 `widgets/dom.ts` 的 `ElementAttributes` / `Child`,不另立一份镜像 |
 | `reactive/` | 值源与派生值(`signal` / `computed` / `effect` / `onValueChange` 一族):控件的值参数可以直接传这一层的东西 |
 | `widgets/` | 控件与行级布局件:按钮 / 开关 / 分段 / 滑杆(裸滑杆与系数滑块)/ 数值框 / 只读读数件 / 浮层 / 徽章 / 带标题栏的框体(桌面窗口复用同一组 `.ui-panel*` 基类)/ 菜单,以及 `create*Row` 一族行外壳 |
 | `shared/` | 跨组件共用的交互与行外壳:唯一拖拽实现,行缓存,值↔文本口径(见下节),行外壳.键盘不在这里 -- 本库不定义任何键盘行为 |

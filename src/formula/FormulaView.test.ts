@@ -86,17 +86,24 @@ describe('setFormulaRenderer', () => {
         expect(createFormulaElement('z').textContent).toBe('乙:z');
     });
 
-    it('传 null 还原默认渲染器:桩环境里真 KaTeX 排不了(没有 createElementNS)', () => {
+    it('传 null 还原默认渲染器:真的走 KaTeX 排版,不是文本替身', () => {
         setFormulaRenderer(TEXT_FORMULA_RENDERER);
         expect(createFormulaElement('q').textContent).toBe('q');
 
         setFormulaRenderer(null);
-        // 换回真 KaTeX 后同一串 LaTeX 走排版路径.手写 DOM 桩只实现库与消费者
-        // 真正用到的 API,而真 KaTeX 要 `createElementNS` -- 所以这里会抛.
-        // 断言 message 而不是只断言 TypeError:后者在"默认渲染器整个坏掉"
-        // (`katex.render` 不是函数,katex 导入成 undefined)时也会通过,那条红线
-        // 就白设了.
-        expect(() => createFormulaElement('q')).toThrow(/createElementNS/);
+        // 换回真 KaTeX.桩现在给得出 `createElementNS`(见 domStub 的说明),所以
+        // 这里**能正面断言**:真 KaTeX 排出来的结构就是 `.katex` 包
+        // `.katex-mathml` + `.katex-html`.
+        //
+        // 原先这条断言是"桩没有 createElementNS,所以这里会抛",理由是"能抛就说明
+        // 它真的去调 KaTeX 了".那个理由随着桩补上命名空间而失效(再不抛了),
+        // 而且它本来就是**反向**的:任何一处与 KaTeX 无关的桩缺口都能让它变绿.
+        // 现在改成直接看 KaTeX 的产物 -- 默认渲染器整个坏掉(如 katex 导入成
+        // undefined)时,这两条会立刻红,红线比原来更紧.
+        const rendered = createFormulaElement('q');
+        expect(rendered.querySelector('.katex')).not.toBeNull();
+        expect(rendered.querySelector('.katex-mathml')).not.toBeNull();
+        expect(rendered.querySelector('.katex-html')).not.toBeNull();
     });
 
     it("installDomStub({ formula: 'keep' }) 不覆盖已装的渲染器", () => {

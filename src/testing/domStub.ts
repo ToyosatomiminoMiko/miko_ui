@@ -335,7 +335,18 @@ export class StubElement {
         },
     });
 
-    constructor(readonly tagName: string) {}
+    constructor(
+        readonly tagName: string,
+        /**
+         * 真 DOM 的 `namespaceURI`:节点在哪个命名空间里.
+         *
+         * 默认是 HTML(走 `createElement` 的情形);`createElementNS` 建的节点由它
+         * 写入.这不是多余的记账 -- `createElementNS` 唯一的可观测效果就是命名空间,
+         * 断言"节点真的建在 SVG 命名空间里"只能读这个字段(图形不渲染 / 收不到事件
+         * 这些后果在桩里都不存在).
+         */
+        readonly namespaceURI: string = 'http://www.w3.org/1999/xhtml',
+    ) {}
 
     get parentElement(): StubElement | null {
         return this.parent;
@@ -743,6 +754,15 @@ export interface StubDocument {
     /** 真 DOM 的 `document.defaultView`:库从它取 window. */
     readonly defaultView: StubWindow;
     createElement(tag: string): StubElement;
+    /**
+     * 按命名空间建节点.
+     *
+     * 真 DOM 里 SVG 内容节点只能这么建(`createElement('circle')` 给的是
+     * `HTMLUnknownElement`,不渲染也不收事件),而那个差别**在桩里看不出来**:
+     * 桩是手写的节点树,没有渲染与命中这回事.所以 `namespaceURI` 必须显式记下来,
+     * 让"建对了命名空间"这件事有断言可写(见 `widgets/svg/dom.test.ts`).
+     */
+    createElementNS(namespaceURI: string, tag: string): StubElement;
     createTextNode(text: string): StubText;
     createDocumentFragment(): StubElement;
     querySelector<T>(selector: string): T | null;
@@ -767,8 +787,9 @@ export interface DomStubOptions {
      *
      * - `'text'`:装上文本替身(把 LaTeX 原样写进元素),公式断言不碰 katex;
      * - `'keep'`:**保留当前渲染器**什么都不做 -- 给"桩里也要跑真 KaTeX / 自定义
-     *   渲染器"的用例用(真 KaTeX 需要 `createElementNS`,手写桩给不了,所以这条
-     *   只在补过桩的用例里有意义).
+     *   渲染器"的用例用.真 KaTeX 要 `createElementNS`,桩现在给得出(见
+     *   {@link StubDocument.createElementNS}),所以这条在桩里是**真能跑通**的,
+     *   不再是"只在补过桩的用例里有意义".
      */
     readonly formula?: 'text' | 'keep';
 }
@@ -811,6 +832,11 @@ export function installDomStub(options: DomStubOptions = {}): DomStub {
         },
         createElement: (tag: string) => {
             const element = new StubElement(tag);
+            element.ownerDocument = document;
+            return element;
+        },
+        createElementNS: (namespaceURI: string, tag: string) => {
+            const element = new StubElement(tag, namespaceURI);
             element.ownerDocument = document;
             return element;
         },

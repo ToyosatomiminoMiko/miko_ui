@@ -22,6 +22,10 @@ export * from './reactive';
 // 要记得补一行" -- 这是不公开锚点口径必须付的账,别把这一行改回 `export *`.
 export { childNodes, create_element, nextWidgetId } from './widgets/dom';
 export type { Child, ElementAttributes, ElementSpec } from './widgets/dom';
+// SVG 命名空间的原语.与上面那一行同层而不是与控件同层:它是 `create_element` 的
+// **另一条命名空间的路**,不是"某个控件";`export *` 在这里安全,因为这个文件里只有
+// 创建层(`SvgElementSpec` / `create_svg_element`),没有锚点口径要挡.
+export * from './widgets/svg/dom';
 export * from './widgets/Button';
 export * from './widgets/Switch';
 export * from './widgets/Segmented';
