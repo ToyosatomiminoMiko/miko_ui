@@ -2,7 +2,9 @@
  * miko_ui 桌面窗口化样式
  * --------------------------------------------------------------------------
  * 负责:
- *   - 三层容器与桌面背景的堆叠(背景归消费者;.window-layer / .snap-preview / .dock 归本层)
+ *   - 桌面骨架:桌面根(`.desktop-root`,由库在 `mountDesktop()` 里挂上)与背景层
+ *     (`.desktop-background`,消费者给自己的背景节点挂上),以及三层容器的堆叠
+ *     (`.window-layer` / `.snap-preview` / `.dock` 归本层;背景画什么归消费者)
  *   - 窗口外壳(.window / .window-header / .window-title / .window-actions /
  *     .window-controls / .window-body):外壳的公共外观在 `widgets.css` 的
  *     `.ui-panel*`(面板与窗口共用同一框体),这里只写窗口的差异
@@ -23,6 +25,46 @@
  *      在隐藏期间会量到 0 尺寸,恢复后对齐错乱.
  * ========================================================================== */
 
+
+/* ==========================================================================
+ * 桌面骨架:根与背景层
+ * ========================================================================== */
+
+/* 桌面根:库在 `mountDesktop()` 里把这个类挂到消费者给的容器上(见
+   `src/desktop/mountDesktop.ts`).下面两条是**硬要求**,不是观感:
+
+   1. `position: relative`:窗口层是 `absolute; inset: 0`,参照物必须是这个根.
+      根若是 `static`,层会以初始包含块(视口)为参照 -- 嵌在页面里的一块桌面会
+      铺满整页,窗口几何也按视口算;
+   2. `overflow: hidden`:窗口几何按根的 `clientWidth/clientHeight` 算,滑条一旦
+      出现,这个尺寸就随滚动条变化;窗口被 `edgeKeep` / `edgeGap` 夹在桌面里,
+      桌面这一层永远不该有滑条.
+
+   宽高**不在这里**:宿主可能是整页,也可能是页面里的一块.库只要求它有确定的
+   尺寸(尺寸为 0 时窗口几何退化,见 `WindowManager._measureDesktop()`).
+   特异性上消费者仍占上风:`#app` 这类 id 选择器比单个类更具体,应用要更宽的
+   行为改得动;但"定位 + 不滚动"这条契约不该被绕开. */
+.desktop-root {
+    position: relative;
+    overflow: hidden;
+}
+
+/* 桌面背景层:桌面根之下,窗口层之上的那块内容(3D 视口 / 画布 / 结构图 ...).
+   节点**不是库建的**:消费者建好,经 `mountDesktop(root, { background })` 交给库,
+   由库 append 到根上.所以外观靠这个**可选挂的类**统一,而不是靠库猜背景节点长
+   什么样:消费者给背景节点挂上 `.desktop-background`,就得到与三层容器同一套口径
+   的定位与底色,自己再补绘制与尺寸(如 SVG 的 `width/height: 100%`).
+
+   为什么必须定位且 `z-index: 0`:窗口层是带着 z-index 的定位元素,背景按文档流
+   排的话两者谁在上要看层叠顺序的细节;给它一个显式的 0,顺序就是确定的
+   (吸附预览 50 / 窗口层 100 / Dock 200,唯一来源是 `DesktopConfig.z`).
+   背景要收指针事件(3D 视口 / 可交互画布),所以这里不写 `pointer-events`. */
+.desktop-background {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--color-bg-desktop);
+}
 
 /* 窗口层:建立窗口的定位参照与 z-order 层.
    整层不拦截指针是关键:桌面空白处(窗口没盖住的地方)

@@ -99,6 +99,18 @@ describe('mountDesktop', () => {
         expect(root.children[0]).toBe(background);
     });
 
+    it('桌面根挂上 .desktop-root,dispose 后撤掉', () => {
+        // 定位上下文与不滚动是窗口系统的硬要求(见 styles/desktop.css),写在类里
+        // 而不是行内样式:消费者的 id 选择器仍占上风.
+        const { root, desktop } = mount();
+
+        expect(root.classList.contains('desktop-root')).toBe(true);
+
+        desktop.dispose();
+
+        expect(root.classList.contains('desktop-root')).toBe(false);
+    });
+
     it('dispose 把正文节点还回 root,并删掉三层容器', () => {
         const { root, desktop, content } = mount();
         const source = content[WINDOWS[0].id];

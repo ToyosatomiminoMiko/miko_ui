@@ -8,6 +8,10 @@
  * 库**不猜**"消费者有哪些窗口":窗口清单,标题全部是构造参数(见
  * `desktop/types.ts`).库默认值 `DEFAULT_DESKTOP_CONFIG` 里**没有窗口**,
  * 只给每个桌面都成立的量(动作 / 余量 / 标题栏高度 / z / 吸附).
+ *
+ * 库对容器只做两件事,都不算"接管":给它挂 `.desktop-root`(定位上下文与不滚动,
+ * 见 `styles/desktop.css`),以及把 `--dock-reserve` / `--window-header-height`
+ * 写成行内变量.容器本身的尺寸与其余样式仍旧归消费者.
  */
 import { childNodes, create_element, type Child } from '../widgets/dom';
 import { WindowManager, type WindowContentSpec } from './WindowManager';
@@ -28,6 +32,10 @@ export interface DesktopSpec extends DesktopConfig {
      *
      * 直接 append 到 root,不额外套一层:消费者的 CSS 就是按"背景节点是桌面根
      * 的直接子节点"写的,多包一层会改变选择器与堆叠上下文.
+     *
+     * 定位与底色由库的可选类 `.desktop-background` 统一(见 `styles/desktop.css`):
+     * 给自己的背景节点挂上它就够了,绘制(3D / 画布 / SVG)与尺寸仍归消费者;
+     * 不挂则完全按消费者自己的样式来 -- 库不猜背景节点长什么样.
      */
     readonly background?: readonly Child[];
 }
@@ -54,6 +62,12 @@ export interface DesktopHandle {
  * @param spec 桌面配置,逐窗口内容与背景
  */
 export function mountDesktop(root: HTMLElement, spec: DesktopSpec): DesktopHandle {
+    // 桌面根先挂库的类:`.desktop-root` 给"定位上下文 + 不滚动"两条硬要求(窗口层
+    // 是 absolute;几何按根的 clientWidth/Height 算).写成样式表里的类而不是行内
+    // 样式,消费者的 id 选择器仍占上风;拆除时一并撤掉,与 `_writeShellVars` 的
+    // 行内变量同一处理(同一个 root 再挂一个桌面时不留上一轮的痕迹).
+    root.classList.add('desktop-root');
+
     // 背景先落,DOM 顺序保持"背景 -> 窗口层 -> 吸附预览 -> Dock"(层叠顺序由
     // 配置里的 z-index 决定,这里只让人读起来是同一个结构).三层容器把 `root`
     // 当锚点:建完即挂,文档也从它反查,不再先取一次 ownerDocument 再 append.
@@ -88,6 +102,8 @@ export function mountDesktop(root: HTMLElement, spec: DesktopSpec): DesktopHandl
             windowLayer.remove();
             snapPreview.remove();
             dock.remove();
+            // 类是本函数挂上去的,跟着撤:拆除后 root 回到消费者交出来的样子.
+            root.classList.remove('desktop-root');
         },
     };
 }

@@ -176,9 +176,17 @@ const windows: readonly WindowConfigEntry[] = [
     },
 ];
 
+// 桌面背景:库只负责把它 append 到桌面根上(第一个子节点).挂上库的
+// `.desktop-background` 就得到统一的定位与底色(见下"桌面宿主契约"),
+// 画什么(3D / 画布 / 结构图)与尺寸归应用.
+const viewport = document.createElement('div');
+viewport.id = 'viewport';
+viewport.classList.add('desktop-background');
+
 mountDesktop(document.getElementById('app')!, {
     ...DEFAULT_DESKTOP_CONFIG,
     windows,
+    background: [viewport],
     content: (id) => (id === 'main'
         ? {
             body: [createControlGroup(
@@ -217,6 +225,27 @@ radius.subscribe((value) => renderer.setPointRadius(value));
   锚点**.依赖(`after`)由这个函数内部解,窗口清单不必按依赖序排好.
   `RelativeGeometry` 的四个轴都是必填,某个锚点会盖掉同轴另一项时写占位值
   (如并排时 `x: 'center'`),类型里不存在"这个轴没写"的分支.
+
+### 桌面宿主契约(根 / 背景 / 底色)
+
+背景不是"被忘了",而是**显式归消费者**:库不认识 3D 视口 / 画布 / 结构图是什么,
+只知道桌面根之上要压一层窗口层.所以只有下面四处口径,全是死的:
+
+| 谁 | 给什么 | 内容 |
+| --- | --- | --- |
+| 库 | 给容器挂 `.desktop-root` | `position: relative`(窗口层是 `absolute; inset: 0`,参照物必须是这个根,否则以视口为参照)+ `overflow: hidden`(几何按根的 `clientWidth/clientHeight` 算,滑条会让那个尺寸变).宽高归消费者:宿主可能是整页,也可能是页面里的一块 |
+| 消费者 | 背景节点 | 建好交给 `mountDesktop(root, { background })`,库把它 append 成根的**第一个**子节点(直接子节点,不套层).可以是一个也可以是一组 |
+| 库(可选类) | 背景层的定位与底色 | 背景节点挂 `.desktop-background`:`position: absolute; inset: 0; z-index: 0`(吸附预览 50 / 窗口层 100 / Dock 200,唯一来源是 `DesktopConfig.z`)+ `background: var(--color-bg-desktop)`.不挂则完全按消费者自己的样式来 |
+| 消费者 | 背景画什么 | 3D / 画布 / SVG 都行,尺寸与绘制归应用;`.desktop-background` 的底色在自绘之下,只当兜底与首帧 |
+
+- **底色只有一个名字**:`--color-bg-desktop`(默认 `var(--color-bg-app)`,见
+  `styles/tokens.css` 的表面层次).要让桌面与页面分家(嵌在别人页面里的桌面,
+  或自绘背景的兜底色),覆盖这一条,别再造 `--app-bg-page` 之类的第二个 token --
+  否则"桌面背景是什么颜色"就有两处真相.
+- **自绘内容不受这条约束**:WebGL 场景色,树的线条颜色是**应用属性**,库不规定
+  (它是库不认识的领域);受约束的只是"桌面底色"这个 CSS 概念.
+- 桌面根由库挂类,背景层由消费者挂类,两边都不写行内样式:消费者的 id 选择器
+  比单个类更具体,要改就改得动;`dispose()` 会撤掉库挂的类,容器回到交出来的样子.
 
 ## 值 ↔ 文本口径(`ValueText`)
 

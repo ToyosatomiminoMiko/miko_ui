@@ -548,8 +548,14 @@ const WINDOWS: readonly WindowConfigEntry[] = [
 
 const CONFIG: DesktopConfig = { ...DEFAULT_DESKTOP_CONFIG, windows: WINDOWS };
 
+// 桌面背景:库只把它 append 到桌面根上(第一个子节点),`.desktop-background` 给
+// 统一的定位与底色(`--color-bg-desktop`).示例不画别的东西 -- 这里是"最小的一层",
+// 要看自绘背景(3D 视口 / SVG 结构图)的做法见两个应用的仓库.
+const backdrop = create_element({ tag: 'div' }, { class: 'desktop-background' });
+
 mountDesktop(root, {
     ...CONFIG,
+    background: [backdrop],
     // `content` 是一个函数(库按窗口 id 逐个调用,正文节点是**搬进去**而不是
     // 重建的),函数体里用什么写法都行:`switch` / `if` / 一张 id -> 内容 的表.
     content: (id) => {

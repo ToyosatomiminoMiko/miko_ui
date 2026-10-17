@@ -31,11 +31,13 @@ body {
     color: var(--color-text);
 }
 
+/* 桌面容器只给尺寸.`position: relative` 与 `overflow: hidden` 由库的 `.desktop-root`
+   给(见 miko_ui 的 styles/desktop.css):窗口层是 `absolute; inset: 0`,参照物必须
+   是这个根;窗口几何按根的 `clientWidth/clientHeight` 算,桌面这一层不该有滑条.
+   尺寸仍是消费者的事 -- 宿主可能是整页,也可能只是页面里的一块. */
 #app {
-    position: relative;
     width: 100vw;
     height: 100vh;
-    overflow: hidden;
 }
 
 /* ------------------------------------------------------ 窗口正文里的一列 */
