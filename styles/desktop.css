@@ -366,9 +366,10 @@
     gap: 4px;
 }
 
-/* Dock 里的按钮(`dock-btn` = 每个窗口一枚,`dock-action` = 桌面动作)**不另设
-   外观**:它们都是 `createButton` 建的,吃 `.ui-button` 基线.下面只写"这个按钮
-   代表的东西"的状态 -- 当前聚焦的窗口亮起,最小化的窗口淡化;两个类名本身只是
+/* Dock 里的按钮(`dock-btn` = 每个窗口一枚,`dock-action` = 桌面动作:消费者在
+   `DesktopConfig.dockActions` 里声明的动作 + 库的「全部还原」)**不另设外观**:
+   它们都是 `createButton` 建的,吃 `.ui-button` 基线.下面只写"这个按钮代表的
+   东西"的状态 -- 当前聚焦的窗口亮起,最小化的窗口淡化;两个类名本身只是
    定位 / 状态钩子. */
 .dock-btn.is-active {
     color: var(--color-text-active);

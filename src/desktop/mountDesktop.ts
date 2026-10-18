@@ -5,9 +5,10 @@
  * 或事先建好交给库,库负责建容器并把节点搬进去.库因此不要求消费者先写一份
  * "宿主清单":漏一个要到运行期才炸,同页两个实例还会因 id 重复而串味.
  *
- * 库**不猜**"消费者有哪些窗口":窗口清单,标题全部是构造参数(见
- * `desktop/types.ts`).库默认值 `DEFAULT_DESKTOP_CONFIG` 里**没有窗口**,
- * 只给每个桌面都成立的量(动作 / 余量 / 标题栏高度 / z / 吸附).
+ * 库**不猜**"消费者有哪些窗口 / 任务栏动作":窗口清单,标题,任务栏动作全是构造
+ * 参数(见 `desktop/types.ts`).库默认值 `DEFAULT_DESKTOP_CONFIG` 里**没有窗口,
+ * 也没有任务栏动作**,只给每个桌面都成立的量(标题栏动作 / 余量 / 标题栏高度 /
+ * z / 吸附).
  *
  * 库对容器只做两件事,都不算"接管":给它挂 `.desktop-root`(定位上下文与不滚动,
  * 见 `styles/desktop.css`),以及把 `--dock-reserve` / `--window-header-height`
@@ -38,6 +39,14 @@ export interface DesktopSpec extends DesktopConfig {
      * 不挂则完全按消费者自己的样式来 -- 库不猜背景节点长什么样.
      */
     readonly background?: readonly Child[];
+    /**
+     * 点击任务栏里**消费者声明的动作**(清单是 `DesktopConfig.dockActions`,见
+     * `types.ts` 的 `DockActionSpec`):库只把动作 id 原样交回来,不认识它的语义.
+     *
+     * 不传时消费者动作的按钮仍然建出来(它们属于任务栏结构),只是点下去什么也
+     * 不发生 -- 与"声明了动作却没接线"是同一件事,库不替消费者兜底.
+     */
+    readonly onDockAction?: (id: string) => void;
 }
 
 /** `mountDesktop()` 的返回值:三层容器,窗口管理器与一次性的拆卸入口. */
@@ -87,7 +96,14 @@ export function mountDesktop(root: HTMLElement, spec: DesktopSpec): DesktopHandl
     // 内容按窗口 id 现取:窗口清单就是构造参数,不依赖 DOM 里有宿主.
     const content: (id: WindowId) => WindowContentSpec = spec.content ?? (() => ({}));
 
-    const windows = new WindowManager(spec, windowLayer, dock, snapPreview, content);
+    const windows = new WindowManager(
+        spec,
+        windowLayer,
+        dock,
+        snapPreview,
+        content,
+        spec.onDockAction,
+    );
     windows.bind();
 
     return {

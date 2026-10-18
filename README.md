@@ -186,6 +186,12 @@ viewport.classList.add('desktop-background');
 mountDesktop(document.getElementById('app')!, {
     ...DEFAULT_DESKTOP_CONFIG,
     windows,
+    // 任务栏右侧动作区:应用级动作(顺序即显示顺序),整组排在库的「全部还原」
+    // 左边.库只建按钮并把 id 交回来,不认识"半径复位"是什么.
+    dockActions: [{ id: 'reset-radius', text: '半径复位' }],
+    onDockAction: (id) => {
+        if (id === 'reset-radius') radius.value = 0.2;
+    },
     background: [viewport],
     content: (id) => (id === 'main'
         ? {
@@ -206,6 +212,11 @@ radius.subscribe((value) => renderer.setPointRadius(value));
 
 - **宿主由库建**:`mountDesktop(root, spec)` 自己建窗口层 / 吸附预览 / Dock 与
   每个窗口的正文,消费者只给一个空容器与内容.页面里不需要任何 id 宿主.
+- **任务栏动作可以配置**:`DesktopConfig.dockActions` 声明应用级动作(顺序即显示
+  顺序,整组排在库的「全部还原」左边),点击由 `mountDesktop` 的
+  `onDockAction(id)` 接;库只建按钮(走 `createButton`)与上报 id,不认识动作的
+  语义.消费者因此不需要知道 `.dock-actions` 这类内部结构,也不需要自己把现成
+  节点塞进任务栏.
 - **状态绑定**:控件的 `value` 接受 `T | Signal<T>`.传普通值 = 传统行为;
   传 signal = 双向绑定(值变了控件自己更新,用户操作写回 signal).
 - **样式只有类名**:库的样式表里没有 id 选择器,所以消费者不需要为库准备
@@ -363,7 +374,7 @@ createReadoutRow('方位角', {
 | `reactive/` | 值源与派生值(`signal` / `computed` / `effect` / `onValueChange` 一族):控件的值参数可以直接传这一层的东西 |
 | `widgets/` | 控件与行级布局件:按钮 / 开关 / 分段 / 滑杆(裸滑杆与系数滑块)/ 数值框 / 只读读数件 / 浮层 / 徽章 / 带标题栏的框体(桌面窗口复用同一组 `.ui-panel*` 基类)/ 菜单,以及 `create*Row` 一族行外壳 |
 | `shared/` | 跨组件共用的交互与行外壳:唯一拖拽实现,行缓存,值↔文本口径(见下节),行外壳.键盘不在这里 -- 本库不定义任何键盘行为 |
-| `desktop/` | 桌面窗口系统:装配入口(`mountDesktop` / 窗口槽位),窗口管理器与几何 / 拖动 / 吸附 / 停靠件,桌面配置类型与 `DEFAULT_DESKTOP_CONFIG` |
+| `desktop/` | 桌面窗口系统:装配入口(`mountDesktop` / 窗口槽位),窗口管理器与几何 / 拖动 / 吸附 / 停靠件,桌面配置类型(窗口清单 / 标题栏动作 / 任务栏消费者动作 `dockActions`)与 `DEFAULT_DESKTOP_CONFIG` |
 | `editor/` | 编辑器外壳:整套结构装配,行号栏,高亮层(分词与槽宽由消费者注入),以及保住原生撤销栈的程序化写入.**编辑器自己不滚**:外框随内容长高长宽,滚动归装它的那一层(见下"编辑器不滚,宿主滚") |
 | `feedback/` | 消息区容器(`MessageArea`:列表节奏 + 滚动 + `aria-live`;框体可加变体类 `message-area--unframed` 去掉,见 `modifier`)与消息 / 诊断条目(`MessageList`),零领域依赖 |
 | `formula/` | KaTeX 公式件与复制反馈(KaTeX 的排版,样式与渲染器出口都在库里,`katex` 是库自带的运行时依赖,应用侧不声明) |

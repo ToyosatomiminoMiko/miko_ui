@@ -3,7 +3,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installDomStub, type DomStub, type StubElement } from '../testing/domStub';
-import { DEFAULT_DESKTOP_CONFIG, type WindowConfigEntry } from './types';
+import { DEFAULT_DESKTOP_CONFIG, type DockActionSpec, type WindowConfigEntry } from './types';
 import { mountDesktop } from './mountDesktop';
 
 let stub: DomStub;
@@ -29,7 +29,11 @@ beforeEach(() => {
     stub = installDomStub();
 });
 
-function mount(options: { background?: HTMLElement[] } = {}) {
+function mount(options: {
+    background?: HTMLElement[];
+    dockActions?: readonly DockActionSpec[];
+    onDockAction?: (id: string) => void;
+} = {}) {
     const root = stub.document.createElement('div');
     root.id = 'app';
     root.offsetWidth = 1280;
@@ -46,6 +50,8 @@ function mount(options: { background?: HTMLElement[] } = {}) {
         windows: WINDOWS,
         background: options.background,
         content: (id) => ({ body: [content[id] ?? ''] }),
+        dockActions: options.dockActions ?? [],
+        onDockAction: options.onDockAction,
     });
     return { root, desktop, content };
 }
@@ -97,6 +103,31 @@ describe('mountDesktop', () => {
         const { root } = mount({ background: [background as unknown as HTMLElement] });
 
         expect(root.children[0]).toBe(background);
+    });
+
+    it('消费者声明的任务栏动作由库装配:动作区里排在「全部还原」左边,点击上报 id', () => {
+        // 这条是 dock 定义的入口:RBT 的「回正」这类应用级动作不再需要消费者
+        // 自己往 `.dock-actions` 里塞现成节点.
+        const clicked: string[] = [];
+        const { desktop } = mount({
+            dockActions: [
+                { id: 'fit', text: '回正', title: '回到看得见的视角' },
+                { id: 'reset', text: '归零' },
+            ],
+            onDockAction: (id) => clicked.push(id),
+        });
+
+        const area = (desktop.dock as unknown as StubElement).querySelector<StubElement>('.dock-actions')!;
+        // 动作区里全是按钮(桩的子节点联合类型含文本节点,这里按元素读文案)
+        expect(([...area.children] as StubElement[]).map((child) => child.textContent))
+            .toEqual(['回正', '归零', '全部还原']);
+
+        area.querySelector<StubElement>('[data-dock-action="fit"]')!.dispatch('click');
+        expect(clicked).toEqual(['fit']);
+
+        // 全局复位仍归库自己:点击它不会绕进 `onDockAction`.
+        area.querySelector<StubElement>('[data-dock-action="restore-all"]')!.dispatch('click');
+        expect(clicked).toEqual(['fit']);
     });
 
     it('桌面根挂上 .desktop-root,dispose 后撤掉', () => {

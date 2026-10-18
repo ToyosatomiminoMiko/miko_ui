@@ -174,12 +174,43 @@ export interface WindowConfigEntry {
 }
 
 /**
+ * 任务栏动作区里的一枚**消费者动作**.
+ * 
+ * 与 `WindowAction` 是两件事:`WindowAction` 长在**窗口标题栏**上,`id` 只有库
+ * 认识的那两个(最小化 / 最大化);这里的动作长在**任务栏**上,`id` 是消费者自己
+ * 的词 -- 库只把它写成 `data-dock-action`,点击时原样交回 `onDockAction`,不认识
+ * "回正视图"这类动作是什么,也不为它另立状态.
+ *
+ * 顺序即显示顺序,整组排在库的「全部还原」**左边**:库的全局复位是动作区的兜底
+ * 入口,固定占最后一个位置.按钮一律走 `createButton`(所以永远 `type="button"`,
+ * 并吃 `.ui-button` 基线),再叠 `dock-action` 这个定位钩子 -- 消费者不再需要知道
+ * 任务栏的内部结构(`.dock-actions`),也不需要自己拼按钮.
+ *
+ * `id` 是不透明 `string`(与 `WindowId` 同一条口径),只要求应用内唯一;不要用库
+ * 保留的 `restore-all`(那是「全部还原」的 `data-dock-action` 值).
+ */
+export interface DockActionSpec {
+    readonly id: string;
+    /** 可见文案,同时是这个按钮的可访问名(理由同 `WindowAction.text`). */
+    readonly text: string;
+    /** 悬停提示;缺省 = 不写 `title`. */
+    readonly title?: string;
+}
+
+/**
  * 桌面窗口系统的全部配置:数组顺序即 Dock 顺序与 z 初始序,不能随意调;
  * 几何依赖(`after`)由 `resolveRelativeGeometries` 内部解,与顺序无关.
  */
 export interface DesktopConfig {
     readonly windows: readonly WindowConfigEntry[];
     readonly actions: readonly WindowAction[];
+    /**
+     * 任务栏右侧动作区里由消费者声明的动作:顺序即显示顺序,整组排在库的
+     * 「全部还原」左边.点击由 `mountDesktop` 的 `onDockAction` 上报.
+     *
+     * 与 `windows` 同一条口径:库不预设任何应用动作,默认值是空数组.
+     */
+    readonly dockActions: readonly DockActionSpec[];
     /** 移动/缩放时窗口至少留在桌内的宽度(px). */
     readonly edgeKeep: number;
     /** 窗口与桌面边缘的间隙(px). */
@@ -206,7 +237,7 @@ export interface DesktopConfig {
  * 库提供的默认值占位:消费者 `{ ...DEFAULT_DESKTOP_CONFIG, windows }` 就取到
  * "每个桌面都成立"的那组数(动作 / 边缘余量 / 标题栏高度 / z / 吸附).
  *
- * `windows` 为空 -- 窗口清单是应用特有的,库不预设任何窗口.
+ * `windows` 与 `dockActions` 都为空 -- 窗口清单与任务栏动作是应用特有的,库不预设.
  */
 export const DEFAULT_DESKTOP_CONFIG: DesktopConfig = {
     windows: [],
@@ -214,6 +245,7 @@ export const DEFAULT_DESKTOP_CONFIG: DesktopConfig = {
         { id: 'minimize', text: 'min' },
         { id: 'maximize', text: 'max' },
     ],
+    dockActions: [],
     edgeKeep: 80,
     edgeGap: 16,
     headerMinVisible: 36,

@@ -555,6 +555,18 @@ const backdrop = create_element({ tag: 'div' }, { class: 'desktop-background' })
 
 mountDesktop(root, {
     ...CONFIG,
+    /*
+      任务栏动作区:库的「全部还原」左边多一枚**应用级动作**(声明见库的
+      `DockActionSpec`).文案在 dockActions 里(数据),点击只在 onDockAction 里
+      按 id 分派 -- 库不认识"数值归零"是什么,也不替应用决定点下去要写哪些 signal.
+    */
+    dockActions: [{ id: 'reset-values', text: '数值归零', title: '把三个数值写回 0' }],
+    onDockAction: (id) => {
+        if (id !== 'reset-values') return;
+        linear.value = 0;
+        angle.value = 0;
+        count.value = 0;
+    },
     background: [backdrop],
     // `content` 是一个函数(库按窗口 id 逐个调用,正文节点是**搬进去**而不是
     // 重建的),函数体里用什么写法都行:`switch` / `if` / 一张 id -> 内容 的表.

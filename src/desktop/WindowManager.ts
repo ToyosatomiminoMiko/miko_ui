@@ -119,13 +119,15 @@ export class WindowManager {
     private bound = false;
 
     /**
-     * @param config       桌面配置(窗口清单/动作/夹取常量/z 与吸附参数);
-     *                     由消费者传入,本类不读任何模块级单例
+     * @param config       桌面配置(窗口清单/标题栏动作/任务栏动作/夹取常量/z 与
+     *                     吸附参数);由消费者传入,本类不读任何模块级单例
      * @param layer        `.window-layer`:窗口的定位参照与 z-order 层
      * @param dockElement  `.dock`:顶部任务栏容器
      * @param snapElement  `.snap-preview`:吸附高亮层
      * @param content      按窗口 id 取内容(标题栏槽位 + 正文节点):节点归消费者
      *                     所有,本类只负责 `append`;正文容器 `.window-body` 由本类建
+     * @param onDockAction 任务栏里消费者动作的点击上报(动作清单在
+     *                     `config.dockActions`):库只把动作 id 交回来,不认识语义
      */
     constructor(
         private readonly config: DesktopConfig,
@@ -133,6 +135,7 @@ export class WindowManager {
         private readonly dockElement: HTMLElement,
         private readonly snapElement: HTMLElement,
         private readonly content: (id: WindowId) => WindowContentSpec,
+        private readonly onDockAction?: (id: string) => void,
     ) {}
 
     /**
@@ -268,7 +271,9 @@ export class WindowManager {
         this.dock = createDock(this.dockElement, this.config.windows, {
             onSelect: (id) => this._onDockSelect(id),
             onRestoreAll: () => this.restoreAll(),
-        });
+            // 消费者动作只上报 id,分派归消费者(见 `DesktopSpec.onDockAction`).
+            onAction: this.onDockAction,
+        }, this.config.dockActions);
 
         // 0) 桌面尺寸变化:重新夹取.监听挂在窗口层所属 document 的 window 上,
         // 库不读全局 window.

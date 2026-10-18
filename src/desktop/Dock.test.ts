@@ -1,31 +1,40 @@
 /**
- * Dock 的装配契约:按钮由窗口清单生成,点击只上报 id,
- * 激活态与隐藏态由 `setActive` / `setState` 写入.
+ * Dock 的装配契约:窗口按钮由窗口清单生成,动作区是"消费者动作(清单顺序)
+ * + 库的「全部还原」",点击只上报 id,激活态与隐藏态由 `setActive` / `setState`
+ * 写入.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TEST_DESKTOP_CONFIG, type FixtureWindowId } from '../../test/desktopFixture';
 import { installDomStub, type StubElement } from '../testing/domStub';
 import { createDock, type DockHandle } from './Dock';
+import type { DockActionSpec } from './types';
 
 interface Fixture {
     readonly container: StubElement;
     readonly dock: DockHandle;
     /** 上报的窗口 id:库侧是不透明字符串,这里按 string 收. */
     readonly selected: string[];
+    /** 上报的桌面复位 / 消费者动作 id. */
     readonly actions: string[];
 }
 
-function setup(): Fixture {
+function setup(actions: readonly DockActionSpec[] = []): Fixture {
     installDomStub();
     const container = document.createElement('div') as unknown as StubElement;
     container.id = 'dock';
     const selected: string[] = [];
-    const actions: string[] = [];
-    const dock = createDock(container as unknown as HTMLElement, TEST_DESKTOP_CONFIG.windows, {
-        onSelect: (id) => selected.push(id),
-        onRestoreAll: () => actions.push('restore-all'),
-    });
-    return { container, dock, selected, actions };
+    const reported: string[] = [];
+    const dock = createDock(
+        container as unknown as HTMLElement,
+        TEST_DESKTOP_CONFIG.windows,
+        {
+            onSelect: (id) => selected.push(id),
+            onRestoreAll: () => reported.push('restore-all'),
+            onAction: (id) => reported.push(id),
+        },
+        actions,
+    );
+    return { container, dock, selected, actions: reported };
 }
 
 function buttonOf(container: StubElement, id: FixtureWindowId): StubElement {
@@ -81,7 +90,7 @@ describe('createDock', () => {
         expect(buttonOf(container, 'objects').querySelector<StubElement>('.dock-btn-state')).toBeNull();
     });
 
-    it('唯一的桌面动作按钮(全部还原)上报意图', () => {
+    it('没有消费者动作时,动作区只有库的「全部还原」并上报意图', () => {
         const { container, actions } = setup();
 
         const buttons = container.querySelectorAll<StubElement>('.dock-action');
@@ -89,6 +98,43 @@ describe('createDock', () => {
         container.querySelector<StubElement>('[data-dock-action="restore-all"]')!.dispatch('click');
 
         expect(actions).toEqual(['restore-all']);
+    });
+
+    it('消费者动作按清单顺序排在「全部还原」左边,按钮结构与库动作一致', () => {
+        const { container } = setup([
+            { id: 'fit', text: '回正', title: '回到看得见的视角' },
+            { id: 'reset', text: '归零' },
+        ]);
+
+        const area = container.querySelector<StubElement>('.dock-actions')!;
+        // 动作区里全是按钮(桩的子节点联合类型含文本节点,这里按元素读文案)
+        const texts = ([...area.children] as StubElement[]).map((child) => child.textContent);
+        expect(texts).toEqual(['回正', '归零', '全部还原']);
+
+        const [fit, reset] = [...area.children] as StubElement[];
+        // 同一枚 `createButton` + `dock-action` 定位钩子 + `data-dock-action` = id
+        for (const [button, id] of [[fit, 'fit'], [reset, 'reset']] as const) {
+            expect(button.classList.contains('ui-button')).toBe(true);
+            expect(button.classList.contains('dock-action')).toBe(true);
+            expect(button.getAttribute('data-dock-action')).toBe(id);
+            expect(button.getAttribute('type')).toBe('button');
+        }
+        // 悬停提示可选:给就给到 title,不给就不写
+        expect(fit!.title).toBe('回到看得见的视角');
+        expect(reset!.title).toBe('');
+    });
+
+    it('消费者动作点击只上报 id,顺序与点击顺序一致', () => {
+        const { container, actions } = setup([
+            { id: 'fit', text: '回正' },
+            { id: 'reset', text: '归零' },
+        ]);
+
+        container.querySelector<StubElement>('[data-dock-action="reset"]')!.dispatch('click');
+        container.querySelector<StubElement>('[data-dock-action="fit"]')!.dispatch('click');
+        container.querySelector<StubElement>('[data-dock-action="restore-all"]')!.dispatch('click');
+
+        expect(actions).toEqual(['reset', 'fit', 'restore-all']);
     });
 
     it('内容是 .dock 的两个直接子节点:按钮组在左,桌面动作区在右(没有中间层)', () => {
