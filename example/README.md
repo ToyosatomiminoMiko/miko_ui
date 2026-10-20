@@ -75,8 +75,10 @@ npm run dev             # Vite 会打印实际端口
 
 **菜单的样式一行都不在示例里**:面板 / 分组 / 菜单项 / 注记分别是库的
 `.menu-panel` / `.menu-group` + `.menu-group-title` / `.menu-item` /
-`.menu-item-hint`,浮层位置是库的 `.menu-anchor` + `.menu-popover`.示例的
-`example.css` 只剩页面级规则与窗口正文排布.
+`.menu-item-hint`.浮层那一份由库自己的两个件负责:**锚点 `.menu-anchor` 是零盒子**
+(`display: contents`,只做 DOM 分组,不参与布局 -- 包不包这层 div,触发按钮的矩形
+完全一样),**落点归 `Popover`**(打开时量触发件,写 `left / top / min-width`,视口边
+上自动翻转 / 夹取).示例的 `example.css` 只剩页面级规则与窗口正文排布.
 
 示例挂的**库的**类名有两处,都不是"给库的类写样式",而是把库公开的两条接缝接上:
 **`ui-scrollbar`** 挂在两处会溢出的容器上(菜单面板与消息区)-- 面板有 `max-height`,

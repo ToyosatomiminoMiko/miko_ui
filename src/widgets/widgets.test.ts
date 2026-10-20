@@ -6,7 +6,7 @@
  * `{ signal }` 语义,控件漏掉信号接线会让"dispose 后仍响应事件"的回归暴露出来.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { installDomStub, StubElement } from '../testing/domStub';
+import { installDomStub, StubElement, type DomStub } from '../testing/domStub';
 import { signal } from '../reactive';
 import { createButton } from './Button';
 import { create_element } from './dom';
@@ -26,8 +26,11 @@ import { createSegmented } from './Segmented';
 import { createSlider } from './Slider';
 import { createSwitch } from './Switch';
 
+/** 每个用例一份干净桩;浮层落点测试要改视口尺寸,从这里拿桩句柄. */
+let dom: DomStub;
+
 beforeEach(() => {
-    installDomStub();
+    dom = installDomStub();
 });
 
 type Mode = 'size' | 'scale';
@@ -796,6 +799,94 @@ describe('createPopover', () => {
 
         stub(trigger).dispatch('click');
         expect(handle.isOpen).toBe(false);
+    });
+
+    /**
+     * 给触发件 / 面板一组几何.桩不做布局,矩形完全由 `offset*` 决定(见 domStub):
+     * 面板的 offset 保持 0,落点代码把 `left/top` 归零后量到的包含块原点就是 (0,0),
+     * 断言里的 `left/top` 因此直接是视口坐标.
+     */
+    function geometry(input: {
+        trigger: { x: number; y: number; w: number; h: number };
+        panel: { w: number; h: number };
+    }) {
+        const { trigger, panel, handle } = setup();
+        const t = stub(trigger);
+        t.offsetLeft = input.trigger.x;
+        t.offsetTop = input.trigger.y;
+        t.offsetWidth = input.trigger.w;
+        t.offsetHeight = input.trigger.h;
+        const p = stub(panel);
+        p.offsetWidth = input.panel.w;
+        p.offsetHeight = input.panel.h;
+        return { trigger, panel, handle };
+    }
+
+    it('打开时按触发件量出落点:左沿对齐 + 下沿对齐,min-width 跟触发件', () => {
+        const { panel, handle } = geometry({
+            trigger: { x: 100, y: 40, w: 60, h: 24 },
+            panel: { w: 220, h: 180 },
+        });
+
+        handle.open();
+
+        expect(panel.style.getPropertyValue('left')).toBe('100px');
+        expect(panel.style.getPropertyValue('top')).toBe('64px');
+        expect(panel.style.getPropertyValue('min-width')).toBe('60px');
+    });
+
+    it('右边放不下时右沿对右沿;下方放不下时翻到触发件上方', () => {
+        const { panel, handle } = geometry({
+            trigger: { x: 1100, y: 700, w: 60, h: 24 },
+            panel: { w: 220, h: 180 },
+        });
+
+        handle.open();
+
+        // 横轴:1160 - 220 = 940(视口 1280,留 8px)
+        expect(panel.style.getPropertyValue('left')).toBe('940px');
+        // 纵轴:下沿 724 + 180 越界,翻到 700 - 180 = 520
+        expect(panel.style.getPropertyValue('top')).toBe('520px');
+    });
+
+    it('开着时滚动 / 缩放重新落点;关闭后不再跟', () => {
+        const { trigger, panel, handle } = geometry({
+            trigger: { x: 100, y: 40, w: 60, h: 24 },
+            panel: { w: 220, h: 180 },
+        });
+        handle.open();
+        expect(panel.style.getPropertyValue('top')).toBe('64px');
+
+        // 触发件被滚动:开着的浮层重新量(不靠常驻 rAF).
+        stub(trigger).offsetTop = 90;
+        dom.window.dispatch('scroll');
+        expect(panel.style.getPropertyValue('top')).toBe('114px');
+
+        // 视口变窄到 300:右沿对齐后仍越界,夹到视口留白 8px.
+        dom.window.innerWidth = 300;
+        dom.window.dispatch('resize');
+        expect(panel.style.getPropertyValue('left')).toBe('8px');
+
+        handle.close();
+        const left = panel.style.getPropertyValue('left');
+        stub(trigger).offsetTop = 300;
+        stub(trigger).offsetLeft = 0;
+        dom.window.dispatch('scroll');
+        // 关闭后监听已摘:坐标停在上一次落点.
+        expect(panel.style.getPropertyValue('left')).toBe(left);
+    });
+
+    it('视口尺寸拿不到时不写坐标(离屏文档 / 未布局环境)', () => {
+        const { panel, handle } = geometry({
+            trigger: { x: 100, y: 40, w: 60, h: 24 },
+            panel: { w: 220, h: 180 },
+        });
+        dom.window.innerWidth = 0;
+
+        handle.open();
+
+        expect(panel.style.getPropertyValue('left')).toBe('');
+        expect(panel.style.getPropertyValue('top')).toBe('');
     });
 });
 

@@ -72,8 +72,13 @@ body {
 
 /* 这一列默认把子节点拉满(库的 `.window-body > *`),计数按钮因此会被拉成整行宽;
    按内容宽度才像一枚普通按钮(库的 `.ui-button` 只管外观,不管在什么容器里).
-   同样是"库没有显式排布出口"的代价:Phase 4 的"直接子节点不拉伸"落地后可以删. */
-.pane > button {
+   同样是"库没有显式排布出口"的代价:Phase 4 的"直接子节点不拉伸"落地后可以删.
+
+   `.menu-anchor` 是零盒子(`display: contents`):它的按钮在**盒树**里是 `.pane` 的
+   直接 flex item(默认会被拉满),但 DOM 父节点仍是锚点,`.pane > button` 选不中它 --
+   菜单触发按钮因此要另写一条(这里排的是示例自己的正文,不是给库的类写外观). */
+.pane > button,
+.pane > .menu-anchor > button {
     align-self: flex-start;
 }
 

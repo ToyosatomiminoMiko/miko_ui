@@ -279,11 +279,14 @@ export class StubElement {
     /** `<details>` 的开合状态;普通元素上无意义. */
     open = false;
     /**
-     * 排版尺寸:桩不做布局,由测试自己按用例赋值(分隔条的比例换算要用).
-     * `clientHeight` / `getBoundingClientRect` 都从这两个数派生,保证同一元素
-     * 的"量高度"与"量矩形"读到的是一份数据.
+     * 排版尺寸 / 位置:桩不做布局,由测试自己按用例赋值(分隔条的比例换算,浮层
+     * 落点都要用).`clientHeight` / `getBoundingClientRect` 都从这几个数派生,
+     * 保证同一元素的"量尺寸"与"量矩形"读到的是一份数据.
+     *
+     * `offsetLeft` 是浮层落点测试的入口:包含块为页面根时,它同时是视口坐标.
      */
     offsetTop = 0;
+    offsetLeft = 0;
     offsetWidth = 0;
     offsetHeight = 0;
     /** 指针捕获状态:分隔条拖动时会 set/release,桩按真 DOM 语义记下来. */
@@ -581,8 +584,8 @@ export class StubElement {
     }
 
     /**
-     * 由 offset* 派生的矩形:测试设定 offsetTop/offsetHeight 后,
-     * "量高度"与"量矩形"两条路径读到的必然是同一份数据.
+     * 由 offset* 派生的矩形:测试设定 offsetLeft / offsetTop / offsetWidth /
+     * offsetHeight 后,"量位置 / 尺寸"与"量矩形"两条路径读到的必然是同一份数据.
      */
     getBoundingClientRect(): {
         top: number;
@@ -596,8 +599,8 @@ export class StubElement {
         const height = this.offsetHeight;
         return {
             top: this.offsetTop,
-            left: 0,
-            right: width,
+            left: this.offsetLeft,
+            right: this.offsetLeft + width,
             bottom: this.offsetTop + height,
             width,
             height,
@@ -737,6 +740,12 @@ export interface DomStub {
 
 export interface StubWindow {
     isSecureContext: boolean;
+    /**
+     * 视口尺寸:浮层落点要用(`innerWidth` / `innerHeight`).桩给一个常见桌面
+     * 尺寸做默认值,测试按用例改;真 DOM 里这两个值恒为正.
+     */
+    innerWidth: number;
+    innerHeight: number;
     addEventListener(
         type: string,
         handler: (event: StubEvent) => void,
@@ -894,6 +903,9 @@ export function installDomStub(options: DomStubOptions = {}): DomStub {
     const windowListeners = new Map<string, Array<(event: StubEvent) => void>>();
     const window: StubWindow = {
         isSecureContext: true,
+        // 典型桌面视口;浮层落点测试按用例改这两个值.
+        innerWidth: 1280,
+        innerHeight: 800,
         addEventListener: (type, handler, options) => {
             const signal = options?.signal;
             if (signal?.aborted) return;

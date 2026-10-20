@@ -13,7 +13,7 @@
  *   .ui-badge              徽章基线(每个 `createBadge` 都带,见下)
  *   .ui-panel / -header / -title / -body  面板框体(`widgets/Panel.ts`;桌面窗口复用同组基类)
  *   .menu-panel            菜单面板(`.menu-group` 分组,`.menu-item` 菜单项)
- *   .menu-anchor / .menu-popover  浮层用法的锚点与开合(直接显示只用 `.menu-panel`)
+ *   .menu-anchor / .menu-popover  浮层用法:零盒子的锚点 + 浮层开合(直接显示只用 `.menu-panel`)
  *   .object-row / .row-main / .row-actions  行外壳三件套(`shared/rowDom.ts`)
  *   .diagnostic*           反馈条目的默认观感在 `feedback.css`
  *   .is-copied / .is-error 复制反馈的状态(见 `formula/FormulaCopyController.ts`)
@@ -121,10 +121,10 @@
 
 /* 菜单面板:**菜单外观的另一半**(`.menu-item` 给"一行",这里给"表面与分组").
 
-   表面与位置分开:面板长什么样写在 `.menu-panel` 上,摆在哪由下面两条决定 --
-   - **直接显示**:只用 `.menu-panel`(它一直显示);
-   - **按钮触发**:`.menu-anchor` 包住触发按钮与 `.menu-popover`,开合是
-     `Popover` 写的 `.is-open`.
+   表面与位置分开:面板长什么样写在 `.menu-panel` 上;摆在哪 --
+   - **直接显示**:只用 `.menu-panel`(它一直显示,位置由消费者的容器决定);
+   - **按钮触发**:`.menu-anchor`(零盒子)包住触发按钮与 `.menu-popover`,开合是
+     `Popover` 写的 `.is-open`,位置由 `Popover` 按触发件实测矩形写内联样式.
    于是同一张面板换成常驻或浮层都不用改外观. */
 .menu-panel {
     box-sizing: border-box;
@@ -154,29 +154,31 @@
 }
 
 /*
- * 浮层锚点:包住触发按钮与面板,给面板一个定位参照.
+ * 浮层锚点:只做"把触发件与浮层放在一起"的 DOM 分组,**不生成盒子**.
  *
- * `display: flex` 不是为了排版,是为了让锚点的**外盒高度贴着触发件**.默认的
- * `display: block` 会按继承的 `line-height` 生成行盒:锚点放进 flex 行(任务栏 /
- * 工具栏)时,行盒比按钮高(例:24.1px vs 21.7px),按钮在行盒里按基线排,于是比
- * 同排按钮低 1px 左右.换成 flex 格式上下文后高度取触发件本身;`align-items:center`
- * 兜住"父级把锚点拉得更高"的情况,触发件仍然保持自然高度.
+ * `display: contents` 是这里唯一能保证"零影响"的写法:锚点一旦生成盒子,它就是父
+ * 容器(line box / flex item)里的一员,高度 / 基线 / 父级的对齐方式都会先分到它
+ * 头上,触发件在盒子里的排布就可能与"没有这层 div"不同 -- 默认 `block` 按继承的
+ * `line-height` 撑行盒(真浏览器实测:锚点 24.39px vs 按钮 22.39px),按钮在行盒里
+ * 按基线排,于是比同排按钮低 1px;改成 flex 只是把高度压平,仍然换掉了触发件的排版
+ * 上下文,父级 `align-items` 一变就会再次分叉.`display: contents` 让锚点没有盒子,
+ * 触发件就是父容器的直接布局参与者 -- 包不包这层 div,量出来的矩形完全一致.
  *
- * 锚点内除触发件外只应放浮层(绝对定位,不参与 flex 排版),所以不影响原有用法.
+ * 代价:没有盒子就没有 `position: relative`,锚点不能给绝对定位的 `.menu-popover`
+ * 当包含块,所以浮层位置不能再用 `top: 100%` / `min-width: 100%` 相对锚点算 --
+ * 由 `Popover` 量触发件的实测矩形后写内联的 left / top / min-width(视口边上翻转 /
+ * 夹取的算法在 `widgets/overlayPlacement.ts`).
  */
 .menu-anchor {
-    position: relative;
-    display: flex;
-    align-items: center;
+    display: contents;
 }
 
-/* 浮层菜单:挂在锚点下沿,宽度不小于触发按钮.开合只有 `.is-open` 一个状态
-   (由 `Popover` 写);表面规则它照样吃 `.menu-panel`. */
+/* 浮层菜单:开合只有 `.is-open` 一个状态(由 `Popover` 写),表面规则它照样吃
+   `.menu-panel`.位置 / 最小宽度不在这里:锚点是零盒子(见上),`Popover` 按触发件
+   的实测矩形写内联样式;`position: absolute` 只声明"脱离文档流,按最近的定位祖先
+   定位"这件事,具体坐标由脚本给. */
 .menu-popover {
     position: absolute;
-    top: 100%;
-    left: 0;
-    min-width: 100%;
     z-index: 40;
     display: none;
 }
