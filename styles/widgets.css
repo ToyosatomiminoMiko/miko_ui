@@ -153,9 +153,21 @@
     color: var(--color-text-group);
 }
 
-/* 浮层锚点:包住触发按钮与面板,给面板一个定位参照 */
+/*
+ * 浮层锚点:包住触发按钮与面板,给面板一个定位参照.
+ *
+ * `display: flex` 不是为了排版,是为了让锚点的**外盒高度贴着触发件**.默认的
+ * `display: block` 会按继承的 `line-height` 生成行盒:锚点放进 flex 行(任务栏 /
+ * 工具栏)时,行盒比按钮高(例:24.1px vs 21.7px),按钮在行盒里按基线排,于是比
+ * 同排按钮低 1px 左右.换成 flex 格式上下文后高度取触发件本身;`align-items:center`
+ * 兜住"父级把锚点拉得更高"的情况,触发件仍然保持自然高度.
+ *
+ * 锚点内除触发件外只应放浮层(绝对定位,不参与 flex 排版),所以不影响原有用法.
+ */
 .menu-anchor {
     position: relative;
+    display: flex;
+    align-items: center;
 }
 
 /* 浮层菜单:挂在锚点下沿,宽度不小于触发按钮.开合只有 `.is-open` 一个状态
